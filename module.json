@@ -1,17 +1,17 @@
 {
-  "name": "module",
-  "title": "New Module",
+  "name": "foundry-graph",
+  "title": "Foundry Graph",
   "description": "",
   "version": "This is auto replaced",
   "library": "false",
   "manifestPlusVersion": "1.0.0",
-  "minimumCoreVersion": "9",
-  "compatibleCoreVersion": "9",
+  "minimumCoreVersion": "11",
+  "compatibleCoreVersion": "11",
   "authors": [
     {
-      "name": "The League of Extraordinary FVTT Developers",
+      "name": "Luca Gioppo",
       "url": "https://github.com/League-of-Foundry-Developers",
-      "discord": "discordID#0001"
+      "discord": "gioppoluca"
     }
   ],
   "dependencies": [
