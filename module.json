@@ -24,7 +24,10 @@
     "scripts/module.js"
   ],
   "scripts": [
-    "scripts/lib/lib.js"
+    "scripts/lib/lib.js",
+    "scripts/lib/rete.min.js",
+    "scripts/lib/connection-plugin.min.js",
+    "scripts/ lib/area-plugin.min.js"
   ],
   "styles": [
     "styles/module.css"

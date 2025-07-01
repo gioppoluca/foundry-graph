@@ -7,6 +7,7 @@
     "FvttGraph.SaveGraph": "Save Graphs",
     "FvttGraph.AddRelation": "Add node relation",
     "FvttGraph.ActorDashTitle": "Actor graph dashboard",
+    "FvttGraph.GraphForm.SaveError": "You cannot save the graph, there are errors in the data",
     "FvttGraph.GraphForm.AddGraphTitle": "Add a graph",
     "FvttGraph.GraphForm.GraphName": "Graph name:",
     "FvttGraph.GraphForm.GraphId": "Graph ID:",
@@ -21,7 +22,10 @@
     "FvttGraph.GraphForm.GraphNodeRelTarget": "Choose resource target",
     "FvttGraph.GraphForm.GraphTabNodeSource": "Source resource",
     "FvttGraph.GraphForm.GraphTabNodeRelation": "Relation",
-    "FvttGraph.GraphForm.GraphTabNodeTarget": "Target resource"
+    "FvttGraph.GraphForm.GraphTabNodeTarget": "Target resource",
+    "foundry-graph.Manager.ControlTitle": "Graph Management",
+    "foundry-graph.Manager.ControlManage": "Graph Management",
+    "foundry-graph.toolclip.header": "Graph Management"
 }
 
 

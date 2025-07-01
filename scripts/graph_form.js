@@ -18,6 +18,15 @@ export default class GraphForm extends FormApplication {
   }
   activateListeners(html) {
     super.activateListeners(html)
+
+    html.on('change', '#graph-desc', event => {
+      console.log(event.currentTarget.value)
+      console.log(event.currentTarget.defaultValue)
+      let newVal = event.currentTarget.value
+      this.object.graph.desc = newVal
+      this.render()
+    })
+
     html.on('change', '#graph-name', event => {
       console.log(event.currentTarget.value)
       console.log(event.currentTarget.defaultValue)
@@ -26,6 +35,14 @@ export default class GraphForm extends FormApplication {
       console.log(new_id)
       this.object.graph.name = newVal
       this.object.graph.id = new_id
+      this.render()
+    })
+
+    html.on('change', '#graph-type', event => {
+      console.log(event.currentTarget.value)
+      console.log(event.currentTarget.defaultValue)
+      let newVal = event.currentTarget.value
+      this.object.graph.type = newVal
       this.render()
     })
 

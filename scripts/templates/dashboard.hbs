@@ -1,0 +1,42 @@
+<section class="fgraph-dashboard">
+
+  <p class="create-graph">
+    <button data-action="create" class="fgraph-btn">
+      <i class="fas fa-plus"></i> {{ localize "FvttGraph.CreateGraph" }}
+    </button>
+  </p>
+
+  <small class="graph-version1">v{{ version }}</small>
+
+  <div class="resources grid grid-2col">
+    <div class="resource flex-group-center">
+      <div class="resource-content flexrow flex-center flex-between">
+        <div class="left flexcol">
+          <label for="graph-select">Plot graph:</label>
+          <select id="graph-select" name="graphId">
+            <option value="">--Please choose an option--</option>
+            {{#each graphs}}
+              <option value="{{id}}" style="color:{{color}}">{{name}}</option>
+            {{/each}}
+          </select>
+        </div>
+
+        {{#if is_gm}}
+        <div class="left flexcol">
+          <button data-action="edit"   class="fgraph-btn"><i class="fas fa-pencil"></i> {{ localize "FvttGraph.EditGraph" }}</button>
+          <button data-action="diagram" class="fgraph-btn"><i class="fas fa-project-diagram"></i> {{ localize "FvttGraph.CreateDiagram" }}</button>
+          <button data-action="print"  class="fgraph-btn"><i class="fas fa-print"></i> {{ localize "FvttGraph.PrintDiagram" }}</button>
+        </div>
+        {{/if}}
+
+      </div>
+    </div>
+
+    <div class="resource flex-group-center">
+      <div class="resource-content flexrow flex-center flex-between">
+        <svg width="600" height="600" id="mygraph"></svg>
+      </div>
+    </div>
+  </div>
+
+</section>

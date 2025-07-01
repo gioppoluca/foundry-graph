@@ -1,0 +1,116 @@
+<form autocomplete="off" {{#if identifier}} data-identifier="{{ identifier }}" {{/if}}>
+  <label for="graph-name">{{ localize 'FvttGraph.GraphForm.GraphName' }}</label>
+  <div class="form-fields">
+    <input class="droppable" data-drag="true" type="text" id="graph-name" value="{{ graph.name }}" data-id="{{ graph.name }}" data-action="onChangeGraphName" data-dtype="String" {{#if
+      edit }}{{#if graph.id }} readonly="true" {{/if}}{{/if}} required="true">
+  </div>
+  <div class="form-fields">
+    <label for="graph-id">{{ localize 'FvttGraph.GraphForm.GraphId' }}</label>
+    <input type="text" id="graph-id" value="{{ graph.id }}" data-id="{{ graph.id }}" data-dtype="String"
+      readonly="true">
+  </div>
+  <div class="form-fields">
+    <label for="graph-type">{{ localize 'FvttGraph.GraphForm.GraphType' }}</label>
+
+    <select id="graph-type">
+      <option value="">{{ localize 'FvttGraph.GraphForm.GraphOptionChoose' }}</option>
+      <option value="actor" {{#if edit }}{{#if (eq graph.type 'actor' ) }} selected{{/if}}{{/if}}>{{ localize 'FvttGraph.GraphForm.GraphTypeActor' }}</option>
+      <option value="story" {{#if edit }}{{#if (eq graph.type 'story' ) }} selected{{/if}}{{/if}}>{{ localize 'FvttGraph.GraphForm.GraphTypeStory' }}</option>
+    </select>
+  </div>
+  <ol class="foo">
+    <li data-drag="true">{{this.label}}</li>
+</ol>
+  <label for="graph-desc">{{ localize 'FvttGraph.GraphForm.GraphDesc' }}</label>
+
+  <textarea id="graph-desc" rows="5" cols="33">{{graph.desc}}</textarea>
+  <label for="graph-desc">{{ localize 'FvttGraph.GraphForm.GraphRelations' }}</label>
+  <table>
+    <thead>
+      <tr>
+        <th><input type="text" id="new-rel" value=""></th>
+        <th>
+          <i id="rel-add" class="fas fa-add"></i>
+        </th>
+      </tr>
+    </thead>
+    {{#each graph.relations}}
+    <tr>
+      <td>{{this}}</td>
+      <td><i id="rel-remove" class="fas fa-remove" data="{{this}}"></i></td>
+    </tr>
+    {{/each}}
+  </table>
+  <div class="resources grid grid-2col">
+    <div class="resource flex-group-center">
+      <div class="resource-content flexrow flex-center flex-between">
+        <div class="left flexcol">
+
+          <label for="actor-s-select">{{ localize 'FvttGraph.GraphForm.GraphNodeRelSource' }}</label>
+
+          <select name="actorsS" id="actor-s-select">
+            <option value="">{{ localize 'FvttGraph.GraphForm.GraphOptionChoose' }}</option>
+            {{#each actors}}
+            <option value="{{id}}">{{name}}</option>
+            {{/each}}
+          </select>
+
+        </div>
+        <div class="center flexcol">
+
+          <label for="relation-select">{{ localize 'FvttGraph.GraphForm.GraphNodeRelRelation' }}</label>
+
+          <select name="actorsT" id="relation-select">
+            <option value="">{{ localize 'FvttGraph.GraphForm.GraphOptionChoose' }}</option>
+            {{#each graph.relations}}
+            <option value="{{this}}">{{this}}</option>
+            {{/each}}
+          </select>
+
+        </div>
+        <div class="right flexcol">
+
+          <label for="actor-t-select">{{ localize 'FvttGraph.GraphForm.GraphNodeRelTarget' }}</label>
+
+          <select name="actorsT" id="actor-t-select">
+            <option value="">{{ localize 'FvttGraph.GraphForm.GraphOptionChoose' }}</option>
+            {{#each actors}}
+            <option value="{{id}}">{{name}}</option>
+            {{/each}}
+          </select>
+
+        </div>
+        <div class="right flexcol">
+          <button id="add-relation" type="button">
+            <i class="fas fa-plus"></i> {{ localize 'FvttGraph.AddRelation' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>{{ localize 'FvttGraph.GraphForm.GraphTabNodeSource' }}</th>
+        <th>{{ localize 'FvttGraph.GraphForm.GraphTabNodeRelation' }}</th>
+        <th>{{ localize 'FvttGraph.GraphForm.GraphTabNodeTarget' }}</th>
+        <th>
+          <i id="rel-add" class="fas fa-add"></i>
+        </th>
+      </tr>
+    </thead>
+    {{#each relations}}
+    <tr>
+      <td><img class="thumbnail" src="{{actor_source_img}}" style="height:48px;width:48px">{{actor_source_name}}</td>
+      <td>{{relation}}</td>
+      <td><img class="thumbnail" src="{{actor_target_img}}" style="height:48px;width:48px">{{actor_target_name}}</td>
+      <td><i id="node-rel-remove" class="fas fa-remove" data="{{rel_id}}"></i></td>
+    </tr>
+    {{/each}}
+  </table>
+  <div class="left flexcol">
+    <button id="persist-graph" type="button">
+      <i class="fas fa-plus"></i> {{ localize 'FvttGraph.SaveGraph' }}
+    </button>
+  </div>
+</form>

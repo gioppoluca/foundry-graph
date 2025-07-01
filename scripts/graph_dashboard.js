@@ -58,35 +58,35 @@ export default class GraphDashboard extends Application {
     var svg = window.d3.select('#mygraph')
     console.log(svg)
       //console.log(svg[_groups][0])
-      / console.log(svg.node().outerHTML)
+      // console.log(svg.node().outerHTML)
     //   console.log(svg[0][0])
     var img = new Image()
     var serializer = new XMLSerializer()
     var svgStr = svg.node().outerHTML;
-    var svgBlob = new Blob([svgStr], {type:"image/svg+xml;charset=utf-8"});
+    var svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
     var svgUrl = URL.createObjectURL(svgBlob);
     var downloadLink = document.createElement("a");
     downloadLink.href = svgUrl;
     downloadLink.download = "newesttree.svg";
     downloadLink.click();
-/*
-    let data = 'data:image/svg+xml;base64,' + window.btoa(svgStr);
-
-    var canvas = document.createElement("canvas");
-    canvas.width = 400;
-    canvas.height = 400;
-    let context = canvas.getContext("2d");
-    img.src = data;
-    img.onload = function () {
-      context.drawImage(img, 0, 0);
-      var canvasdata = canvas.toDataURL("image/png");
-      var pngimg = '<img src="' + canvasdata + '">';
-      var a = document.createElement("a");
-      a.download = "sample.png";
-      a.href = canvasdata;
-      a.click();
-    };
-    */
+    /*
+        let data = 'data:image/svg+xml;base64,' + window.btoa(svgStr);
+    
+        var canvas = document.createElement("canvas");
+        canvas.width = 400;
+        canvas.height = 400;
+        let context = canvas.getContext("2d");
+        img.src = data;
+        img.onload = function () {
+          context.drawImage(img, 0, 0);
+          var canvasdata = canvas.toDataURL("image/png");
+          var pngimg = '<img src="' + canvasdata + '">';
+          var a = document.createElement("a");
+          a.download = "sample.png";
+          a.href = canvasdata;
+          a.click();
+        };
+        */
   };
   // Probably a good idea to extract some methods here for readability.
   activateListeners(html) {
@@ -152,9 +152,9 @@ export default class GraphDashboard extends Application {
       console.log("pressed button")
       let graph_selected = this.get_selected_graph()
       let graph_elements = window.fgraph.api.get_graph_elements(graph_selected)
-      var w = 600;
-      var h = 600;
-
+   
+//      this.svg_orig()
+      this.svg1()
       /*
         var svg = window.d3.select( "#graph" ).append("svg").attr("width",w).attr("height",h);
         console.log(svg)
@@ -166,141 +166,6 @@ export default class GraphDashboard extends Application {
 */
 
 
-      var nodes = [
-        { id: "mammal", group: 0, label: "Mammals", level: 1 },
-        { id: "dog", group: 0, label: "Dogs", level: 2 },
-        { id: "cat", group: 0, label: "Cats", level: 2 },
-        { id: "fox", group: 0, label: "Foxes", level: 2 },
-        { id: "elk", group: 0, label: "Elk", level: 2 },
-        { id: "insect", group: 1, label: "Insects", level: 1 },
-        { id: "ant", group: 1, label: "Ants", level: 2 },
-        { id: "bee", group: 1, label: "Bees", level: 2 },
-        { id: "fish", group: 2, label: "Fish", level: 1 },
-        { id: "carp", group: 2, label: "Carp", level: 2 },
-        { id: "pike", group: 2, label: "Pikes", level: 2 }
-      ]
-
-      var links = [
-        { target: "mammal", source: "dog", strength: 0.7, id: "1" },
-        { target: "mammal", source: "cat", strength: 0.7, id: "2" },
-        { target: "mammal", source: "fox", strength: 0.7, id: "3" },
-        { target: "mammal", source: "elk", strength: 0.7, id: "4" },
-        { target: "insect", source: "ant", strength: 0.7, id: "5" },
-        { target: "insect", source: "bee", strength: 0.7, id: "6" },
-        { target: "fish", source: "carp", strength: 0.7, id: "7" },
-        { target: "fish", source: "pike", strength: 0.7, id: "8" },
-        { target: "cat", source: "elk", strength: 0.1, id: "9" },
-        { target: "carp", source: "ant", strength: 0.1, id: "10" },
-        { target: "elk", source: "bee", strength: 0.1, id: "11" },
-        { target: "dog", source: "cat", strength: 0.1, id: "12" },
-        { target: "fox", source: "ant", strength: 0.1, id: "13" },
-        { target: "pike", source: "cat", strength: 0.1, id: "14" }
-      ]
-
-      var svg = window.d3.select('#mygraph')
-      svg.attr('width', w).attr('height', h)
-
-      // simulation setup with all forces
-      // simulation setup with all forces
-      var linkForce = window.d3
-        .forceLink()
-        .id(function (link) { return link.id })
-        .strength(function (link) { return link.strength })
-
-      var simulation = window.d3
-        .forceSimulation()
-        .force('link', linkForce)
-        .force('charge', window.d3.forceManyBody().strength(-120))
-        .force('center', window.d3.forceCenter(w / 2, h / 2))
-
-      var dragDrop = window.d3.drag().on('start', (event, d) => {
-        console.log(d)
-        d.fx = d.x
-        d.fy = d.y
-      }).on('drag', (event, d) => {
-        console.log(event)
-        simulation.alphaTarget(0.7).restart()
-        d.fx = event.x
-        d.fy = event.y
-      }).on('end', (event, d) => {
-        if (!event.active) {
-          simulation.alphaTarget(0)
-        }
-        d.fx = null
-        d.fy = null
-      })
-      /*
-      function getNodeColor(node) {
-        return node.level === 1 ? 'red' : 'gray'
-      }
-      */
-      var linkElements = svg.append("g")
-        .attr("class", "links")
-        .selectAll("line")
-        .data(links)
-        .enter().append("line")
-        .attr("stroke-width", 1)
-        .attr("stroke", "rgba(50, 50, 50, 0.2)")
-
-      var nodeElements = svg.append("g")
-        .attr("class", "nodes")
-        .selectAll("circle")
-        .data(nodes)
-        .enter().append("circle")
-        .attr("r", 10)
-        .attr("fill", 'red')
-        .call(dragDrop)
-        .on('click', function selectNode(selectedNode) {
-          //          var neighbors = getNeighbors(selectedNode)
-
-          // we modify the styles to highlight selected nodes
-          nodeElements.attr('fill', function (node) { "green" })
-          //           textElements.attr('fill', function (node) { return getTextColor(node, neighbors) })
-          //           linkElements.attr('stroke', function (link) { return getLinkColor(selectedNode, link) })
-        })
-
-      var textElements = svg.append("g")
-        .attr("class", "texts")
-        .selectAll("text")
-        .data(nodes)
-        .enter().append("text")
-        .text(function (node) { return node.label })
-        .attr("font-size", 15)
-        .attr("dx", 15)
-        .attr("dy", 4)
-
-      var legend = svg.append("g")
-        .append("g")
-        .selectAll("g")
-        .data("red")
-        .enter()
-        .append('g')
-        .attr('class', 'legend')
-
-
-
-      legend.append('text')
-        .attr('x', 10)
-        .attr('y', 10)
-        .text("desc");
-
-
-
-      simulation.nodes(nodes).on('tick', () => {
-        nodeElements
-          .attr('cx', function (node) { return node.x })
-          .attr('cy', function (node) { return node.y })
-        textElements
-          .attr('x', function (node) { return node.x })
-          .attr('y', function (node) { return node.y })
-        linkElements
-          .attr('x1', function (link) { return link.source.x })
-          .attr('y1', function (link) { return link.source.y })
-          .attr('x2', function (link) { return link.target.x })
-          .attr('y2', function (link) { return link.target.y })
-      })
-      simulation.force("link").links(links)
-      console.log(svg)
     })
     /*
         html.on('click', '.edit', e => {
@@ -390,6 +255,301 @@ export default class GraphDashboard extends Application {
     this.render(force)
   }
 
+  svg1() {
+    var width = 300;
+    var height = 200;
+
+    var svg = window.d3.select('#mygraph')
+      .append("svg")
+      .attr("width", width)
+      .attr("height", height);
+
+    var nodes = [{
+      "id": "Chrome",
+      "image": "modules/VenatusMaps-Tokens/SRD/Assassin/Shadow/Assassin_Cape_HiddenBlades_01.webp"
+    }, {
+      "id": "Firefox",
+      "image": "https://gioppoluca.duckdns.org/modules/VenatusMaps-Tokens/SRD/Assassin/Shadow/Assassin_Cape_HiddenBlades_01.webp"
+    }, {
+      "id": "Safari",
+      "image": "https://icons.iconarchive.com/icons/johanchalibert/mac-osx-yosemite/48/safari-icon.png"
+    }, {
+      "id": "Opera",
+      "image": "https://icons.iconarchive.com/icons/ampeross/smooth/48/Opera-icon.png"
+    }];
+
+    var edges = [{
+      "source": 0,
+      "target": 1
+    }, {
+      "source": 0,
+      "target": 2
+    }, {
+      "source": 0,
+      "target": 3
+    }];
+
+    var simulation = window.d3.forceSimulation()
+      .force("link", window.d3.forceLink())
+      .force("charge", window.d3.forceManyBody().strength(-1000))
+      .force("center", window.d3.forceCenter(width / 2, height / 2));
+
+    var links = svg.selectAll("foo")
+      .data(edges)
+      .enter()
+      .append("line")
+      .style("stroke", "#ccc")
+      .style("stroke-width", 1);
+
+ //   var color = window.d3.scaleOrdinal(window.d3.schemeCategory20);
+
+    var node = svg.selectAll("foo")
+      .data(nodes)
+      .enter()
+      .append("g")
+      .call(window.d3.drag()
+        .on("start", (event, d) => {
+          if (!event.active) simulation.alphaTarget(0.3).restart();
+          d.fx = d.x;
+          d.fy = d.y;
+        }
+    )
+        .on("drag", (event, d) => {
+          d.fx = event.x;
+          d.fy = event.y;
+        })
+        .on("end", (event, d) => {
+          if (!event.active) simulation.alphaTarget(0);
+          d.fx = null;
+          d.fy = null;
+        }));
+
+    var nodeCircle = node.append("circle")
+      .attr("r", 20)
+      .attr("stroke", "gray")
+      .attr("stroke-width", "2px")
+      .attr("fill", "white");
+
+    var nodeImage = node.append("image")
+      .attr("xlink:href", d => d.image)
+      .attr("height", "40")
+      .attr("width", "40")
+      .attr("x", -20)
+      .attr("y", -20)
+
+    var texts = node.append("text")
+      .style("fill", "black")
+      .attr("dx", 20)
+      .attr("dy", 8)
+      .text(function (d) {
+        return d.id;
+      });
+
+    simulation.nodes(nodes);
+    simulation.force("link")
+      .links(edges);
+
+    simulation.on("tick", function () {
+      links.attr("x1", function (d) {
+        return d.source.x;
+      })
+        .attr("y1", function (d) {
+          return d.source.y;
+        })
+        .attr("x2", function (d) {
+          return d.target.x;
+        })
+        .attr("y2", function (d) {
+          return d.target.y;
+        })
+
+      node.attr("transform", (d) => "translate(" + d.x + "," + d.y + ")")
+
+
+    });
+/*
+    function dragstarted(d) {
+      if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+      d.fx = d.x;
+      d.fy = d.y;
+    }
+
+    function dragged(d) {
+      d.fx = d3.event.x;
+      d.fy = d3.event.y;
+    }
+
+    function dragended(d) {
+      if (!d3.event.active) simulation.alphaTarget(0);
+      d.fx = null;
+      d.fy = null;
+    }
+    */
+  }
+
+  svg_orig() {
+    var w = 600;
+    var h = 600;
+    var nodes = [
+      { id: "mammal", group: 0, label: "Mammals", level: 1, img: "modules/VenatusMaps-Tokens/SRD/Assassin/Shadow/Assassin_Cape_HiddenBlades_01.webp" },
+      { id: "dog", group: 0, label: "Dogs", level: 2, img: "modules/VenatusMaps-Tokens/SRD/Bandit/Shadow/Bandit_Pike_Scarf_01.webp" },
+      { id: "cat", group: 0, label: "Cats", level: 2, img: "modules/VenatusMaps-Tokens/SRD/Assassin/Shadow/Assassin_Cape_HiddenBlades_01.webp" },
+      { id: "fox", group: 0, label: "Foxes", level: 2, img: "modules/VenatusMaps-Tokens/SRD/Assassin/Shadow/Assassin_Cape_HiddenBlades_01.webp" },
+      { id: "elk", group: 0, label: "Elk", level: 2, img: "modules/VenatusMaps-Tokens/SRD/Bandit/Shadow/Bandit_Pike_Scarf_01.webp" },
+      { id: "insect", group: 1, label: "Insects", level: 1, img: "modules/VenatusMaps-Tokens/SRD/Assassin/Shadow/Assassin_Cape_HiddenBlades_01.webp" },
+      { id: "ant", group: 1, label: "Ants", level: 2, img: "modules/VenatusMaps-Tokens/SRD/Assassin/Shadow/Assassin_Cape_HiddenBlades_01.webp" },
+      { id: "bee", group: 1, label: "Bees", level: 2, img: "modules/VenatusMaps-Tokens/SRD/Bandit/Shadow/Bandit_Pike_Scarf_01.webp" },
+      { id: "fish", group: 2, label: "Fish", level: 1, img: "modules/VenatusMaps-Tokens/SRD/Assassin/Shadow/Assassin_Cape_HiddenBlades_01.webp" },
+      { id: "carp", group: 2, label: "Carp", level: 2, img: "modules/VenatusMaps-Tokens/SRD/Assassin/Shadow/Assassin_Cape_HiddenBlades_01.webp" },
+      { id: "pike", group: 2, label: "Pikes", level: 2, img: "modules/VenatusMaps-Tokens/SRD/Assassin/Shadow/Assassin_Cape_HiddenBlades_01.webp" }
+    ]
+
+    var links = [
+      { target: "mammal", source: "dog", strength: 0.7, id: "1" },
+      { target: "mammal", source: "cat", strength: 0.7, id: "2" },
+      { target: "mammal", source: "fox", strength: 0.7, id: "3" },
+      { target: "mammal", source: "elk", strength: 0.7, id: "4" },
+      { target: "insect", source: "ant", strength: 0.7, id: "5" },
+      { target: "insect", source: "bee", strength: 0.7, id: "6" },
+      { target: "fish", source: "carp", strength: 0.7, id: "7" },
+      { target: "fish", source: "pike", strength: 0.7, id: "8" },
+      { target: "cat", source: "elk", strength: 0.1, id: "9" },
+      { target: "carp", source: "ant", strength: 0.1, id: "10" },
+      { target: "elk", source: "bee", strength: 0.1, id: "11" },
+      { target: "dog", source: "cat", strength: 0.1, id: "12" },
+      { target: "fox", source: "ant", strength: 0.1, id: "13" },
+      { target: "pike", source: "cat", strength: 0.1, id: "14" }
+    ]
+
+    var svg = window.d3.select('#mygraph')
+    svg.attr('width', w).attr('height', h)
+
+    // simulation setup with all forces
+    // simulation setup with all forces
+    var linkForce = window.d3
+      .forceLink()
+      .id(function (link) { return link.id })
+      .strength(function (link) { return link.strength })
+
+    var simulation = window.d3
+      .forceSimulation()
+      .force('link', linkForce)
+      .force('charge', window.d3.forceManyBody().strength(-120))
+      .force('center', window.d3.forceCenter(w / 2, h / 2))
+
+    var dragDrop = window.d3.drag().on('start', (event, d) => {
+      console.log(d)
+      d.fx = d.x
+      d.fy = d.y
+    }).on('drag', (event, d) => {
+      console.log(event)
+      simulation.alphaTarget(0.7).restart()
+      d.fx = event.x
+      d.fy = event.y
+    }).on('end', (event, d) => {
+      if (!event.active) {
+        simulation.alphaTarget(0)
+      }
+      d.fx = null
+      d.fy = null
+    })
+    /*
+    function getNodeColor(node) {
+      return node.level === 1 ? 'red' : 'gray'
+    }
+    */
+    var linkElements = svg.append("g")
+      .attr("class", "links")
+      .selectAll("line")
+      .data(links)
+      .enter().append("line")
+      .attr("stroke-width", 1)
+      .attr("stroke", "rgba(50, 50, 50, 0.2)")
+
+    var nodeElements = svg.append("g")
+      .attr("class", "nodes")
+      .selectAll("circle")
+      .data(nodes)
+      .enter().append("circle")
+      .attr("r", 10)
+      .attr("fill", 'red')
+      .call(dragDrop)
+      .on('click', function selectNode(selectedNode) {
+        //          var neighbors = getNeighbors(selectedNode)
+
+        // we modify the styles to highlight selected nodes
+        selectedNode.attr('fill', function (node) { "green" })
+        //           textElements.attr('fill', function (node) { return getTextColor(node, neighbors) })
+        //           linkElements.attr('stroke', function (link) { return getLinkColor(selectedNode, link) })
+      })
+
+    // Append images
+    //     var image = svg.append("image")
+    // nodeElements.append("image")
+    //      .selectAll("image")
+
+    //      .data(nodes)
+    //      .attr('width', 30)
+    //      .attr('height', 30)
+    //      .attr("xlink:href", function (node) { return node.img })
+    //      .append("svg:image")
+    //      .attr("xlink:href", function (node) { return node.img; })
+    //      .attr("height", 30)
+    //     .attr("width", 30);
+    var image = svg.append("g").enter().data(nodes).append("image")
+      .attr("xlink:href", d => d.img)
+      .attr("height", "60")
+      .attr("width", "60")
+      .attr("x", -10)
+      .attr("y", -10)
+
+    var textElements = svg.append("g")
+      .attr("class", "texts")
+      .selectAll("text")
+      .data(nodes)
+      .enter().append("text")
+      .text(function (node) { return node.label })
+      .attr("font-size", 15)
+      .attr("dx", 15)
+      .attr("dy", 4)
+
+    var legend = svg.append("g")
+      .append("g")
+      .selectAll("g")
+      .data("red")
+      .enter()
+      .append('g')
+      .attr('class', 'legend')
+
+
+
+    legend.append('text')
+      .attr('x', 10)
+      .attr('y', 10)
+      .text("desc");
+
+
+
+    simulation.nodes(nodes).on('tick', () => {
+      nodeElements
+        .attr('cx', function (node) { return node.x })
+        .attr('cy', function (node) { return node.y })
+      textElements
+        .attr('x', function (node) { return node.x })
+        .attr('y', function (node) { return node.y })
+      linkElements
+        .attr('x1', function (link) { return link.source.x })
+        .attr('y1', function (link) { return link.source.y })
+        .attr('x2', function (link) { return link.target.x })
+        .attr('y2', function (link) { return link.target.y })
+      image
+        .attr("x", function (node) { return node.x })
+        .attr("y", function (node) { return node.y })
+    })
+    simulation.force("link").links(links)
+    console.log(svg)
+
+  }
   graphic(dataset, element) {
     var w = 154;
     var h = 42;
