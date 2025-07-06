@@ -6,6 +6,7 @@
 
 Do you need to represent relations between Actors?
 You can choose between a set of graph types and create your **relation map**
+![graph example](doc/graph_example.png)
 
 | Graph type     | System    | Description                                                                          |
 | ----------------- | ------------ | ------------------------------------------------------------------------------ |
