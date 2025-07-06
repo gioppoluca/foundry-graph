@@ -1,19 +1,216 @@
 [
-    {
-      "id": "enemy-map",
-      "name": "Enemy Map",
-      "desc": "Map of the enemies of the PCs",
-      "background": "path/to/img",
-      "color": "#ff0000",
-      "relations": ["enemy of", "ally of"]
-    },
-    {
-      "id": "rumor-network",
-      "name": "Rumor Network",
-      "desc": "Spread of rumors in Kinbrace",
-      "background": "path/to/rumors.jpg",
-      "color": "#3333cc",
-      "relations": ["heard from", "spread to"]
-    }
-  ]
-  
+  {
+    "id": "enemy-map",
+    "name": "Enemy Map",
+    "desc": "Map of the enemies of the PCs",
+    "background": "modules/foundry-graph/img/parchment.webp",
+    "color": "#ff0000",
+    "relations": [
+      {
+        "id": "enemy-of",
+        "label": "Enemy of",
+        "color": "#dc143c",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "ally-of",
+        "label": "Ally of",
+        "color": "#2ca02c",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "rival",
+        "label": "Rival",
+        "color": "#ff8c00",
+        "style": "dashed",
+        "strokeWidth": 2
+      },
+      {
+        "id": "controls",
+        "label": "Controls",
+        "color": "#8b0000",
+        "style": "solid",
+        "strokeWidth": 3
+      },
+      {
+        "id": "fears",
+        "label": "Fears",
+        "color": "#483d8b",
+        "style": "dotted",
+        "strokeWidth": 2
+      },
+      {
+        "id": "manipulates",
+        "label": "Manipulates",
+        "color": "#9370db",
+        "style": "dashed",
+        "strokeWidth": 2
+      },
+      {
+        "id": "betrayed",
+        "label": "Betrayed",
+        "color": "#b22222",
+        "style": "solid",
+        "strokeWidth": 3
+      },
+      {
+        "id": "loves",
+        "label": "Loves",
+        "color": "#4682b4",
+        "style": "dotted",
+        "strokeWidth": 1
+      },
+      {
+        "id": "uses",
+        "label": "Uses",
+        "color": "#696969",
+        "style": "dashed",
+        "strokeWidth": 2
+      },
+      {
+        "id": "was-allied",
+        "label": "Was Allied",
+        "color": "#228b22",
+        "style": "dotted",
+        "strokeWidth": 1
+      }
+    ]
+  },
+  {
+    "id": "vampire-relations-map",
+    "name": "Relations Map",
+    "desc": "Relations map of the party",
+    "background": "modules/foundry-graph/img/parchment.webp",
+    "color": "#ff0000",
+    "systems": [
+      ""
+    ],
+    "relations": [
+      {
+        "id": "coterie",
+        "label": "Coterie member",
+        "color": "#1f77b4",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "touchstone",
+        "label": "Touchstone",
+        "color": "#ff7f0e",
+        "style": "dashed",
+        "strokeWidth": 2
+      },
+      {
+        "id": "sire",
+        "label": "Sire",
+        "color": "#2ca02c",
+        "style": "dotted",
+        "strokeWidth": 3
+      },
+      {
+        "id": "ghoul",
+        "label": "Ghoul",
+        "color": "#d62728",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "blood-slave",
+        "label": "Blood Slave",
+        "color": "#9467bd",
+        "style": "dashed",
+        "strokeWidth": 2
+      },
+      {
+        "id": "allies",
+        "label": "Allies",
+        "color": "#8c564b",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "friends",
+        "label": "Friends",
+        "color": "#e377c2",
+        "style": "dotted",
+        "strokeWidth": 1
+      },
+      {
+        "id": "mawla",
+        "label": "Mawla/Monitor",
+        "color": "#7f7f7f",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "henchman",
+        "label": "Henchman/Employed",
+        "color": "#bcbd22",
+        "style": "dashed",
+        "strokeWidth": 2
+      },
+      {
+        "id": "herd",
+        "label": "Herd",
+        "color": "#17becf",
+        "style": "dotted",
+        "strokeWidth": 1
+      },
+      {
+        "id": "indebted",
+        "label": "Indebted",
+        "color": "#ffa500",
+        "style": "dashed",
+        "strokeWidth": 2
+      },
+      {
+        "id": "enemies",
+        "label": "Enemies/Adversary",
+        "color": "#dc143c",
+        "style": "solid",
+        "strokeWidth": 3
+      },
+      {
+        "id": "dating",
+        "label": "Dating/Lovers",
+        "color": "#ff69b4",
+        "style": "dotted",
+        "strokeWidth": 2
+      },
+      {
+        "id": "associates",
+        "label": "Associates with",
+        "color": "#808000",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "descendant",
+        "label": "Descendant",
+        "color": "#4682b4",
+        "style": "dashed",
+        "strokeWidth": 2
+      },
+      {
+        "id": "unclassified",
+        "label": "Unclassified Connection",
+        "color": "#999999",
+        "style": "solid",
+        "strokeWidth": 1
+      }
+    ]
+  },
+  {
+    "id": "rumor-network",
+    "name": "Rumor Network",
+    "desc": "Spread of rumors in Kinbrace",
+    "background": "path/to/rumors.jpg",
+    "color": "#3333cc",
+    "relations": [
+      "heard from",
+      "spread to"
+    ]
+  }
+]

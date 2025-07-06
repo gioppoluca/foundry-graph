@@ -1,13 +1,15 @@
 <div class="graph-controls">
-    <button data-action="saveAction" id="save-btn">💾 Save</button>
-    <button data-action="exportAction" id="export-btn">🖼 Export SVG</button>
-    <button type="button" data-action="linkNodes">Link Nodes</button>
-    <div class="form-fields">
-      <label for="relation-type">Relation Type:</label>
-      <select id="relation-type">
-        {{#each relations}}
-          <option value="{{this}}">{{this}}</option>
-        {{/each}}
-      </select>
-    </div>
+  <button data-action="exportAction" id="export-btn">🖼 Export SVG</button>
+  <div class="flexrow">
+    <button type="button" data-action="linkNodes" class="graph-btn">Link Nodes</button>
+    <label for="relation-type">Relation Type:</label>
+    <select id="relation-type">
+      {{#each relations}}
+      <option value="{{id}}" data-color="{{color}}" data-style="{{style}}">
+        {{label}}
+      </option>
+      {{/each}}
+    </select>
   </div>
+  <button data-action="saveAction" id="save-btn">💾 Save</button>
+</div>

@@ -27,6 +27,9 @@
     "foundry-graph.listGraphTab": "Graph List",
     "foundry-graph.Manager.ControlTitle": "Graph Management",
     "foundry-graph.Manager.ControlManage": "Graph Management",
+    "foundry-graph.gdh.tooltip.edit": "Edit Graph",
+    "foundry-graph.gdh.tooltip.delete": "Delete Graph",
+    "foundry-graph.gdh.tooltip.image": "Export Graph as image",
     "foundry-graph.toolclip.header": "Graph Management"
 }
 

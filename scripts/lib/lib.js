@@ -1,1 +1,1 @@
-console.log("? Test script loaded GIOPPO");
+console.log("✅ Test script loaded GIOPPO");

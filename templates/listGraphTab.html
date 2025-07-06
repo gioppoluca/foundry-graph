@@ -1,17 +1,15 @@
 {{!-- Individual Tab Template --}}
-<section
-  class="tab {{tabs.character.id}} {{tabs.character.cssClass}}"
-  data-tab="{{tabs.character.id}}"
-  data-group="{{tabs.character.group}}"
->
+<section class="tab {{tabs.listGraph.id}} {{tabs.listGraph.cssClass}}" data-tab="{{tabs.listGraph.id}}"
+  data-group="{{tabs.listGraph.group}}">
   {{!-- Tab content here --}}
-  <div class="character-details">
+  <div class="listGraph-details">
     <!-- form fields, etc. -->
     <h2>Saved Graphs</h2>
     <table class="graph-table">
       <thead>
         <tr>
           <th>Name</th>
+          <th>Description</th>
           <th style="width: 200px">Actions</th>
         </tr>
       </thead>
@@ -19,10 +17,11 @@
         {{#each graphs}}
         <tr data-graph-id="{{this.id}}">
           <td>{{this.name}}</td>
-          <td>
-            <button data-action="edit" data-id="{{this.id}}">📝</button>
-            <button data-action="delete" data-id="{{this.id}}">❌</button>
-            <button data-action="view" data-id="{{this.id}}">🖼️</button>
+          <td>{{this.desc}}</td>
+          <td class="flexrow">
+            <button type="button" class="icon fa-solid fa-pencil" data-tooltip="foundry-graph.gdh.tooltip.edit" data-action="graphEdit" data-id="{{this.id}}" ></button>
+            <button type="button" class="icon fa-solid fa-trash" data-tooltip="foundry-graph.gdh.tooltip.delete" data-action="graphDelete" data-id="{{this.id}}"></button>
+            <button type="button" class="icon fa-solid fa-file-image-o" data-tooltip="foundry-graph.gdh.tooltip.image" data-action="view" data-id="{{this.id}}">🖼️</button>
           </td>
         </tr>
         {{/each}}

@@ -16,10 +16,11 @@ Hooks.once('init', async function () {
 
   mod.api = api;                    // <- official home
   console.log(mod)
-  GraphApi.registerSettings("foundry-graph")
+  await GraphApi.registerSettings("foundry-graph")
+  await mod.api.loadGraphs();
   // globalThis.fgraph = api;       // <- optional macro alias
-   // Build V2 dashboard once
-  api.dashboard = new GraphDashboardV2(api);
+  // Build V2 dashboard once
+  api.dashboard = new GraphDashboardV2({ api: api });
 
   Hooks.callAll(`${MODULE_ID}.ready`, api);
   /*
@@ -38,8 +39,8 @@ Hooks.once('init', async function () {
 });
 
 Hooks.once('ready', async function () {
-//game.reteDemo = () => new ReteImageNodeApp().render(true);
-game.d3Graph = () => new D3GraphApp().render(true);
+  //game.reteDemo = () => new ReteImageNodeApp().render(true);
+  game.d3Graph = () => new D3GraphApp().render(true);
 
 });
 /*
@@ -75,11 +76,11 @@ Hooks.on("renderActorDirectory", async (app, html) => {
 
   // Wire click handler (remove & add to avoid duplicates after re-render)
   html.find("[data-fgraph-btn]")
-      .off("click.fgraph")
-      .on("click.fgraph", () => api.openDashboard(true));
+    .off("click.fgraph")
+    .on("click.fgraph", () => api.openDashboard(true));
 });
 
-/*************************  Scene-controls button ***************************/
+/*************************  Scene‑controls button ***************************/
 Hooks.on("getSceneControlButtons", (controls) => {
   console.log(`${FOUNDRY_GRAPH_MODULE_NAME} | GIOPPO-----------------------`);
   console.log(`${FOUNDRY_GRAPH_MODULE_NAME} | adding button ${FOUNDRY_GRAPH_MODULE_NAME}`);
@@ -93,10 +94,11 @@ Hooks.on("getSceneControlButtons", (controls) => {
       icon: "fa-solid fa-project-diagram",
 
       button: true,
-      onClick: () => { 
+      onClick: () => {
         const api = game.modules.get(MODULE_ID)?.api;
         if (!api) return;
-        api.openDashboard(true) }
+        api.openDashboard(true)
+      }
     });
   }
   console.log(controls);

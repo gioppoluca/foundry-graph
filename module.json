@@ -6,7 +6,7 @@
   "library": "false",
   "manifestPlusVersion": "1.0.0",
   "minimumCoreVersion": "11",
-  "compatibleCoreVersion": "11",
+  "compatibleCoreVersion": "13",
   "authors": [
     {
       "name": "Luca Gioppo",

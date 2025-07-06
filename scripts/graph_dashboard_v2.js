@@ -22,9 +22,9 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   /**
    * @param {GraphApi} api
    */
-  constructor(api, options = {}) {
+  constructor(options = {}) {
     super(options);
-    this.api = api;
+    this.api = options.api;
   }
 
   /* ------------------------------------------------------------------------ */
@@ -41,9 +41,6 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   }
 
   static PARTS = {
-    //    body: {
-    //      template: "modules/foundry-graph/templates/dashboard.hbs"
-    //    },
     tabs: {
       // Foundry-provided generic template
       template: 'templates/generic/tab-navigation.hbs',
@@ -75,8 +72,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     classes: ["fgraph", "fgraph-dashboard"],
     actions: {
       onCreateGraph: GraphDashboardV2.onCreateGraph,
+      graphEdit: GraphDashboardV2.graphEdit,
       "edit-graph": "_onEditGraph",
-      "render-graph": "_onRenderGraph",
       "print-graph": "_onPrintGraph"
     }
   };
@@ -117,12 +114,13 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   }
 
   async _prepareContext() {
-    const graphs = this.api.graphs;
+    const graphs = this.api.getAllGraphs();
+    this._graphTypes = await this.api.loadGraphTypes();
     console.log(graphs)
-    const graphId = graphs[0]?.id ?? "";
+    //const graphId = graphs[0]?.id ?? "";
 
-    const res = await fetch("modules/foundry-graph/data/graph-types.json");
-    this._graphTypes = await res.json();
+//    const res = await fetch("modules/foundry-graph/data/graph-types.json");
+  //  this._graphTypes = await res.json();
 
     return {
       title: this.title,
@@ -130,8 +128,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       is_gm: game.user.isGM,
       graphTypes: this._graphTypes,
       tabs: this._prepareTabs("primary"),
-      graphs: graphs,
-      graphId,
+      graphs,
       svg: "" // will be filled in _onRender
     };
   }
@@ -144,13 +141,10 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   static ACTIONS = {
     "create-graph": "onCreateGraph",
     "edit-graph": "_onEditGraph",
-    "render-graph": "_onRenderGraph",
     "print-graph": "_onPrintGraph"
   };
 
-  //onCreateGraph() {
   static onCreateGraph(event, target) {
-    //new GraphForm(this.api).render(true);
     const type = this.element.querySelector("#graph-type-select").value?.trim();
     const metadata = this._graphTypes?.find(g => g.id === type);
     console.log(metadata)
@@ -168,12 +162,23 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       desc: desc,
       width: isNaN(width) ? 800 : width,
       height: isNaN(height) ? 600 : height,
-      graphTypeMetadata: metadata  // Includes color, background, relations, etc.
+      graphTypeMetadata: metadata,  // Includes color, background, relations, etc.
+      mode: "new"
     };
 
     // Launch D3GraphApp with pre-filled data
     new D3GraphApp(graphData).render(true);
-    // new GraphFormV2({ api: this.api }).render(true);
+  }
+
+  static graphEdit(event, target) {
+    console.log(event)
+    console.log(target)
+    console.log(event.target.dataset.id)
+    const graphData = {
+      id: event.target.dataset.id,
+      mode: "edit"
+    };
+    new D3GraphApp(graphData).render(true);
   }
 
   _onEditGraph() {
@@ -183,9 +188,6 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     new GraphFormV2(this.api, { graphId }).render(true);
   }
 
-  _onRenderGraph() {
-    this._drawSVG();
-  }
 
   _onPrintGraph() {
     const svgEl = this.element.querySelector("svg#graph-svg");
@@ -195,22 +197,9 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     window.open(url, "_blank");
   }
 
-  _onCreateDiagram() {
-    this._drawSVG();
-  }
-
-  _onPrintDiagram() {
-    const svgEl = this.element.querySelector("svg#mygraph");
-    if (!svgEl) return;
-    const svgBlob = new Blob([svgEl.outerHTML], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(svgBlob);
-    window.open(url, "_blank");
-  }
-
 
   updateButtonState() {
     console.log("updateButtonState")
-    console.log(this.element.querySelector("#graph-name"))
     const name = this.element.querySelector("#graph-name").value?.trim();
     const id = this.element.querySelector("#graph-id").value?.trim();
     const type = this.element.querySelector("#graph-type-select").value?.trim();
@@ -242,88 +231,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       console.log(new_id)
       this.element.querySelector('#graph-id').value = new_id
       this.updateButtonState();
-      //        const newQuantity = e.currentTarget.value
-      // assuming the item's ID is in the input's `data-item-id` attribute
-      //      const itemId = e.currentTarget.dataset.itemId
-      //    const item = this.actor.items.get(itemId)
-      // the following is asynchronous and assumes the quantity is in the path `system.quantity`
-      //  item.update({ system: { quantity: newQuantity }});
     })
-    // initial draw if a graph is pre‑selected
-    this._drawSVG();
 
-    // change listener on select
-    this.element
-      .querySelector("#graph-select")
-      ?.addEventListener("change", () => this._drawSVG());
   }
 
-  _drawSVG() {
-    const select = this.element.querySelector("#graph-select");
-    if (!select?.value) return;
-
-    // Clear previous svg
-    const svgContainer = this.element.querySelector("svg#mygraph");
-    const svg = d3.select(svgContainer);
-    svg.selectAll("*").remove();
-
-    const { nodes, links } = this.api.getDemoData();
-
-    const simulation = d3.forceSimulation(nodes)
-      .force("link", d3.forceLink(links).id(d => d.id).distance(120))
-      .force("charge", d3.forceManyBody())
-      .force("center", d3.forceCenter(300, 300));
-
-    const link = svg.append("g")
-      .attr("stroke", "#999")
-      .attr("stroke-opacity", 0.6)
-      .selectAll("line")
-      .data(links)
-      .join("line")
-      .attr("stroke-width", d => Math.sqrt(d.strength || 1));
-
-    const node = svg.append("g")
-      .attr("stroke", "#fff")
-      .attr("stroke-width", 1.5)
-      .selectAll("circle")
-      .data(nodes)
-      .join("circle")
-      .attr("r", 8)
-      .attr("fill", "steelblue")
-      .call(d3.drag()
-        .on("start", dragstarted)
-        .on("drag", dragged)
-        .on("end", dragended));
-
-    node.append("title").text(d => d.label || d.id);
-
-    simulation.on("tick", () => {
-      link
-        .attr("x1", d => d.source.x)
-        .attr("y1", d => d.source.y)
-        .attr("x2", d => d.target.x)
-        .attr("y2", d => d.target.y);
-
-      node
-        .attr("cx", d => d.x)
-        .attr("cy", d => d.y);
-    });
-
-    function dragstarted(event) {
-      if (!event.active) simulation.alphaTarget(0.3).restart();
-      event.subject.fx = event.subject.x;
-      event.subject.fy = event.subject.y;
-    }
-
-    function dragged(event) {
-      event.subject.fx = event.x;
-      event.subject.fy = event.y;
-    }
-
-    function dragended(event) {
-      if (!event.active) simulation.alphaTarget(0);
-      event.subject.fx = null;
-      event.subject.fy = null;
-    }
-  }
 }

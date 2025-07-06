@@ -13,6 +13,9 @@
   object-fit: cover;
 }
 
+.graph-table {
+  margin: 0 !important
+}
 
 svg image {
   cursor: move;
@@ -25,4 +28,18 @@ svg image {
   display: block;
   max-width: 100%;
   overflow: auto;
+}
+
+
+.graph-btn.active {
+  background-color: #4CAF50; /* green */
+  color: white;
+  border: 1px solid #3e8e41;
+}
+
+.graph-btn {
+  background-color: #f0f0f0;
+  color: black;
+  border: 1px solid #ccc;
+  cursor: pointer;
 }
