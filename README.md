@@ -4,6 +4,8 @@
 
 # Foundry Graph - Visual Relationship Mapping
 
+# !!! WARNING !!! - this module is still in alpha mode until this comment is removed.  Use it to test its features and give feedback, but do not manage real data, the development is at early stage: metadata will change and there will be no migration path
+
 Foundry Graph is a powerful and intuitive module that lets you visually map relationships between actors, scenes, items, or any other entity in your world. Whether you're managing political intrigue, faction conflicts, character connections, or ancient bloodlines, this tool gives you a dynamic canvas to build, edit, and explore complex networks.
 You can choose between a set of graph types and create your **relation map**
 ![graph example](doc/graph_example.png)
