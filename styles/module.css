@@ -12,3 +12,17 @@
   height: 100%;
   object-fit: cover;
 }
+
+
+svg image {
+  cursor: move;
+  pointer-events: all;
+  user-select: none;
+}
+
+#d3-graph {
+  border: 1px solid #888;
+  display: block;
+  max-width: 100%;
+  overflow: auto;
+}

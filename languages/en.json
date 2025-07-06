@@ -23,6 +23,8 @@
     "FvttGraph.GraphForm.GraphTabNodeSource": "Source resource",
     "FvttGraph.GraphForm.GraphTabNodeRelation": "Relation",
     "FvttGraph.GraphForm.GraphTabNodeTarget": "Target resource",
+    "foundry-graph.creationGraphTab": "Create Graph",
+    "foundry-graph.listGraphTab": "Graph List",
     "foundry-graph.Manager.ControlTitle": "Graph Management",
     "foundry-graph.Manager.ControlManage": "Graph Management",
     "foundry-graph.toolclip.header": "Graph Management"

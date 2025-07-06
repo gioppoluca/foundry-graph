@@ -1,0 +1,19 @@
+[
+    {
+      "id": "enemy-map",
+      "name": "Enemy Map",
+      "desc": "Map of the enemies of the PCs",
+      "background": "path/to/img",
+      "color": "#ff0000",
+      "relations": ["enemy of", "ally of"]
+    },
+    {
+      "id": "rumor-network",
+      "name": "Rumor Network",
+      "desc": "Spread of rumors in Kinbrace",
+      "background": "path/to/rumors.jpg",
+      "color": "#3333cc",
+      "relations": ["heard from", "spread to"]
+    }
+  ]
+  

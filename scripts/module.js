@@ -1,7 +1,8 @@
 import { FOUNDRY_GRAPH_MODULE_NAME } from './settings.js';
 import { GraphApi } from "./graph_api.js";
 import GraphDashboardV2 from "./graph_dashboard_v2.js"
-import {ReteImageNodeApp} from "./rete-app.js"
+//import {ReteImageNodeApp} from "./rete-app.js"
+import { D3GraphApp } from './d3-graph-app.js';
 import * as d3 from "./lib/d3.js"
 
 const MODULE_ID = "foundry-graph";
@@ -11,8 +12,11 @@ Hooks.once('init', async function () {
   const api = await GraphApi.create(MODULE_ID);
 
   const mod = game.modules.get(MODULE_ID);
+  console.log(api)
+
   mod.api = api;                    // <- official home
-  api.registerSettings("foundry-graph")
+  console.log(mod)
+  GraphApi.registerSettings("foundry-graph")
   // globalThis.fgraph = api;       // <- optional macro alias
    // Build V2 dashboard once
   api.dashboard = new GraphDashboardV2(api);
@@ -34,7 +38,9 @@ Hooks.once('init', async function () {
 });
 
 Hooks.once('ready', async function () {
-game.reteDemo = () => new ReteImageNodeApp().render(true);
+//game.reteDemo = () => new ReteImageNodeApp().render(true);
+game.d3Graph = () => new D3GraphApp().render(true);
+
 });
 /*
 Hooks.on('renderActorDirectory', async (app, html, data) => {
@@ -87,7 +93,10 @@ Hooks.on("getSceneControlButtons", (controls) => {
       icon: "fa-solid fa-project-diagram",
 
       button: true,
-      onClick: () => { }
+      onClick: () => { 
+        const api = game.modules.get(MODULE_ID)?.api;
+        if (!api) return;
+        api.openDashboard(true) }
     });
   }
   console.log(controls);

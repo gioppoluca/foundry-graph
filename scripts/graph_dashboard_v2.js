@@ -14,6 +14,7 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 import GraphForm from "./graph_form.js";
 import GraphFormV2 from "./graph_form_v2.js";
+import { D3GraphApp } from "./d3-graph-app.js";
 
 import * as d3 from "./lib/d3.js";
 
@@ -29,19 +30,47 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   /* ------------------------------------------------------------------------ */
   /*  Static application definitions                                          */
   /* ------------------------------------------------------------------------ */
+  static TABS = {
+    primary: {
+      tabs: [
+        { id: 'creationGraph', group: 'graph', label: 'foundry-graph.creationGraphTab' },
+        { id: 'listGraph', group: 'graph', label: 'foundry-graph.listGraphTab' }
+      ],
+      initial: 'listGraph'
+    }
+  }
 
   static PARTS = {
-    body: {
-      template: "modules/foundry-graph/templates/dashboard.hbs"
+    //    body: {
+    //      template: "modules/foundry-graph/templates/dashboard.hbs"
+    //    },
+    tabs: {
+      // Foundry-provided generic template
+      template: 'templates/generic/tab-navigation.hbs',
+      // classes: ['sysclass'], // Optionally add extra classes to the part for extra customization
+    },
+    creationGraph: {
+      template: "modules/foundry-graph/templates/creationGraphTab.html",
+      scrollable: [''],
+    },
+    listGraph: {
+      template: "modules/foundry-graph/templates/listGraphTab.html",
+      scrollable: [''],
     }
   };
 
   static DEFAULT_OPTIONS = {
     id: "fgraph-dashboard",
-    title: "Foundry Graph",
+    window: {
+      title: "Graphs",
+      resizable: true,
+    },
     resizable: true,
     minimizable: true,
-    width: 650,
+    position: {
+      width: 600,
+      height: 600
+    },
     height: "auto",
     classes: ["fgraph", "fgraph-dashboard"],
     actions: {
@@ -56,15 +85,52 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   /*  Context / Data                                                          */
   /* ------------------------------------------------------------------------ */
 
+  /**
+   * Prepare application tab data for a single tab group.
+   * @param {string} group The ID of the tab group to prepare
+   * @returns {Record<string, ApplicationTab>}
+   * @protected
+   */
+  _prepareTabs(group) {
+    const { tabs, labelPrefix, initial = null } = this._getTabsConfig(group) ?? { tabs: [] };
+    this.tabGroups[group] ??= initial;
+    return tabs.reduce((prepared, { id, cssClass, ...tabConfig }) => {
+      const active = this.tabGroups[group] === id;
+      if (active) cssClass = [cssClass, "active"].filterJoin(" ");
+      const tab = { group, id, active, cssClass, ...tabConfig };
+      if (labelPrefix) tab.label ??= `${labelPrefix}.${id}`;
+      prepared[id] = tab;
+      return prepared;
+    }, {});
+  }
+
+  /* -------------------------------------------- */
+
+  /**
+   * Get the configuration for a tabs group.
+   * @param {string} group The ID of a tabs group
+   * @returns {ApplicationTabsConfiguration|null}
+   * @protected
+   */
+  _getTabsConfig(group) {
+    return this.constructor.TABS[group] ?? null;
+  }
+
   async _prepareContext() {
-    const graphs = this.api.get_all_graphs();
+    const graphs = this.api.graphs;
+    console.log(graphs)
     const graphId = graphs[0]?.id ?? "";
+
+    const res = await fetch("modules/foundry-graph/data/graph-types.json");
+    this._graphTypes = await res.json();
 
     return {
       title: this.title,
       version: this.api.version,
       is_gm: game.user.isGM,
-      graphs,
+      graphTypes: this._graphTypes,
+      tabs: this._prepareTabs("primary"),
+      graphs: graphs,
       graphId,
       svg: "" // will be filled in _onRender
     };
@@ -85,8 +151,29 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   //onCreateGraph() {
   static onCreateGraph(event, target) {
     //new GraphForm(this.api).render(true);
+    const type = this.element.querySelector("#graph-type-select").value?.trim();
+    const metadata = this._graphTypes?.find(g => g.id === type);
+    console.log(metadata)
+    console.log(metadata)
+    if (!metadata) return ui.notifications.warn("Invalid graph type selected.");
     console.log("in oncreategraph")
-    new GraphFormV2({api:this.api}).render(true);
+    const name = this.element.querySelector("#graph-name").value?.trim();
+    const id = this.element.querySelector("#graph-id").value?.trim();
+    const desc = this.element.querySelector("#graph-desc").value?.trim();
+    const width = this.element.querySelector("#graph-width").value?.trim();
+    const height = this.element.querySelector("#graph-height").value?.trim();
+    const graphData = {
+      id: id,
+      name: name,
+      desc: desc,
+      width: isNaN(width) ? 800 : width,
+      height: isNaN(height) ? 600 : height,
+      graphTypeMetadata: metadata  // Includes color, background, relations, etc.
+    };
+
+    // Launch D3GraphApp with pre-filled data
+    new D3GraphApp(graphData).render(true);
+    // new GraphFormV2({ api: this.api }).render(true);
   }
 
   _onEditGraph() {
@@ -120,12 +207,48 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     window.open(url, "_blank");
   }
 
+
+  updateButtonState() {
+    console.log("updateButtonState")
+    console.log(this.element.querySelector("#graph-name"))
+    const name = this.element.querySelector("#graph-name").value?.trim();
+    const id = this.element.querySelector("#graph-id").value?.trim();
+    const type = this.element.querySelector("#graph-type-select").value?.trim();
+    console.log(this.element.querySelector("#graph-type-select"))
+    console.log(name)
+    console.log(id)
+    console.log(type)
+    const allFilled = name && id && type;
+    console.log(this.element.querySelector("#create-graph-btn"))
+    this.element.querySelector("#create-graph-btn").disabled = !allFilled;
+  }
+
   /* ------------------------------------------------------------------------ */
   /*  Rendering                                                               */
   /* ------------------------------------------------------------------------ */
 
   /** Called after the HTML is rendered */
   _onRender() {
+    const graphName = this.element.querySelector('#graph-name')
+    console.log(graphName)
+    graphName.addEventListener("change", (e) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      console.log("event change del nome")
+      console.log(e)
+      let newVal = e.target.value
+      console.log(newVal)
+      let new_id = newVal.slugify()
+      console.log(new_id)
+      this.element.querySelector('#graph-id').value = new_id
+      this.updateButtonState();
+      //        const newQuantity = e.currentTarget.value
+      // assuming the item's ID is in the input's `data-item-id` attribute
+      //      const itemId = e.currentTarget.dataset.itemId
+      //    const item = this.actor.items.get(itemId)
+      // the following is asynchronous and assumes the quantity is in the path `system.quantity`
+      //  item.update({ system: { quantity: newQuantity }});
+    })
     // initial draw if a graph is pre‑selected
     this._drawSVG();
 

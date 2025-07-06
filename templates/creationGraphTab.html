@@ -1,0 +1,58 @@
+{{!-- Individual Tab Template --}}
+<section
+  class="tab {{tabs.creationGraph.id}} {{tabs.creationGraph.cssClass}}"
+  data-tab="{{tabs.creationGraph.id}}"
+  data-group="{{tabs.creationGraph.group}}"
+>
+  {{!-- Tab content here --}}
+  <div class="creationGraph-details">
+    <!-- form fields, etc. -->
+    <label for="graph-name"
+      >{{ localize 'FvttGraph.GraphForm.GraphName' }}</label
+    >
+    <div class="form-fields">
+      <input class="droppable" data-drag="true" type="text" id="graph-name"
+      value="{{ graph.name }}" data-id="{{ graph.name }}"
+      data-action="onChangeGraphName" data-dtype="String" {{#if edit }}{{#if
+      graph.id }} readonly="true" {{/if}}{{/if}} required="true">
+    </div>
+    <div class="form-fields">
+      <label for="graph-id">{{ localize 'FvttGraph.GraphForm.GraphId' }}</label>
+      <input
+        type="text"
+        id="graph-id"
+        value="{{ graph.id }}"
+        data-id="{{ graph.id }}"
+        data-dtype="String"
+        readonly="true"
+      />
+    </div>
+    <div class="form-fields">
+      <label for="graph-desc"
+        >{{ localize 'FvttGraph.GraphForm.GraphDesc' }}</label
+      >
+
+      <textarea id="graph-desc" rows="5" cols="33">{{graph.desc}}</textarea>
+    </div>
+    <div class="graph-select-wrapper">
+      <label for="graph-type-select">Select Graph Type:</label>
+      <select id="graph-type-select" name="graphId">
+        <option value="">--Please choose an option--</option>
+        {{#each graphTypes}}
+        <option value="{{id}}">{{name}}</option>
+        {{/each}}
+      </select>
+    </div>
+    <div class="form-fields">
+      <label for="graph-width">Width (px):</label>
+      <input type="number" id="graph-width" value="800" min="100" />
+    </div>
+    <div class="form-fields">
+      <label for="graph-height">Height (px):</label>
+      <input type="number" id="graph-height" value="600" min="100" />
+    </div>
+    <button id="create-graph-btn" data-action="onCreateGraph">
+      Create Graph
+    </button>
+  </div>
+</section>

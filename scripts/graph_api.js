@@ -68,7 +68,7 @@ export class GraphApi {
     constructor(moduleId, defaults) {
         this.moduleId = moduleId;
         this.defaults = defaults;
-
+        this._graphMap = new Map();
         /** @type {Map<string, object>} */
         this.graphTypes = new Map();
 
@@ -166,12 +166,22 @@ export class GraphApi {
         await game.settings.set(this.moduleId, "graphs", this._worldGraphs);
     }
 
-    /** Upsert a graph object into the world-saved list */
+    async loadGraphs() {
+        const data = await game.settings.get("foundry-graph", "graphs") || {};
+        this._graphMap = new Map(Object.entries(data));
+    }
+
     async upsertGraph(graph) {
-        const list = await this._loadGraphsCache();
-        const idx = list.findIndex((g) => g.id === graph.id);
-        if (idx >= 0) list[idx] = graph; else list.push(graph);
-        await this._saveGraphsCache();
+        this._graphMap.set(graph.id, graph);
+        await game.settings.set("foundry-graph", "graphs", Object.fromEntries(this._graphMap));
+    }
+
+    get graphs() {
+        return Array.from(this._graphMap.values());
+    }
+
+    getGraphById(id) {
+        return this._graphMap.get(id);
     }
 
     // ---------------------------------------------------------------------------
