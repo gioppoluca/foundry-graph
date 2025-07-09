@@ -12,11 +12,9 @@
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 
-import GraphForm from "./graph_form.js";
 import GraphFormV2 from "./graph_form_v2.js";
 import { D3GraphApp } from "./d3-graph-app.js";
 
-import * as d3 from "./lib/d3.js";
 
 export default class GraphDashboardV2 extends HandlebarsApplicationMixin(ApplicationV2) {
   /**
@@ -117,10 +115,6 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     const graphs = this.api.getAllGraphs();
     this._graphTypes = await this.api.loadGraphTypes();
     console.log(graphs)
-    //const graphId = graphs[0]?.id ?? "";
-
-//    const res = await fetch("modules/foundry-graph/data/graph-types.json");
-  //  this._graphTypes = await res.json();
 
     return {
       title: this.title,
@@ -128,8 +122,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       is_gm: game.user.isGM,
       graphTypes: this._graphTypes,
       tabs: this._prepareTabs("primary"),
-      graphs,
-      svg: "" // will be filled in _onRender
+      graphs
     };
   }
 
@@ -232,7 +225,5 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       this.element.querySelector('#graph-id').value = new_id
       this.updateButtonState();
     })
-
   }
-
 }

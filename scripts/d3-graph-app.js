@@ -25,7 +25,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     submitOnChange: false,
     actions: {
       saveAction: D3GraphApp._saveGraph,
-      exportAction: D3GraphApp.myprint,
+      exportAction: D3GraphApp.svgToCanvas,
       linkNodes: D3GraphApp.toggleLinkingMode
 
     },
@@ -56,36 +56,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   async _onRender(context, options) {
     this.element.querySelector("#d3-graph").addEventListener("drop", this._onDrop.bind(this));
-    /*
-    if (this._mode === "edit") {
-      const api = game.modules.get("foundry-graph").api;
-      const graph = await api.getGraph(this._graphId);
-      if (!graph) {
-        ui.notifications.warn("Graph not found.");
-        return;
-      }
-      console.log("EDIT GRAPH")
-      console.log(graph)
-      // now we have the graph but we need to get the graphtype to assign to _graphTypeMetadata
-      const graphType = await api.getGraphTypeById(graph.graphType);
-
-
-      this._graphName = graph.name;
-      this._graphDescription = graph.desc;
-      this._svgWidth = graph.width;
-      this._svgHeight = graph.height;
-      this._graphTypeMetadata = graphType || {}; // keep existing, fallback on graph.graphType?
-      // Restore nodes, links, and position info
-      this._nodes = graph.nodes || [];
-      this._links = graph.links || [];
-
-      this._drawGraph(graph);
-    } else {
-      this._drawGraph(); // fresh
-    }
-    */
-      this._drawGraph(); // fresh
-    //     return html;
+    this._drawGraph(); // fresh
   }
 
   async _prepareContext(options) {
@@ -161,8 +132,6 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static toggleLinkingMode(e) {
-//    console.log(this)
-//    console.log(e)
     this._linkingMode = !this._linkingMode;
     this._linkSourceNode = null;
     e.target.classList.toggle("active", this._linkingMode);
@@ -170,165 +139,87 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     ui.notifications.info(this._linkingMode ? "Linking mode ON" : "Linking mode OFF");
   }
 
-  async inlineImages(svg) {
-    const images = svg.querySelectorAll("image");
-    for (const img of images) {
-      const href = img.getAttribute("xlink:href");
-      if (!href || href.startsWith("data:")) continue;
 
-      try {
-        const res = await fetch(href);
-        const blob = await res.blob();
-        const dataUrl = await this.blobToDataURL(blob);
-        img.setAttribute("xlink:href", dataUrl);
-      } catch (err) {
-        console.warn("Could not embed image:", href, err);
-      }
+  static svgToCanvas() {
+    // Select the first svg element and get its content
+    var svgElement = document.querySelector('#d3-graph');
+
+    if (!svgElement) {
+      console.error('SVG element not found');
+      return;
     }
-  }
 
-  blobToDataURL(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
+    function convertExternalResources(svgElement, callback) {
+      const imageElements = Array.from(svgElement.querySelectorAll('image'));
+
+      // Function to fetch and convert an image to data URL
+      async function fetchImage(imgElem) {
+        try {
+          var imgSrc = imgElem.getAttribute('xlink:href') || imgElem.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+          console.log(`Processing image with src: ${imgSrc}`);
+
+          if (!imgSrc || imgSrc.startsWith('data:')) {
+            console.log(`Skipping already data URI or missing href: ${imgSrc}`);
+            return;  // Skip images without href or already data URIs
+          }
+
+          const response = await fetch(imgSrc);
+          if (!response.ok) throw new Error(`Failed to load ${imgSrc}`);
+
+          const blob = await response.blob();
+          const reader = new FileReader();
+
+          return new Promise((resolve, reject) => {
+            reader.onloadend = function () {
+              const dataUrl = reader.result;
+              imgElem.setAttribute('href', dataUrl);
+              // Also set the xlink:href attribute to ensure it's properly set
+              if (imgElem.hasAttributeNS('http://www.w3.org/1999/xlink', 'href')) {
+                imgElem.setAttributeNS('http://www.w3.org/1999/xlink', 'href', dataUrl);
+              }
+              console.log(`Converted to data URL: ${dataUrl.substring(0, 50)}...`);
+              resolve();
+            };
+            reader.readAsDataURL(blob);
+          });
+        } catch (err) {
+          console.error('Error converting image:', err);
+        }
+      }
+
+      // Fetch and convert all images
+      Promise.all(imageElements.map(fetchImage)).then(() => callback(svgElement))
+        .catch(err => console.error('Error processing images:', err));
+    }
+
+    // Clone the SVG element to avoid modifying the original
+    var svgClone = svgElement.cloneNode(true);
+
+    convertExternalResources(svgClone, function (preparedSvg) {
+      // Serialize the prepared SVG to a string
+      var serializer = new XMLSerializer();
+      var svgStr = serializer.serializeToString(preparedSvg);
+      console.log('Final serialized SVG:', svgStr.substring(0, 500)); // Log part of SVG for inspection
+
+      // Create a Blob from the SVG string and create an object URL for it
+      var svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
+      var svgUrl = URL.createObjectURL(svgBlob);
+
+      // Create download link for the SVG file
+      var downloadLink = document.createElement("a");
+      downloadLink.href = svgUrl;
+      downloadLink.download = "newesttree.svg";
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+
+      // Clean up URL object to free memory (optional)
+      setTimeout(() => URL.revokeObjectURL(svgUrl), 100);
     });
   }
 
 
-  static myprint() {
-    var svg1 = window.d3.select('#d3-graph')
-    var svgString = this.getSVGString(svg1.node());
-    this.svgString2Image(svgString, 800, 600, 'png', save); // passes Blob and filesize String to the callback
-
-    function save(dataBlob, filesize) {
-      var svgUrl = URL.createObjectURL(dataBlob);
-      var downloadLink = document.createElement("a");
-      downloadLink.href = svgUrl;
-      downloadLink.download = "newesttree.png";
-      downloadLink.click();
-    }
-  }
-  getSVGString(svgNode) {
-    svgNode.setAttribute('xlink', 'http://www.w3.org/1999/xlink');
-    var cssStyleText = getCSSStyles(svgNode);
-    appendCSS(cssStyleText, svgNode);
-
-    var serializer = new XMLSerializer();
-    var svgString = serializer.serializeToString(svgNode);
-    svgString = svgString.replace(/(\w+)?:?xlink=/g, 'xmlns:xlink='); // Fix root xlink without namespace
-    svgString = svgString.replace(/NS\d+:href/g, 'xlink:href'); // Safari NS namespace fix
-
-    return svgString;
-
-    function getCSSStyles(parentElement) {
-      var selectorTextArr = [];
-
-      // Add Parent element Id and Classes to the list
-      selectorTextArr.push('#' + parentElement.id);
-      for (var c = 0; c < parentElement.classList.length; c++)
-        if (!contains('.' + parentElement.classList[c], selectorTextArr))
-          selectorTextArr.push('.' + parentElement.classList[c]);
-
-      // Add Children element Ids and Classes to the list
-      var nodes = parentElement.getElementsByTagName("*");
-      for (var i = 0; i < nodes.length; i++) {
-        var id = nodes[i].id;
-        if (!contains('#' + id, selectorTextArr))
-          selectorTextArr.push('#' + id);
-
-        var classes = nodes[i].classList;
-        for (var c = 0; c < classes.length; c++)
-          if (!contains('.' + classes[c], selectorTextArr))
-            selectorTextArr.push('.' + classes[c]);
-      }
-
-      // Extract CSS Rules
-      var extractedCSSText = "";
-      for (var i = 0; i < document.styleSheets.length; i++) {
-        var s = document.styleSheets[i];
-
-        try {
-          if (!s.cssRules) continue;
-        } catch (e) {
-          if (e.name !== 'SecurityError') throw e; // for Firefox
-          continue;
-        }
-
-        var cssRules = s.cssRules;
-        for (var r = 0; r < cssRules.length; r++) {
-          if (contains(cssRules[r].selectorText, selectorTextArr))
-            extractedCSSText += cssRules[r].cssText;
-        }
-      }
-
-
-      return extractedCSSText;
-
-      function contains(str, arr) {
-        return arr.indexOf(str) === -1 ? false : true;
-      }
-
-    }
-
-    function appendCSS(cssText, element) {
-      var styleElement = document.createElement("style");
-      styleElement.setAttribute("type", "text/css");
-      styleElement.innerHTML = cssText;
-      var refNode = element.hasChildNodes() ? element.children[0] : null;
-      element.insertBefore(styleElement, refNode);
-    }
-  }
-
-
-  svgString2Image(svgString, width, height, format, callback) {
-    var format = format ? format : 'png';
-
-    var imgsrc = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString))); // Convert SVG string to data URL
-
-    var canvas = document.createElement("canvas");
-    var context = canvas.getContext("2d");
-
-    canvas.width = width;
-    canvas.height = height;
-
-    var image = new Image();
-    image.onload = function () {
-      context.clearRect(0, 0, width, height);
-      context.drawImage(image, 0, 0, width, height);
-
-      canvas.toBlob(function (blob) {
-        var filesize = Math.round(blob.length / 1024) + ' KB';
-        if (callback) callback(blob, filesize);
-      });
-
-
-    };
-
-    image.src = imgsrc;
-  }
-
-
-  static svgToCanvas() {
-    // Select the first svg element
-    var svg = this.element.querySelector('#d3-graph')
-    var svg1 = window.d3.select('#d3-graph')
-
-    console.log(svg)
-    console.log(svg1)
-    var img = new Image()
-    var serializer = new XMLSerializer()
-    var svgStr = svg1.node().outerHTML;
-    var svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
-    var svgUrl = URL.createObjectURL(svgBlob);
-    var downloadLink = document.createElement("a");
-    downloadLink.href = svgUrl;
-    downloadLink.download = "newesttree.svg";
-    downloadLink.click();
-  };
-
-
+  // ---------
   static async _saveGraph() {
     const api = game.modules.get("foundry-graph").api;
 
@@ -364,55 +255,6 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     console.log(this)
     this.close()
   }
-
-  static async _exportGraph() {
-    console.log("_exportGraph")
-    const svg = this.element.querySelector("#d3-graph");
-    if (!svg) {
-      ui.notifications.error("SVG element not found");
-      return;
-    }
-
-    await this.inlineImages(svg); // Inline external images as data URIs
-
-    const serializer = new XMLSerializer();
-    let svgData = serializer.serializeToString(svg);
-
-    const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(svgBlob);
-
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = svg.width.baseVal.value || 800;
-      canvas.height = svg.height.baseVal.value || 600;
-
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "white"; // Optional background fill
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-
-      canvas.toBlob(blob => {
-        const pngUrl = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = pngUrl;
-        a.download = "graph.png";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(pngUrl);
-      }, "image/png");
-
-      URL.revokeObjectURL(url);
-    };
-    img.onerror = () => {
-      ui.notifications.error("Failed to render SVG for PNG export");
-      URL.revokeObjectURL(url);
-    };
-    img.src = url;
-  }
-
-
 
 
   async _drawGraph(data = null) {
@@ -505,16 +347,11 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
             );
             if (!alreadyLinked && source.id !== target.id) {
               const relationId = this.element.querySelector("#relation-type")?.value || "";
-              //                const relationId = document.getElementById("relation-type-select").value;
               const relation = this._graphTypeMetadata.relations.find(r => r.id === relationId);
               if (!relation) {
                 ui.notifications.warn("Please select a valid relation type before creating the link.");
                 return;
               }
-              //const selector = this.element.querySelector("#relation-type");
-              //              const relationType = selector?.value || "";
-              //            const color = selector?.selectedOptions?.[0]?.dataset?.color || "#000000";
-              //          const style = selector?.selectedOptions?.[0]?.dataset?.style || "solid";
               this._links.push({
                 source: source.id,
                 target: target.id,
@@ -607,6 +444,4 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       this._drawGraph(); // Redraw
     }
   }
-
 }
-
