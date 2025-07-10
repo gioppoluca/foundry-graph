@@ -199,7 +199,12 @@ export class GraphApi {
     async loadGraphTypes() {
         if (!this._graphTypes) {
             const res = await fetch("modules/foundry-graph/data/graph-types.json");
-            this._graphTypes = await res.json();
+            const allTypes = await res.json();
+            const currentSystem = game.system.id;
+
+            this._graphTypes = allTypes.filter(type =>
+                type.systems?.includes("*") || type.systems?.includes(currentSystem)
+            );
         }
         return this._graphTypes;
     }
