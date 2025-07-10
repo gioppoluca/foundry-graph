@@ -30,3 +30,15 @@ You can choose between a set of graph types and create your **relation map**
 - Build a vampire lineage and coterie relationship web for World of Darkness.
 - Visualize quest dependencies and how NPCs are tied to objectives.
 - Map out interconnected factions in a sandbox world.
+
+## Changelog
+
+[Changelog](CHANGELOG.md)
+
+## Support
+
+Please open issues on this repo for any problems that you can have using this module.
+For discussing on my modules please join my [discord server:](https://discord.gg/FgKtjFRn3e)
+
+If you want to support this work
+<a href="https://www.buymeacoffee.com/lucagioppo" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
