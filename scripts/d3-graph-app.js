@@ -1,4 +1,4 @@
-const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
+const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
 const MODULE_ID = "foundry-graph";
 
@@ -92,6 +92,14 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     console.log(event)
     const data = TextEditor.getDragEventData(event);
     console.log(data)
+    // Get mouse position relative to SVG
+    const svg = this.element.querySelector("#d3-graph");
+    const rect = svg.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    // Add new node
+    const newId = crypto.randomUUID();
 
     // Handle different data types
     switch (data.type) {
@@ -103,17 +111,9 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
           return;
         }
 
-        // Get mouse position relative to SVG
-        const svg = this.element.querySelector("#d3-graph");
-        const rect = svg.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-
-        // Add new node
-        const newId = crypto.randomUUID();
         this._nodes.push({
-          id: newId,           // generic UUID
-          uuid: data.uuid,     // foundry UUID
+          id: newId,
+          uuid: data.uuid,
           label: actor.name,
           type: 'Actor',
           img: actor.img,
@@ -121,13 +121,70 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
           fy: y
         });
 
-        this._drawGraph({ nodes: this._nodes, links: this._links });
         ui.notifications.info(`Added node for actor: ${actor.name}`);
+        break;
+      case 'JournalEntryPage':
+        const page = await fromUuid(data.uuid);
+        console.log(page)
+        if (!page) {
+          ui.notifications.warn("Could not find page");
+          return;
+        }
 
+        this._nodes.push({
+          id: newId,
+          uuid: data.uuid,
+          label: page.name,
+          type: 'JournalEntryPage',
+          img: "modules/foundry-graph/img/journal.png",
+          fx: x,
+          fy: y
+        });
+        ui.notifications.info(`Added node for page: ${page.name}`);
+        break;
+      case 'Scene':
+        const scene = await fromUuid(data.uuid);
+        console.log(scene)
+        if (!scene) {
+          ui.notifications.warn("Could not find scene");
+          return;
+        }
+
+        this._nodes.push({
+          id: newId,
+          uuid: data.uuid,
+          label: scene.name,
+          type: 'Scene',
+          img: "modules/foundry-graph/img/mappin.png",
+          fx: x,
+          fy: y
+        });
+        ui.notifications.info(`Added node for scene: ${scene.name}`);
+        break;
+      case 'Item':
+        const item = await fromUuid(data.uuid);
+        console.log(item)
+        if (!item) {
+          ui.notifications.warn("Could not find item");
+          return;
+        }
+
+        this._nodes.push({
+          id: newId,
+          uuid: data.uuid,
+          label: item.name,
+          type: 'Actor',
+          img: item.img,
+          fx: x,
+          fy: y
+        });
+        ui.notifications.info(`Added node for item: ${item.name}`);
+        break;
 
       default:
         break;
     }
+    this._drawGraph({ nodes: this._nodes, links: this._links });
 
   }
 
@@ -371,8 +428,6 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         } else {
           ui.notifications.info(`Clicked node: ${d.label}`);
         }
-
-
       })
       .on("contextmenu", (event, d) => {
         event.preventDefault(); // Prevent default browser context menu
@@ -389,6 +444,16 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         }
       });
 
+    const nodeLabels = svg.append("g")
+      .attr("class", "node-labels")
+      .selectAll("text")
+      .data(this._nodes)
+      .join("text")
+      .attr("font-size", 12)
+      .attr("fill", "#000")
+      .attr("text-anchor", "middle")
+      .text(d => d.label || d.id);
+
     function ticked() {
       link
         .attr("x1", d => d.source.fx)
@@ -403,6 +468,9 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       linkLabels
         .attr("x", d => (d.source.fx + d.target.fx) / 2)
         .attr("y", d => (d.source.fy + d.target.fy) / 2);
+      nodeLabels
+        .attr("x", d => d.fx)
+        .attr("y", d => d.fy + 42); // 32 (half icon) + 10 spacing
     }
 
     function dragstarted(event, d) {
@@ -427,8 +495,10 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
   }
 
-  _onRightClickNode(nodeData) {
-    const confirmed = window.confirm(`Delete node "${nodeData.label || nodeData.id}"?`);
+  async _onRightClickNode(nodeData) {
+    const confirmed = await DialogV2.confirm({
+      content: `Delete node "${nodeData.label || nodeData.id}"?`,
+    })
     if (confirmed) {
       // Remove node and connected links
       this._nodes = this._nodes.filter(n => n.id !== nodeData.id);
@@ -437,8 +507,10 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
   }
 
-  _onRightClickLink(linkData) {
-    const confirmed = window.confirm(`Delete link from "${linkData.source.label || linkData.source.id}" to "${linkData.target.label || linkData.target.id}"?`);
+  async _onRightClickLink(linkData) {
+    const confirmed = await DialogV2.confirm({
+      content: `Delete link from "${linkData.source.label || linkData.source.id}" to "${linkData.target.label || linkData.target.id}"?`,
+    })
     if (confirmed) {
       this._links = this._links.filter(l => l !== linkData);
       this._drawGraph(); // Redraw
