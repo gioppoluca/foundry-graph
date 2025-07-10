@@ -2,9 +2,12 @@
   {
     "id": "enemy-map",
     "name": "Enemy Map",
-    "desc": "Map of the enemies of the PCs",
+    "description": "Map of the enemies of the PCs",
     "background": "modules/foundry-graph/img/parchment.webp",
     "color": "#ff0000",
+    "systems": [
+      "*"
+    ],
     "relations": [
       {
         "id": "enemy-of",
@@ -81,11 +84,11 @@
   {
     "id": "vampire-relations-map",
     "name": "Relations Map",
-    "desc": "Relations map of the party",
+    "description": "Relations map of the party",
     "background": "modules/foundry-graph/img/parchment.webp",
     "color": "#ff0000",
     "systems": [
-      ""
+      "vtm5e"
     ],
     "relations": [
       {
@@ -203,14 +206,464 @@
     ]
   },
   {
-    "id": "rumor-network",
-    "name": "Rumor Network",
-    "desc": "Spread of rumors in Kinbrace",
-    "background": "path/to/rumors.jpg",
-    "color": "#3333cc",
+    "id": "quest-dependency-tree",
+    "name": "Quest Dependency Tree",
+    "description": "Visualize the dependency and progression between quests, including prerequisites, branching paths, optional content, and consequences.",
+    "background": "modules/foundry-graph/assets/backgrounds/quest-scroll.jpg",
+    "color": "#2e86c1",
+    "width": 1200,
+    "height": 800,
+    "systems": [
+      "*"
+    ],
     "relations": [
-      "heard from",
-      "spread to"
+      {
+        "id": "prerequisite",
+        "label": "Prerequisite For",
+        "color": "#1f618d",
+        "style": "solid",
+        "strokeWidth": 2.5
+      },
+      {
+        "id": "unlocks",
+        "label": "Unlocks",
+        "color": "#27ae60",
+        "style": "dashed",
+        "strokeWidth": 2
+      },
+      {
+        "id": "optional",
+        "label": "Optional Path",
+        "color": "#f39c12",
+        "style": "dotted",
+        "strokeWidth": 1.5
+      },
+      {
+        "id": "blocks",
+        "label": "Blocks",
+        "color": "#c0392b",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "branches-to",
+        "label": "Branches To",
+        "color": "#8e44ad",
+        "style": "dotted",
+        "strokeWidth": 2
+      },
+      {
+        "id": "leads-to-ending",
+        "label": "Leads to Ending",
+        "color": "#2c3e50",
+        "style": "solid",
+        "strokeWidth": 3
+      },
+      {
+        "id": "side-effect",
+        "label": "Side Effect Of",
+        "color": "#7f8c8d",
+        "style": "dashed",
+        "strokeWidth": 1.5
+      }
+    ]
+  },
+  {
+    "id": "faction-power-structure",
+    "name": "Faction Power Structure",
+    "description": "Map the internal hierarchy, influence flow, and inter-faction connections among guilds, sects, noble houses, cults, or political groups.",
+    "background": "modules/foundry-graph/assets/backgrounds/parchment-grid.jpg",
+    "color": "#aa0000",
+    "width": 1200,
+    "height": 900,
+    "systems": [
+      "*"
+    ],
+    "relations": [
+      {
+        "id": "leads",
+        "label": "Leads",
+        "color": "#b22222",
+        "style": "solid",
+        "strokeWidth": 3
+      },
+      {
+        "id": "commands",
+        "label": "Commands",
+        "color": "#8b0000",
+        "style": "solid",
+        "strokeWidth": 2.5
+      },
+      {
+        "id": "supports",
+        "label": "Supports",
+        "color": "#006400",
+        "style": "dashed",
+        "strokeWidth": 2
+      },
+      {
+        "id": "influences",
+        "label": "Influences",
+        "color": "#1e90ff",
+        "style": "dotted",
+        "strokeWidth": 2
+      },
+      {
+        "id": "funds",
+        "label": "Funds",
+        "color": "#daa520",
+        "style": "dashed",
+        "strokeWidth": 2
+      },
+      {
+        "id": "spies-on",
+        "label": "Spies On",
+        "color": "#ff4500",
+        "style": "dotted",
+        "strokeWidth": 1.5
+      },
+      {
+        "id": "rivals",
+        "label": "Rivals",
+        "color": "#800080",
+        "style": "solid",
+        "strokeWidth": 2.5
+      },
+      {
+        "id": "secretly-controls",
+        "label": "Secretly Controls",
+        "color": "#4b0082",
+        "style": "dotted",
+        "strokeWidth": 2
+      },
+      {
+        "id": "public-ally",
+        "label": "Public Ally",
+        "color": "#2e8b57",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "unknown",
+        "label": "Unknown or Rumored Link",
+        "color": "#aaaaaa",
+        "style": "dashed",
+        "strokeWidth": 1.5
+      }
+    ]
+  },
+  {
+    "id": "character-map",
+    "name": "Character Relationship Map",
+    "description": "A flexible map for visualizing PCs, NPCs, enemies, allies, and all their connections in your campaign.",
+    "background": "modules/foundry-graph/assets/backgrounds/scroll-parchment.jpg",
+    "color": "#3366cc",
+    "width": 1000,
+    "height": 800,
+    "systems": [
+      "*"
+    ],
+    "relations": [
+      {
+        "id": "pc-pc",
+        "label": "Party Member",
+        "color": "#1f77b4",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "npc-ally",
+        "label": "Trusted Ally",
+        "color": "#2ca02c",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "npc-contact",
+        "label": "Informant/Contact",
+        "color": "#ff7f0e",
+        "style": "dotted",
+        "strokeWidth": 2
+      },
+      {
+        "id": "npc-enemy",
+        "label": "Enemy",
+        "color": "#d62728",
+        "style": "solid",
+        "strokeWidth": 3
+      },
+      {
+        "id": "npc-neutral",
+        "label": "Acquaintance",
+        "color": "#999999",
+        "style": "dashed",
+        "strokeWidth": 1.5
+      },
+      {
+        "id": "npc-familial",
+        "label": "Family/Relative",
+        "color": "#8c564b",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "npc-lover",
+        "label": "Romantic Interest",
+        "color": "#e377c2",
+        "style": "dotted",
+        "strokeWidth": 2
+      },
+      {
+        "id": "npc-mentor",
+        "label": "Mentor/Trainer",
+        "color": "#bcbd22",
+        "style": "dashed",
+        "strokeWidth": 2
+      },
+      {
+        "id": "npc-rival",
+        "label": "Rival",
+        "color": "#17becf",
+        "style": "dashed",
+        "strokeWidth": 2.5
+      },
+      {
+        "id": "unclassified",
+        "label": "Unclassified Connection",
+        "color": "#aaaaaa",
+        "style": "solid",
+        "strokeWidth": 1
+      }
+    ]
+  },
+  {
+    "id": "region-control-map",
+    "name": "Region Control Map",
+    "description": "Visualizes which faction or power controls specific geographic regions, settlements, or locations. Useful for political intrigue, war campaigns, or faction-based conflicts.",
+    "background": "modules/foundry-graph/img/worldmap.png",
+    "color": "#3366cc",
+    "width": 1000,
+    "height": 800,
+    "systems": [
+      "*"
+    ],
+    "relations": [
+      {
+        "id": "controls",
+        "label": "Controls",
+        "color": "#cc0000",
+        "style": "solid",
+        "strokeWidth": 3
+      },
+      {
+        "id": "contested",
+        "label": "Contested",
+        "color": "#ff9900",
+        "style": "dashed",
+        "strokeWidth": 2
+      },
+      {
+        "id": "has-base-in",
+        "label": "Has Base In",
+        "color": "#3366cc",
+        "style": "dotted",
+        "strokeWidth": 2
+      },
+      {
+        "id": "allied-control",
+        "label": "Ally Controls",
+        "color": "#66cc66",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "lost-control",
+        "label": "Lost Control",
+        "color": "#999999",
+        "style": "dashed",
+        "strokeWidth": 1
+      }
+    ]
+  },
+  {
+    "id": "faction-power-structure",
+    "name": "Faction Power Structure",
+    "description": "Shows the internal hierarchy, authority links, and influence chains within a faction, cult, organization, or cabal. Useful for political plots, infiltration missions, or faction dynamics.",
+    "background": "modules/foundry-graph/img/power-structure.png",
+    "color": "#3366cc",
+    "width": 1000,
+    "height": 800,
+    "systems": [
+      "*"
+    ],
+    "relations": [
+      {
+        "id": "commands",
+        "label": "Commands",
+        "color": "#8b0000",
+        "style": "solid",
+        "strokeWidth": 3
+      },
+      {
+        "id": "reports-to",
+        "label": "Reports To",
+        "color": "#b22222",
+        "style": "dotted",
+        "strokeWidth": 2
+      },
+      {
+        "id": "mentors",
+        "label": "Mentors",
+        "color": "#228b22",
+        "style": "dashed",
+        "strokeWidth": 2
+      },
+      {
+        "id": "rivals",
+        "label": "Rivals",
+        "color": "#ff8c00",
+        "style": "dotted",
+        "strokeWidth": 1
+      },
+      {
+        "id": "controls-resource",
+        "label": "Controls Resource",
+        "color": "#4682b4",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "influences",
+        "label": "Influences",
+        "color": "#6a5acd",
+        "style": "dashed",
+        "strokeWidth": 2
+      }
+    ]
+  },
+  {
+    "id": "supernatural-influence-web",
+    "name": "Supernatural Influence Web",
+    "description": "Visualizes mystical connections, pacts, curses, blessings, bindings, and supernatural influence across characters, locations, artifacts, and otherworldly forces.",
+    "background": "modules/foundry-graph/img/influence-web.png",
+    "color": "#3366cc",
+    "width": 1000,
+    "height": 800,
+    "systems": [
+      "vtm5e"
+    ],
+    "relations": [
+      {
+        "id": "blessed-by",
+        "label": "Blessed By",
+        "color": "#00ffcc",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "cursed-by",
+        "label": "Cursed By",
+        "color": "#9900ff",
+        "style": "dashed",
+        "strokeWidth": 3
+      },
+      {
+        "id": "bound-to",
+        "label": "Bound To",
+        "color": "#ff4500",
+        "style": "dotted",
+        "strokeWidth": 2
+      },
+      {
+        "id": "owes-favor",
+        "label": "Owes Favor",
+        "color": "#ffd700",
+        "style": "dashed",
+        "strokeWidth": 2
+      },
+      {
+        "id": "linked-to",
+        "label": "Linked To",
+        "color": "#00bfff",
+        "style": "solid",
+        "strokeWidth": 1
+      },
+      {
+        "id": "controlled-by",
+        "label": "Controlled By",
+        "color": "#ff1493",
+        "style": "solid",
+        "strokeWidth": 3
+      },
+      {
+        "id": "haunted-by",
+        "label": "Haunted By",
+        "color": "#666666",
+        "style": "dotted",
+        "strokeWidth": 1
+      }
+    ]
+  },
+  {
+    "id": "genealogy-map",
+    "name": "Genealogy Map",
+    "description": "Maps out familial, bloodline, or ancestral relationships between individuals or creatures — from mortal dynasties to vampiric sires and mythic progenitors.",
+    "background": "modules/foundry-graph/img/family-tree.png",
+    "width": 1200,
+    "height": 800,
+    "systems": [
+      "*"
+    ],
+    "relations": [
+      {
+        "id": "parent-of",
+        "label": "Parent Of",
+        "color": "#1f77b4",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "child-of",
+        "label": "Child Of",
+        "color": "#1f77b4",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "sibling-of",
+        "label": "Sibling Of",
+        "color": "#2ca02c",
+        "style": "dashed",
+        "strokeWidth": 2
+      },
+      {
+        "id": "spouse-of",
+        "label": "Spouse Of",
+        "color": "#d62728",
+        "style": "solid",
+        "strokeWidth": 3
+      },
+      {
+        "id": "ancestor-of",
+        "label": "Ancestor Of",
+        "color": "#9467bd",
+        "style": "dotted",
+        "strokeWidth": 2
+      },
+      {
+        "id": "descendant-of",
+        "label": "Descendant Of",
+        "color": "#8c564b",
+        "style": "dotted",
+        "strokeWidth": 2
+      },
+      {
+        "id": "adopted-by",
+        "label": "Adopted By",
+        "color": "#e377c2",
+        "style": "dashed",
+        "strokeWidth": 2
+      }
     ]
   }
 ]
