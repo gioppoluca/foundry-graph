@@ -1,36 +1,22 @@
 {{!-- Individual Tab Template --}}
-<section
-  class="tab {{tabs.creationGraph.id}} {{tabs.creationGraph.cssClass}}"
-  data-tab="{{tabs.creationGraph.id}}"
-  data-group="{{tabs.creationGraph.group}}"
->
+<section class="tab {{tabs.creationGraph.id}} {{tabs.creationGraph.cssClass}}" data-tab="{{tabs.creationGraph.id}}"
+  data-group="{{tabs.creationGraph.group}}">
   {{!-- Tab content here --}}
   <div class="creationGraph-details">
     <!-- form fields, etc. -->
-    <label for="graph-name"
-      >{{ localize 'FvttGraph.GraphForm.GraphName' }}</label
-    >
+    <label for="graph-name">{{ localize 'FvttGraph.GraphForm.GraphName' }}</label>
     <div class="form-fields">
-      <input class="droppable" data-drag="true" type="text" id="graph-name"
-      value="{{ graph.name }}" data-id="{{ graph.name }}"
-      data-action="onChangeGraphName" data-dtype="String" {{#if edit }}{{#if
-      graph.id }} readonly="true" {{/if}}{{/if}} required="true">
+      <input class="droppable" data-drag="true" type="text" id="graph-name" value="{{ graph.name }}"
+        data-id="{{ graph.name }}" data-action="onChangeGraphName" data-dtype="String" {{#if edit }}{{#if graph.id }}
+        readonly="true" {{/if}}{{/if}} required="true">
     </div>
     <div class="form-fields">
       <label for="graph-id">{{ localize 'FvttGraph.GraphForm.GraphId' }}</label>
-      <input
-        type="text"
-        id="graph-id"
-        value="{{ graph.id }}"
-        data-id="{{ graph.id }}"
-        data-dtype="String"
-        readonly="true"
-      />
+      <input type="text" id="graph-id" value="{{ graph.id }}" data-id="{{ graph.id }}" data-dtype="String"
+        readonly="true" />
     </div>
     <div class="form-fields">
-      <label for="graph-desc"
-        >{{ localize 'FvttGraph.GraphForm.GraphDesc' }}</label
-      >
+      <label for="graph-desc">{{ localize 'FvttGraph.GraphForm.GraphDesc' }}</label>
 
       <textarea id="graph-desc" rows="5" cols="33">{{graph.desc}}</textarea>
     </div>
@@ -51,6 +37,15 @@
       <label for="graph-height">Height (px):</label>
       <input type="number" id="graph-height" value="600" min="100" />
     </div>
+    <label for="graph-background">Background Image:</label>
+    <file-picker id="graph-background" name="graph-background" type="image" value="{{graph.backgroundImage}} "
+      data-tooltip="foundry-graph.gdh.tooltip.background" data-action="onChangeGraphBackground">
+      <span class="file-picker-label">Select Background Image</span>
+      <span class="file-picker-value">{{graph.backgroundImage}}</span>
+    </file-picker>
+    <span class="file-picker-info">Supported formats: PNG, JPG, GIF</span>
+    <br>
+
     <button id="create-graph-btn" data-action="onCreateGraph">
       Create Graph
     </button>

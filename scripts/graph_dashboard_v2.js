@@ -137,10 +137,9 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     "print-graph": "_onPrintGraph"
   };
 
-  static onCreateGraph(event, target) {
+  static async onCreateGraph(event, target) {
     const type = this.element.querySelector("#graph-type-select").value?.trim();
     const metadata = this._graphTypes?.find(g => g.id === type);
-    console.log(metadata)
     console.log(metadata)
     if (!metadata) return ui.notifications.warn("Invalid graph type selected.");
     console.log("in oncreategraph")
@@ -149,6 +148,10 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     const desc = this.element.querySelector("#graph-desc").value?.trim();
     const width = this.element.querySelector("#graph-width").value?.trim();
     const height = this.element.querySelector("#graph-height").value?.trim();
+    const backgroundImagePath = this.element.querySelector("#graph-background").value?.trim();
+
+    metadata.background = backgroundImagePath || metadata.background;
+
     const graphData = {
       id: id,
       name: name,
