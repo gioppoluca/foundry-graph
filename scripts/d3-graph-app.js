@@ -60,7 +60,9 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   async _prepareContext(options) {
-    if (this._mode === "edit") {
+    console.log("PREPARE CONTEXT", options);
+    console.log(this._mode)
+    if ((this._mode === "edit") || (this._mode === "view")) {
       const api = game.modules.get("foundry-graph").api;
       const graph = await api.getGraph(this._graphId);
       if (!graph) {
@@ -79,16 +81,23 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       // Restore nodes, links, and position info
       this._nodes = graph.nodes || [];
       this._links = graph.links || [];
+
     }
     return {
       ...super._prepareContext(options),
-      relations: this._graphTypeMetadata.relations || []
+      relations: this._graphTypeMetadata.relations || [],
+      isEdit: this._mode === "edit",
     };
   }
 
 
   async _onDrop(event) {
     console.log("_onDrop")
+    // in view no drop
+    if(this._mode === "view") {
+      ui.notifications.warn("Cannot drop nodes in view mode");
+      return;
+    }
     console.log(event)
     const data = TextEditor.getDragEventData(event);
     console.log(data)
@@ -260,18 +269,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
       // Create a Blob from the SVG string and create an object URL for it
       var svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
-      var svgUrl = URL.createObjectURL(svgBlob);
-
-      // Create download link for the SVG file
-      var downloadLink = document.createElement("a");
-      downloadLink.href = svgUrl;
-      downloadLink.download = "newesttree.svg";
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-
-      // Clean up URL object to free memory (optional)
-      setTimeout(() => URL.revokeObjectURL(svgUrl), 100);
+      saveAs(svgBlob, "graph.svg");
     });
   }
 
