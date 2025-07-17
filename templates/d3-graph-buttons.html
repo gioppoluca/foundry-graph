@@ -11,5 +11,5 @@
       {{/each}}
     </select>
   </div>
-  <button data-action="saveAction" id="save-btn">💾 Save</button>
+  <button data-action="saveAction" id="save-btn" {{#unless isEdit}}disabled title="View‑only mode"{{/unless}} >💾 Save</button>
 </div>
