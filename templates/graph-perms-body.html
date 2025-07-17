@@ -1,0 +1,38 @@
+<div>
+  <table class="graph-table">
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>Permission</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each users}}
+      <tr>
+        <td>{{this.name}}</td>
+        <td>
+          <select class="user-perm" data-userid="{{this.id}}">
+            {{#each ../LEVELS}}
+            <option value="{{this}}" {{#if (eq ../this.level this)}}selected{{/if}}>
+              {{@key}} ({{this}})
+            </option>
+            {{/each}}
+          </select>
+        </td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  <hr>
+
+  <label>Default Permission&nbsp;
+    <select id="perm-default">
+      {{#each LEVELS}}
+      <option value="{{this}}" {{#if (eq ../defaultLevel this)}}selected{{/if}}>
+        {{@key}} ({{this}})
+      </option>
+      {{/each}}
+    </select>
+  </label>
+</div>

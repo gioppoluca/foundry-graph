@@ -1,5 +1,8 @@
 import GraphDashboardV2 from "./graph_dashboard_v2.js"
 
+const LEVELS = foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS; // { NONE:0, LIMITED:1, OBSERVER:2, OWNER:3 }
+
+
 // graph_api.js – SAFE ES2019 VERSION (no class‑fields, no private #names)
 // -----------------------------------------------------------------------------
 //  • All consumers obtain the singleton via `game.modules.get("foundry-graph").api`
@@ -145,6 +148,36 @@ export class GraphApi {
         return [];
     }
 
+    getPermission(graph, user = game.user) {
+        // Explicit setting?
+        if (graph.permissions?.[user.id] !== undefined) return graph.permissions[user.id];
+        // Fallback to default
+        return graph.permissions?.default ?? LEVELS.NONE;
+    }
+
+    canView(graph, user = game.user) { return this.getPermission(graph, user) >= LEVELS.LIMITED || user.isGM; }
+    canOpen(graph, user = game.user) { return this.getPermission(graph, user) >= LEVELS.OBSERVER || user.isGM; }
+    canEdit(graph, user = game.user) { return this.getPermission(graph, user) >= LEVELS.OWNER || user.isGM; }
+
+
+    canViewById(id, user = game.user) {
+        const g = this.getGraph(id);
+        return g ? this.canView(g, user) : false;
+    }
+    canOpenById(id, user = game.user) {
+        const g = this.getGraph(id);
+        return g ? this.canOpen(g, user) : false;
+    }
+    canEditById(id, user = game.user) {
+        const g = this.getGraph(id);
+        return g ? this.canEdit(g, user) : false;
+    }
+
+    getAccessibleGraphs(user = game.user) {
+        return Array.from(this._graphMap.values()).filter(g => this.canOpen(g, user));
+    }
+
+
     /** Demo JSON from data/demo-nodes-links.json */
     getDemoData() {
         return this.defaults.demoData;
@@ -154,6 +187,15 @@ export class GraphApi {
         return this.defaults.defaultRelations;
     }
 
+
+    async updateGraphPermissions(graphId, newPerms) {
+        const g = this.getGraph(graphId);
+        if (!g) throw new Error(`Graph ${graphId} not found`);
+
+        g.permissions = newPerms;
+        await this.upsertGraph(g);          // reuse existing save method
+        return g;
+    }
     // ---------------------------------------------------------------------------
     // Persistence helpers
     // ---------------------------------------------------------------------------
@@ -174,7 +216,7 @@ export class GraphApi {
     }
 
     getGraph(id) {
-        return this._graphMap.get(id);
+        return this._graphMap.get(id) ?? null;
     }
 
     async upsertGraph(graph) {
