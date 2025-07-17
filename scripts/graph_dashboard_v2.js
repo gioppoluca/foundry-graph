@@ -14,6 +14,7 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 import GraphFormV2 from "./graph_form_v2.js";
 import { D3GraphApp } from "./d3-graph-app.js";
+import { GraphPermissionsDialog } from "./graph-permissions-dialog.js";
 
 
 export default class GraphDashboardV2 extends HandlebarsApplicationMixin(ApplicationV2) {
@@ -71,8 +72,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     actions: {
       onCreateGraph: GraphDashboardV2.onCreateGraph,
       graphEdit: GraphDashboardV2.graphEdit,
-      "edit-graph": "_onEditGraph",
-      "print-graph": "_onPrintGraph"
+      graphDelete: GraphDashboardV2.graphDelete,
+      graphPerms: GraphDashboardV2.graphPerms
     }
   };
 
@@ -112,7 +113,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   }
 
   async _prepareContext() {
-    const graphs = this.api.getAllGraphs();
+    //const graphs = this.api.getAllGraphs(); // changed for permission
+    const graphs = this.api.getAccessibleGraphs();
     this._graphTypes = await this.api.loadGraphTypes();
     console.log(graphs)
 
@@ -126,16 +128,6 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     };
   }
 
-  /* ------------------------------------------------------------------------ */
-  /*  Action dispatcher                                                        */
-  /* ------------------------------------------------------------------------ */
-
-  // Replace ACTION table
-  static ACTIONS = {
-    "create-graph": "onCreateGraph",
-    "edit-graph": "_onEditGraph",
-    "print-graph": "_onPrintGraph"
-  };
 
   static async onCreateGraph(event, target) {
     const type = this.element.querySelector("#graph-type-select").value?.trim();
@@ -159,7 +151,11 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       width: isNaN(width) ? 800 : width,
       height: isNaN(height) ? 600 : height,
       graphTypeMetadata: metadata,  // Includes color, background, relations, etc.
-      mode: "new"
+      mode: "new",
+      permissions: {
+        default: LEVELS.NONE,
+        [game.userId]: LEVELS.OWNER
+      }
     };
 
     // Launch D3GraphApp with pre-filled data
@@ -170,11 +166,32 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     console.log(event)
     console.log(target)
     console.log(event.target.dataset.id)
+    const mode = this.api.canEditById(event.target.dataset.id) ? "edit" : "view";
+    console.log("mode", mode)
     const graphData = {
       id: event.target.dataset.id,
-      mode: "edit"
+      mode: mode
     };
     new D3GraphApp(graphData).render(true);
+  }
+
+
+  static async graphDelete(event, target) {
+    console.log(event)
+    console.log(event.target.dataset.id)
+    await this.api.deleteGraph(event.target.dataset.id);
+    ui.notifications.info(`Graph ${event.target.dataset.id} deleted.`);
+    // Optionally, refresh the dashboard or list view
+    this.render(true);
+    // Or you can trigger a re-render of the entire dashboard
+  }
+
+  static graphPerms(event, target) {
+    console.log(event)
+    const graphId = event.target.dataset.id;
+    if (!graphId) return ui.notifications.warn("No graph selected for export");
+    const g = this.api.getGraph(graphId);
+    new GraphPermissionsDialog({ graphId, permissions: g.permissions }).render(true);
   }
 
   _onEditGraph() {
