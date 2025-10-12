@@ -153,8 +153,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       graphTypeMetadata: metadata,  // Includes color, background, relations, etc.
       mode: "new",
       permissions: {
-        default: LEVELS.NONE,
-        [game.userId]: LEVELS.OWNER
+        default: foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE,
+        [game.userId]: foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
       }
     };
 
@@ -193,14 +193,14 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     const g = this.api.getGraph(graphId);
     new GraphPermissionsDialog({ graphId, permissions: g.permissions }).render(true);
   }
-
+/*
   _onEditGraph() {
     const select = this.element.querySelector("#graph-select");
     if (!select?.value) return ui.notifications.warn("Select a graph first");
     //new GraphForm(this.api, { graphId: select.value }).render(true);
     new GraphFormV2(this.api, { graphId }).render(true);
   }
-
+*/
 
   _onPrintGraph() {
     const svgEl = this.element.querySelector("svg#graph-svg");

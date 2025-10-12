@@ -1,16 +1,14 @@
 {
-  "name": "foundry-graph",
+  "id": "foundry-graph",
   "title": "Foundry Graph",
-  "description": "",
+  "description": "Draw graphs of different styles",
   "version": "This is auto replaced",
   "library": "false",
-  "manifestPlusVersion": "1.0.0",
-  "minimumCoreVersion": "11",
-  "compatibleCoreVersion": "13",
+  "compatibility": { "minimum": "12", "verified": "13" },
   "authors": [
     {
       "name": "Luca Gioppo",
-      "url": "https://github.com/League-of-Foundry-Developers",
+      "url": "https://github.com/gioppoluca/foundry-graph",
       "discord": "gioppoluca"
     }
   ],

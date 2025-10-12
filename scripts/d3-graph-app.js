@@ -1,6 +1,6 @@
-const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
+import { MODULE_ID } from './settings.js';
 
-const MODULE_ID = "foundry-graph";
+const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
 
 export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
@@ -86,7 +86,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     return {
       ...super._prepareContext(options),
       relations: this._graphTypeMetadata.relations || [],
-      isEdit: this._mode === "edit",
+      isEdit: this._mode === "edit" || this._mode === "new",
     };
   }
 

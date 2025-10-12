@@ -4,6 +4,7 @@
     "name": "Enemy Map",
     "description": "Map of the enemies of the PCs",
     "background": "modules/foundry-graph/img/parchment.webp",
+    "renderer": "force",
     "color": "#ff0000",
     "systems": [
       "*"
@@ -86,6 +87,7 @@
     "name": "Relations Map",
     "description": "Relations map of the party",
     "background": "modules/foundry-graph/img/parchment.webp",
+    "renderer": "force",
     "color": "#ff0000",
     "systems": [
       "vtm5e"
@@ -210,6 +212,7 @@
     "name": "Quest Dependency Tree",
     "description": "Visualize the dependency and progression between quests, including prerequisites, branching paths, optional content, and consequences.",
     "background": "modules/foundry-graph/assets/backgrounds/quest-scroll.jpg",
+    "renderer": "force",
     "color": "#2e86c1",
     "width": 1200,
     "height": 800,
@@ -273,6 +276,7 @@
     "name": "Faction Power Structure",
     "description": "Map the internal hierarchy, influence flow, and inter-faction connections among guilds, sects, noble houses, cults, or political groups.",
     "background": "modules/foundry-graph/assets/backgrounds/parchment-grid.jpg",
+    "renderer": "force",
     "color": "#aa0000",
     "width": 1200,
     "height": 900,
@@ -357,6 +361,7 @@
     "name": "Character Relationship Map",
     "description": "A flexible map for visualizing PCs, NPCs, enemies, allies, and all their connections in your campaign.",
     "background": "modules/foundry-graph/assets/backgrounds/scroll-parchment.jpg",
+    "renderer": "force",
     "color": "#3366cc",
     "width": 1000,
     "height": 800,
@@ -441,6 +446,7 @@
     "name": "Region Control Map",
     "description": "Visualizes which faction or power controls specific geographic regions, settlements, or locations. Useful for political intrigue, war campaigns, or faction-based conflicts.",
     "background": "modules/foundry-graph/img/worldmap.png",
+    "renderer": "force",
     "color": "#3366cc",
     "width": 1000,
     "height": 800,
@@ -490,6 +496,7 @@
     "name": "Faction Power Structure",
     "description": "Shows the internal hierarchy, authority links, and influence chains within a faction, cult, organization, or cabal. Useful for political plots, infiltration missions, or faction dynamics.",
     "background": "modules/foundry-graph/img/power-structure.png",
+    "renderer": "force",
     "color": "#3366cc",
     "width": 1000,
     "height": 800,
@@ -546,6 +553,7 @@
     "name": "Supernatural Influence Web",
     "description": "Visualizes mystical connections, pacts, curses, blessings, bindings, and supernatural influence across characters, locations, artifacts, and otherworldly forces.",
     "background": "modules/foundry-graph/img/influence-web.png",
+    "renderer": "force",
     "color": "#3366cc",
     "width": 1000,
     "height": 800,
@@ -609,6 +617,7 @@
     "name": "Genealogy Map",
     "description": "Maps out familial, bloodline, or ancestral relationships between individuals or creatures — from mortal dynasties to vampiric sires and mythic progenitors.",
     "background": "modules/foundry-graph/img/family-tree.png",
+    "renderer": "force",
     "width": 1200,
     "height": 800,
     "systems": [
