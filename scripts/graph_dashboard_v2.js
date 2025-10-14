@@ -15,6 +15,7 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 import GraphFormV2 from "./graph_form_v2.js";
 import { D3GraphApp } from "./d3-graph-app.js";
 import { GraphPermissionsDialog } from "./graph-permissions-dialog.js";
+import { log } from "./constants.js";
 
 
 export default class GraphDashboardV2 extends HandlebarsApplicationMixin(ApplicationV2) {
@@ -22,8 +23,9 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
    * @param {GraphApi} api
    */
   constructor(options = {}) {
+    log("GraphDashboardV2.constructor", options)
     super(options);
-    this.api = options.api;
+    this.api = options;
   }
 
   /* ------------------------------------------------------------------------ */
@@ -162,7 +164,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     new D3GraphApp(graphData).render(true);
   }
 
-  static graphEdit(event, target) {
+  static async graphEdit(event, target) {
     console.log(event)
     console.log(target)
     console.log(event.target.dataset.id)
@@ -172,7 +174,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       id: event.target.dataset.id,
       mode: mode
     };
-    new D3GraphApp(graphData).render(true);
+    log("graphData", graphData)
+    await new D3GraphApp(graphData).render(true);
   }
 
 

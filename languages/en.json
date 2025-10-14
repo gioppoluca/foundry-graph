@@ -25,12 +25,35 @@
     "FvttGraph.GraphForm.GraphTabNodeTarget": "Target resource",
     "foundry-graph.creationGraphTab": "Create Graph",
     "foundry-graph.listGraphTab": "Graph List",
-    "foundry-graph.Manager.ControlTitle": "Graph Management",
-    "foundry-graph.Manager.ControlManage": "Graph Management",
     "foundry-graph.gdh.tooltip.edit": "Edit Graph",
     "foundry-graph.gdh.tooltip.delete": "Delete Graph",
     "foundry-graph.gdh.tooltip.image": "Export Graph as image",
-    "foundry-graph.toolclip.header": "Graph Management"
+    "foundry-graph.toolclip.header": "Graph Management",
+    "foundry-graph": {
+        "Manager": {
+            "ControlTitle": "Graphs Management",
+            "ControlManage": "Graphs Management"
+        },
+        "Window": {
+            "DashboardTitle": "Graphs",
+            "GraphTitle": "Graph"
+        },
+        "Buttons": {
+            "ExportSvg": "Export SVG",
+            "LinkNodes": "Link Nodes",
+            "Save": "Save",
+            "CreateGraph": "Create Graph"
+        },
+        "Labels": {
+            "RelationType": "Relation Type",
+            "SelectGraphType": "Select Graph Type"
+        },
+        "Confirm": {
+            "DeleteNode": "Delete node \"{name}\"?",
+            "DeleteLink": "Delete link from \"{source}\" to \"{target}\"?"
+        },
+        "Errors": {
+            "SaveError": "Error while saving the graph."
+        }
+    }
 }
-
-

@@ -1,4 +1,4 @@
-import { MODULE_ID } from './settings.js';
+import { log, MODULE_ID } from './constants.js';
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -16,7 +16,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     },
     classes: ["fgraph", "fgraph-form"],
     window: {
-      title: "Graph Title",
+      title:  "",//this.windowTitle,
       resizable: true,
     },
     dragDrop: [{ dragSelector: '[data-drag="true"]', dropSelector: '.drop-zone' }],
@@ -56,6 +56,8 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   async _onRender(context, options) {
     this.element.querySelector("#d3-graph").addEventListener("drop", this._onDrop.bind(this));
+    this._disposers ??= [];
+    this._disposers.push(() => el.removeEventListener("drop", onDrop));
     this._drawGraph(); // fresh
   }
 
@@ -94,7 +96,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   async _onDrop(event) {
     console.log("_onDrop")
     // in view no drop
-    if(this._mode === "view") {
+    if (this._mode === "view") {
       ui.notifications.warn("Cannot drop nodes in view mode");
       return;
     }
@@ -313,6 +315,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
 
   async _drawGraph(data = null) {
+    log("D3GraphApp._drawGraph", data)
     const svg = d3.select("#d3-graph")
       .attr("width", this._svgWidth)
       .attr("height", this._svgHeight)

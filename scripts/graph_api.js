@@ -1,4 +1,6 @@
 import GraphDashboardV2 from "./graph_dashboard_v2.js"
+import { log, MODULE_ID } from './constants.js';
+import { ForceGraphType } from './graph_types/force.js';
 
 const LEVELS = foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS; // { NONE:0, LIMITED:1, OBSERVER:2, OWNER:3 }
 
@@ -11,19 +13,23 @@ const LEVELS = foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS; // { NONE:0, LIMITED:1, 
 //  • No window globals and only ES features that Foundry v12 (Chromium 100+) supports.
 
 export class GraphApi {
-    // ---------------------------------------------------------------------------
-    // Factory / bootstrap helpers
-    // ---------------------------------------------------------------------------
-
     /**
-     * Ensure the world‑level setting exists. Call once early in your module init.
-     * @param {string} moduleId
+     * Ensure the world‑level setting exists. Call once early in module init.
      */
-    static async registerSettings(moduleId) {
-        // Avoid double registration if hot‑reloaded
-        if (game.settings.settings.has(`${moduleId}.graphs`)) return;
+    static async registerSettings() {
+        game.settings.register(MODULE_ID, "debug", {
+            scope: "world",
+            config: true,
+            type: Boolean,
+            default: false,
+            name: "Enable debug logs",
+            hint: "Writes verbose logs to the console for troubleshooting."
+        });
 
-        game.settings.register(moduleId, "graphs", {
+        // Avoid double registration if hot‑reloaded
+        if (game.settings.settings.has(`${MODULE_ID}.graphs`)) return;
+
+        game.settings.register(MODULE_ID, "graphs", {
             scope: "world",
             config: false,
             type: Array,
@@ -36,8 +42,8 @@ export class GraphApi {
      * @param {string} moduleId
      * @param {string} fileName   – relative to modules/<id>/data/
      */
-    static async _fetchJSON(moduleId, fileName) {
-        const url = `modules/${moduleId}/data/${fileName}`;
+    static async _fetchJSON(fileName) {
+        const url = `modules/${MODULE_ID}/data/${fileName}`;
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`GraphApi: Failed to load ${url} (${resp.status})`);
         return resp.json();
@@ -47,14 +53,15 @@ export class GraphApi {
      * Async factory that returns a fully‑initialised API instance.
      * @param {string} moduleId  – your module id ("foundry-graph")
      */
-    static async create(moduleId) {
+
+    static async create() {
         const [defaultGraphs, defaultRelations, demoData] = await Promise.all([
-            this._fetchJSON(moduleId, "default-graphs.json"),
-            this._fetchJSON(moduleId, "default-relations.json"),
-            this._fetchJSON(moduleId, "demo-nodes-links.json")
+            this._fetchJSON("default-graphs.json"),
+            this._fetchJSON("default-relations.json"),
+            this._fetchJSON("demo-nodes-links.json")
         ]);
 
-        return new GraphApi(moduleId, {
+        return new GraphApi({
             defaultGraphs,
             defaultRelations,
             demoData
@@ -68,18 +75,16 @@ export class GraphApi {
      * @param {string} moduleId
      * @param {{ defaultGraphs:Array, defaultRelations:Array, demoData:Object }} defaults
      */
-    constructor(moduleId, defaults) {
-        this.moduleId = moduleId;
+    constructor(defaults) {
+        this.moduleId = MODULE_ID;
         this.defaults = defaults;
         this._graphMap = new Map();
         /** @type {Map<string, object>} */
         this.graphTypes = new Map();
+        this._typeManagers = new Map();
+        this._typeManagers.set("force", new ForceGraphType());
 
         /** @type {Array<object>|null} Cached world graphs */
-        this._worldGraphs = null;
-
-        //this.loadGraphs();
-
         // Seed registry with bundled graph‑types
         defaults.defaultGraphs.forEach((g) => {
             if (g && g.id) this.graphTypes.set(g.id, g);
@@ -113,8 +118,6 @@ export class GraphApi {
             });
         }
 
-        // 2) Use cached copy unless you explicitly want a fresh read
-        if (this._worldGraphs) return foundry.utils.duplicate(this._worldGraphs);
 
         let graphs = game.settings.get(this.moduleId, "graphs") || [];
 
@@ -124,8 +127,6 @@ export class GraphApi {
             game.settings.set(this.moduleId, "graphs", graphs);    // persist
         }
 
-        // Cache and return a duplicate so external code can't mutate our copy
-        this._worldGraphs = graphs;
         return foundry.utils.duplicate(graphs);
     }
 
@@ -133,9 +134,11 @@ export class GraphApi {
      * Return the singleton GraphDashboardV2, creating it if needed.
      * @param {boolean} [show] – if true, call render(true) after creating.
      */
-    openDashboard(show = false) {
-        if (!this.dashboard) this.dashboard = new GraphDashboardV2(this);
-        if (show) this.dashboard.render(true);
+    async openDashboard(show = false) {
+        log("GraphApi.openDashboard",  show );
+        if (!this.dashboard) this.dashboard = await new GraphDashboardV2(this);
+        log("dashboard", this.dashboard)
+        if (show) await this.dashboard.render(true);
         return this.dashboard;
     }
 
@@ -199,17 +202,6 @@ export class GraphApi {
     // ---------------------------------------------------------------------------
     // Persistence helpers
     // ---------------------------------------------------------------------------
-    async _loadGraphsCache() {
-        if (this._worldGraphs === null) {
-            this._worldGraphs = duplicate(game.settings.get(this.moduleId, "graphs")) || [];
-        }
-        return this._worldGraphs;
-    }
-
-    async _saveGraphsCache() {
-        await game.settings.set(this.moduleId, "graphs", this._worldGraphs);
-    }
-
     async loadGraphs() {
         const data = await game.settings.get("foundry-graph", "graphs") || [];
         this._graphMap = new Map(data.map(g => [g.id, g]));

@@ -25,12 +25,21 @@ export class ForceRenderer extends BaseRenderer {
       .force("link", d3.forceLink(links).id(d => d.id).distance(120).strength(0.3))
       .force("charge", d3.forceManyBody().strength(-250))
       .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collision", d3.forceCollide().radius(d => (d.r ?? 24) + 8));
+      .force("collision", d3.forceCollide().radius(d => (d.r ?? 24) + 8))
+      .on("end", () => {
+        // Simulation naturally stopped or finished
+        console.debug("D3 simulation ended");
+        sim.stop(); // ensures all timers are cleared
+      });
 
+    //ctx.setDisposer?.(() => sim.stop());
     // Define markers for directed relations (arrows)
+    const markerId = `arrow-end-${crypto.randomUUID?.()}`;
+    //defs.append("marker").attr("id", markerId) /* ... */;
+    //link.attr("marker-end", d => (d.arrow ? `url(#${markerId})` : null));
     const defs = svg.append("defs");
     defs.append("marker")
-      .attr("id", "arrow-end")
+      .attr("id", markerId)
       .attr("viewBox", "0 -5 10 10")
       .attr("refX", 14)
       .attr("refY", 0)
@@ -44,7 +53,7 @@ export class ForceRenderer extends BaseRenderer {
     const link = gZoom.append("g").attr("class", "links")
       .selectAll("line").data(links).enter().append("line")
       .attr("stroke-width", d => d.width ?? 2)
-      .attr("marker-end", d => (d.arrow ? "url(#arrow-end)" : null))
+      .attr("marker-end", d => (d.arrow ? `url(#${markerId})` : null))
       .on("contextmenu", (ev, d) => { ev.preventDefault(); ctx.onRightClickLink?.(d); });
 
     // Link labels
@@ -62,7 +71,7 @@ export class ForceRenderer extends BaseRenderer {
           d.fx = d.x; d.fy = d.y;
         })
         .on("drag", (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
-        .on("end",  (ev, d) => { if (!ev.active) sim.alphaTarget(0); d.fx = null; d.fy = null; })
+        .on("end", (ev, d) => { if (!ev.active) sim.alphaTarget(0); d.fx = null; d.fy = null; })
       )
       .on("click", (ev, d) => {
         if (ctx?.linking?.enabled) ctx.linking.onSelect?.(d);
@@ -84,7 +93,7 @@ export class ForceRenderer extends BaseRenderer {
       return c;
     });
 
-    node.append("text").attr("y", d => (d.h ? (d.h/2 + 14) : 30)).attr("text-anchor", "middle").text(d => d.label ?? d.name ?? d.id);
+    node.append("text").attr("y", d => (d.h ? (d.h / 2 + 14) : 30)).attr("text-anchor", "middle").text(d => d.label ?? d.name ?? d.id);
 
     svg.call(d3.zoom().scaleExtent([0.2, 4]).on("zoom", (ev) => { gZoom.attr("transform", ev.transform); }));
 

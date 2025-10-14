@@ -20,7 +20,7 @@ export default class BaseGraphType {
     get_graph_elements(graph_id) {
         throw new Error('get_graph_elements method must be implemented in derived classes');
     }
-    save_to_settings(graph) {
+    async save_to_settings(graph) {
         orig_graph = game.settings.get('foundry-graph', 'graphs')
         console.log(orig_graph)
         const itemIndex = orig_graph.findIndex(o => o.id === graph.id);
@@ -33,6 +33,6 @@ export default class BaseGraphType {
             orig_graph.push(graph);
         }
 
-        game.settings.set('foundry-graph', 'graphs', orig_graph);
+        await game.settings.set('foundry-graph', 'graphs', orig_graph);
     }
 }
