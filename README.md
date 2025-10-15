@@ -1,10 +1,14 @@
 - ![](https://img.shields.io/badge/Foundry-v12-informational)![](https://img.shields.io/badge/Foundry-v13-informational)
 - ![Latest Release Download Count](https://img.shields.io/github/downloads/gioppoluca/foundry-graph/latest/module.zip)
+- ![Total Download Count](https://img.shields.io/github/downloads/gioppoluca/foundry-graph/total?color=d1b124&label=Total%20Download)
 - ![Forge Installs](https://img.shields.io/badge/dynamic/json?label=Forge%20Installs&query=package.installs&suffix=%25&url=https%3A%2F%2Fforge-vtt.com%2Fapi%2Fbazaar%2Fpackage%2Ffoundry-graph&colorB=4aa94a)
 
 # Foundry Graph - Visual Relationship Mapping
 
 # !!! WARNING !!! - this module is still in alpha mode until this comment is removed.  Use it to test its features and give feedback, but do not manage real data, the development is at early stage: metadata will change and there will be no migration path
+
+Draw the threads that connect your world. Turn relationships into stories you can see.
+Visualize lineage, alliances, and secrets in living diagrams with ease.
 
 Foundry Graph is a powerful and intuitive module that lets you visually map relationships between actors, scenes, items, or any other entity in your world. Whether you're managing political intrigue, faction conflicts, character connections, or ancient bloodlines, this tool gives you a dynamic canvas to build, edit, and explore complex networks.
 You can choose between a set of graph types and create your **relation map**
