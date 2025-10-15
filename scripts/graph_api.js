@@ -1,6 +1,9 @@
 import GraphDashboardV2 from "./graph_dashboard_v2.js"
-import { log, MODULE_ID } from './constants.js';
-import { ForceGraphType } from './graph_types/force.js';
+import { log, MODULE_ID, JSON_graph_types } from './constants.js';
+//import { ForceGraphType } from './graph_types/force.js';
+import { ForceRenderer } from "./renderers/force-renderer.js";
+import { TreeRenderer } from "./renderers/tree-renderer.js";
+
 
 const LEVELS = foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS; // { NONE:0, LIMITED:1, OBSERVER:2, OWNER:3 }
 
@@ -37,58 +40,37 @@ export class GraphApi {
         });
     }
 
-    /**
-     * Convenience fetch wrapper (with basic error handling).
-     * @param {string} moduleId
-     * @param {string} fileName   – relative to modules/<id>/data/
-     */
-    static async _fetchJSON(fileName) {
-        const url = `modules/${MODULE_ID}/data/${fileName}`;
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error(`GraphApi: Failed to load ${url} (${resp.status})`);
-        return resp.json();
-    }
 
     /**
      * Async factory that returns a fully‑initialised API instance.
      * @param {string} moduleId  – your module id ("foundry-graph")
      */
 
-    static async create() {
-        const [defaultGraphs, defaultRelations, demoData] = await Promise.all([
-            this._fetchJSON("default-graphs.json"),
-            this._fetchJSON("default-relations.json"),
-            this._fetchJSON("demo-nodes-links.json")
-        ]);
-
-        return new GraphApi({
-            defaultGraphs,
-            defaultRelations,
-            demoData
-        });
-    }
 
     // ---------------------------------------------------------------------------
     // Construction
     // ---------------------------------------------------------------------------
     /**
-     * @param {string} moduleId
-     * @param {{ defaultGraphs:Array, defaultRelations:Array, demoData:Object }} defaults
      */
-    constructor(defaults) {
+    constructor() {
         this.moduleId = MODULE_ID;
-        this.defaults = defaults;
         this._graphMap = new Map();
         /** @type {Map<string, object>} */
-        this.graphTypes = new Map();
-        this._typeManagers = new Map();
-        this._typeManagers.set("force", new ForceGraphType());
 
-        /** @type {Array<object>|null} Cached world graphs */
-        // Seed registry with bundled graph‑types
-        defaults.defaultGraphs.forEach((g) => {
-            if (g && g.id) this.graphTypes.set(g.id, g);
-        });
+        const currentSystem = game.system.id;
+
+        // Convert map → array and filter by system
+        this.graphTypes = Object.fromEntries(Object.entries(JSON_graph_types)
+            .filter(([id, cfg]) => cfg.systems.includes(currentSystem) || cfg.systems.includes("*")));
+
+        this.registryRenderers = new Map([
+            [ForceRenderer.ID, new ForceRenderer()],
+            [TreeRenderer.ID, new TreeRenderer()]
+        ]);
+
+        log("GraphApi.constructor", this.graphTypes)
+        log("JSON_graph_types", JSON_graph_types)
+
     }
 
     // ---------------------------------------------------------------------------
@@ -97,37 +79,7 @@ export class GraphApi {
 
     /** Return every graph type object that was registered */
     get_graph_types() {
-        return Array.from(this.graphTypes.values());
-    }
-
-    /**
-     * Graph retrieval with fallback:
-     *  1) Returns the world‑saved graphs if any exist
-     *  2) Otherwise returns the defaults bundled with the module
-     */
-    get_all_graphs() {
-        const SETTING_KEY = `${this.moduleId}.graphs`;
-
-        // 1) Register setting lazily if missing (avoids assertKey crash)
-        if (!game.settings.settings.has(SETTING_KEY)) {
-            game.settings.register(this.moduleId, "graphs", {
-                scope: "world",
-                config: false,
-                type: Array,
-                default: []
-            });
-        }
-
-
-        let graphs = game.settings.get(this.moduleId, "graphs") || [];
-
-        // First‑run: seed defaults
-        if (!graphs.length && this._defaults && this._defaults.defaultGraphs) {
-            graphs = foundry.utils.duplicate(this._defaults.defaultGraphs);
-            game.settings.set(this.moduleId, "graphs", graphs);    // persist
-        }
-
-        return foundry.utils.duplicate(graphs);
+        return Array.from(JSON_graph_types.values());
     }
 
     /**
@@ -135,7 +87,7 @@ export class GraphApi {
      * @param {boolean} [show] – if true, call render(true) after creating.
      */
     async openDashboard(show = false) {
-        log("GraphApi.openDashboard",  show );
+        log("GraphApi.openDashboard", show);
         if (!this.dashboard) this.dashboard = await new GraphDashboardV2(this);
         log("dashboard", this.dashboard)
         if (show) await this.dashboard.render(true);
@@ -230,26 +182,31 @@ export class GraphApi {
         return Array.from(this._graphMap.values());
     }
 
-    async loadGraphTypes() {
-        if (!this._graphTypes) {
-            const res = await fetch("modules/foundry-graph/data/graph-types.json");
-            const allTypes = await res.json();
-            const currentSystem = game.system.id;
-
-            this._graphTypes = allTypes.filter(type =>
-                type.systems?.includes("*") || type.systems?.includes(currentSystem)
-            );
-        }
-        return this._graphTypes;
+    getGraphTypesArray() {
+        log("GraphApi.getGraphTypesArray", this.graphTypes)
+        return Object.values(this.graphTypes);
     }
 
     async getGraphTypeById(id) {
-        if (!this._graphTypes) {
-            await this.loadGraphTypes();
-        }
-        return this._graphTypes.find(type => type.id === id) || null;
+        return this.graphTypes[id] || null;
     }
 
+    /*
+    registerRenderer(RendererClass) {
+        registry.set(RendererClass.ID, RendererClass);
+    }
+*/
+    getRenderer(id) {
+        log("getRenderer", id, this.registryRenderers)
+        log("getRenderer", this.registryRenderers.get(id))
+        log("getRenderer", this.registryRenderers[id])
+        return this.registryRenderers.get(id);
+    }
+/*
+    listRenderers() {
+        return [...registry.keys()];
+    }
+*/
     // ---------------------------------------------------------------------------
     // Miscellaneous
     // ---------------------------------------------------------------------------

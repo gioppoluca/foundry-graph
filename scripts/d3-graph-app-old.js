@@ -1,5 +1,4 @@
 import { log, MODULE_ID } from './constants.js';
-import {getRenderer} from './renderers/index.js';
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -35,25 +34,24 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static PARTS = {
     body: {
-      template: `modules/${MODULE_ID}/templates/d3-graph-app.html`
+      template: "modules/foundry-graph/templates/d3-graph-app.html"
     },
     footer: {
-      template: `modules/${MODULE_ID}/templates/d3-graph-buttons.html`
+      template: "modules/foundry-graph/templates/d3-graph-buttons.html"
     }
   };
 
   constructor(options = {}) {
     super(options);
-    this.api = game.modules.get(MODULE_ID)?.api;
-    this.graph = options.graph || {};
-    this.renderer = this.api.getRenderer(options.graph?.renderer);
-    log("D3GraphApp.constructor", options, this.renderer)
-    this._svgWidth = options.graph.width || 800;
-    this._svgHeight = options.graph.height || 600;
-    this._graphName = options.graph.name || "test";
-    this._graphDescription = options.graph.desc || "desc";
-    this._graphId = options.graph.id || "test";
+    this._graphTypeMetadata = options.graphTypeMetadata || {};
+    this._svgWidth = options.width || 800;
+    this._svgHeight = options.height || 600;
+    this._graphName = options.name || "test";
+    this._graphDescription = options.desc || "desc";
+    this._graphId = options.id || "test";
     this._mode = options.mode || "new";
+    this._links = [];
+    this._nodes = [];
   }
 
   async _onRender(context, options) {
@@ -67,7 +65,6 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     console.log("PREPARE CONTEXT", options);
     console.log(this._mode)
     if ((this._mode === "edit") || (this._mode === "view")) {
-      /*
       const api = game.modules.get("foundry-graph").api;
       const graph = await api.getGraph(this._graphId);
       if (!graph) {
@@ -75,22 +72,22 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         return;
       }
       console.log("EDIT GRAPH")
-      */
+      console.log(graph)
       // now we have the graph but we need to get the graphtype to assign to _graphTypeMetadata
-      //const graphType = await api.getGraphTypeById(graph.graphType);
-      this._graphName = this.graph.name;
-      this._graphDescription = this.graph.desc;
-      this._svgWidth = this.graph.width;
-      this._svgHeight = this.graph.height;
-//      this._graphTypeMetadata = graphType || {}; // keep existing, fallback on graph.graphType?
+      const graphType = await api.getGraphTypeById(graph.graphType);
+      this._graphName = graph.name;
+      this._graphDescription = graph.desc;
+      this._svgWidth = graph.width;
+      this._svgHeight = graph.height;
+      this._graphTypeMetadata = graphType || {}; // keep existing, fallback on graph.graphType?
       // Restore nodes, links, and position info
-//      this._nodes = this.graph.nodes || [];
-//      this._links = this.graph.links || [];
+      this._nodes = graph.nodes || [];
+      this._links = graph.links || [];
 
     }
     return {
       ...super._prepareContext(options),
-      relations: this.graph?.relations || [],
+      relations: this._graphTypeMetadata.relations || [],
       isEdit: this._mode === "edit" || this._mode === "new",
     };
   }
@@ -125,8 +122,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
           return;
         }
 
-        this.renderer.addNode(this.graph,{
-//        this._nodes.push({
+        this._nodes.push({
           id: newId,
           uuid: data.uuid,
           label: actor.name,
@@ -146,8 +142,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
           return;
         }
 
-        this.renderer.addNode(this.graph,{
-//        this._nodes.push({
+        this._nodes.push({
           id: newId,
           uuid: data.uuid,
           label: page.name,
@@ -166,8 +161,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
           return;
         }
 
-        this.renderer.addNode(this.graph,{
-//        this._nodes.push({
+        this._nodes.push({
           id: newId,
           uuid: data.uuid,
           label: scene.name,
@@ -186,8 +180,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
           return;
         }
 
-        this.renderer.addNode(this.graph,{
-//        this._nodes.push({
+        this._nodes.push({
           id: newId,
           uuid: data.uuid,
           label: item.name,
@@ -201,10 +194,8 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
       default:
         break;
-    
     }
-    log(this.graph)
-    this._drawGraph();
+    this._drawGraph({ nodes: this._nodes, links: this._links });
 
   }
 
@@ -214,11 +205,6 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     e.target.classList.toggle("active", this._linkingMode);
     e.target.innerText = this._linkingMode ? "Cancel Linking" : "Link Nodes";
     ui.notifications.info(this._linkingMode ? "Linking mode ON" : "Linking mode OFF");
-    const relationId = this.element.querySelector("#relation-type")?.value || "";
-    const relation = this.graph.relations.find(r => r.id === relationId);
-    log("toggleLinkingMode", relationId, relation)
-    this.renderer.setLinkingMode(this._linkingMode);
-    this.renderer.setRelationData(relation);
   }
 
 
@@ -294,10 +280,6 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static async _saveGraph() {
     const api = game.modules.get("foundry-graph").api;
 
-    // here I will only update the data since the metadata is not managed by this form
-    //I have this.graph that hosts all the info thus
-    //this.graph.data = { nodes: this._nodes, links: this._links };
-    /*
     const fullGraph = {
       id: this._graphId,
       name: this._graphName,
@@ -324,8 +306,8 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         strokeWidth: l.strokeWidth
       }))
     };
-*/
-    await api.upsertGraph(this.graph);
+
+    await api.upsertGraph(fullGraph);
     ui.notifications.info("Graph saved via API");
     console.log(this)
     this.close()
@@ -333,11 +315,8 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
 
   async _drawGraph(data = null) {
-   // log("D3GraphApp._drawGraph", data)
-    let svg = d3.select("#d3-graph");
-    log("D3GraphApp._drawGraph", this.renderer, this.graph)
-    this.renderer.render(svg, this.graph )
-    /*
+    log("D3GraphApp._drawGraph", data)
+    const svg = d3.select("#d3-graph")
       .attr("width", this._svgWidth)
       .attr("height", this._svgHeight)
       .attr("viewBox", `0 0 ${this._svgWidth} ${this._svgHeight}`)
@@ -515,10 +494,8 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       d.fx = event.x;
       d.fy = event.y;
     }
-      */
   }
 
-  /*
   async _onRightClickNode(nodeData) {
     const confirmed = await DialogV2.confirm({
       content: `Delete node "${nodeData.label || nodeData.id}"?`,
@@ -540,5 +517,4 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       this._drawGraph(); // Redraw
     }
   }
-  */
 }

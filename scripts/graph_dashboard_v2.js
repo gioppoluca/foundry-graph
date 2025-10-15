@@ -1,14 +1,5 @@
-// graph_dashboard_v2.js
-// ApplicationV2 dashboard with **no** global window references.
-// Works on Foundry VTT v12+ which exposes ApplicationV2 and
-// HandlebarsApplicationMixin via the "@foundry/client" package entry.
-//
-// A singleton GraphApi instance must be available at:
-//   game.modules.get("foundry-graph").api
-//
-// -----------------------------------------------------------------------------
-// Imports
-// -----------------------------------------------------------------------------
+import { GraphBuilder } from "./model/graph_builder.js";
+
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 
@@ -26,6 +17,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     log("GraphDashboardV2.constructor", options)
     super(options);
     this.api = options;
+    this.currentGraph = null
   }
 
   /* ------------------------------------------------------------------------ */
@@ -73,6 +65,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     classes: ["fgraph", "fgraph-dashboard"],
     actions: {
       onCreateGraph: GraphDashboardV2.onCreateGraph,
+      onOpenGraph: GraphDashboardV2.onOpenGraph,
       graphEdit: GraphDashboardV2.graphEdit,
       graphDelete: GraphDashboardV2.graphDelete,
       graphPerms: GraphDashboardV2.graphPerms
@@ -111,14 +104,16 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
    * @protected
    */
   _getTabsConfig(group) {
+    log("GraphDashboardV2._getTabsConfig", group)
     return this.constructor.TABS[group] ?? null;
   }
 
-  async _prepareContext() {
+  _prepareContext() {
     //const graphs = this.api.getAllGraphs(); // changed for permission
     const graphs = this.api.getAccessibleGraphs();
-    this._graphTypes = await this.api.loadGraphTypes();
+    this._graphTypes = this.api.getGraphTypesArray();
     console.log(graphs)
+    log(this._graphTypes)
 
     return {
       title: this.title,
@@ -146,36 +141,60 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
 
     metadata.background = backgroundImagePath || metadata.background;
 
-    const graphData = {
+    let newGraph = new GraphBuilder({
       id: id,
       name: name,
       desc: desc,
+      graphType: type,
       width: isNaN(width) ? 800 : width,
       height: isNaN(height) ? 600 : height,
-      graphTypeMetadata: metadata,  // Includes color, background, relations, etc.
-      mode: "new",
-      permissions: {
-        default: foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE,
-        [game.userId]: foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
+      background: {
+        image: backgroundImagePath
       }
-    };
+    }).build();
 
+    /*
+const graphData = {
+  id: id,
+  name: name,
+  desc: desc,
+  width: isNaN(width) ? 800 : width,
+  height: isNaN(height) ? 600 : height,
+  graphTypeMetadata: metadata,  // Includes color, background, relations, etc.
+  mode: "new",
+  permissions: {
+    default: foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE,
+    [game.userId]: foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
+  }
+};
+*/
+    log("newGraph", newGraph)
+    // Save the new graph
+    await this.api.upsertGraph(newGraph);
+    ui.notifications.info(`Graph ${name} created.`);
+    // Optionally, refresh the dashboard or list view
+    this.render(true);
     // Launch D3GraphApp with pre-filled data
-    new D3GraphApp(graphData).render(true);
+    //new D3GraphApp({ graph: newGraph, mode: "new" }).render(true);
+  }
+
+  static async onOpenGraph(event, target) {
+    this._prepareTabs("primary")
   }
 
   static async graphEdit(event, target) {
     console.log(event)
     console.log(target)
     console.log(event.target.dataset.id)
+    const graph = this.api.getGraph(event.target.dataset.id);
     const mode = this.api.canEditById(event.target.dataset.id) ? "edit" : "view";
     console.log("mode", mode)
-    const graphData = {
-      id: event.target.dataset.id,
+    const appData = {
+      graph: graph,
       mode: mode
     };
-    log("graphData", graphData)
-    await new D3GraphApp(graphData).render(true);
+    log("graphData", appData)
+    await new D3GraphApp(appData).render(true);
   }
 
 
@@ -196,14 +215,14 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     const g = this.api.getGraph(graphId);
     new GraphPermissionsDialog({ graphId, permissions: g.permissions }).render(true);
   }
-/*
-  _onEditGraph() {
-    const select = this.element.querySelector("#graph-select");
-    if (!select?.value) return ui.notifications.warn("Select a graph first");
-    //new GraphForm(this.api, { graphId: select.value }).render(true);
-    new GraphFormV2(this.api, { graphId }).render(true);
-  }
-*/
+  /*
+    _onEditGraph() {
+      const select = this.element.querySelector("#graph-select");
+      if (!select?.value) return ui.notifications.warn("Select a graph first");
+      //new GraphForm(this.api, { graphId: select.value }).render(true);
+      new GraphFormV2(this.api, { graphId }).render(true);
+    }
+  */
 
   _onPrintGraph() {
     const svgEl = this.element.querySelector("svg#graph-svg");

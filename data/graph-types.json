@@ -1,5 +1,5 @@
-[
-  {
+{
+  "enemy-map": {
     "id": "enemy-map",
     "name": "Enemy Map",
     "description": "Map of the enemies of the PCs",
@@ -82,7 +82,7 @@
       }
     ]
   },
-  {
+  "vampire-relations-map": {
     "id": "vampire-relations-map",
     "name": "Relations Map",
     "description": "Relations map of the party",
@@ -207,7 +207,7 @@
       }
     ]
   },
-  {
+  "quest-dependency-tree": {
     "id": "quest-dependency-tree",
     "name": "Quest Dependency Tree",
     "description": "Visualize the dependency and progression between quests, including prerequisites, branching paths, optional content, and consequences.",
@@ -271,7 +271,7 @@
       }
     ]
   },
-  {
+  "faction-power-structure": {
     "id": "faction-power-structure",
     "name": "Faction Power Structure",
     "description": "Map the internal hierarchy, influence flow, and inter-faction connections among guilds, sects, noble houses, cults, or political groups.",
@@ -356,7 +356,7 @@
       }
     ]
   },
-  {
+  "character-map": {
     "id": "character-map",
     "name": "Character Relationship Map",
     "description": "A flexible map for visualizing PCs, NPCs, enemies, allies, and all their connections in your campaign.",
@@ -441,7 +441,7 @@
       }
     ]
   },
-  {
+  "region-control-map": {
     "id": "region-control-map",
     "name": "Region Control Map",
     "description": "Visualizes which faction or power controls specific geographic regions, settlements, or locations. Useful for political intrigue, war campaigns, or faction-based conflicts.",
@@ -491,7 +491,7 @@
       }
     ]
   },
-  {
+  "faction-power-structure2": {
     "id": "faction-power-structure",
     "name": "Faction Power Structure",
     "description": "Shows the internal hierarchy, authority links, and influence chains within a faction, cult, organization, or cabal. Useful for political plots, infiltration missions, or faction dynamics.",
@@ -548,7 +548,7 @@
       }
     ]
   },
-  {
+  "supernatural-influence-web": {
     "id": "supernatural-influence-web",
     "name": "Supernatural Influence Web",
     "description": "Visualizes mystical connections, pacts, curses, blessings, bindings, and supernatural influence across characters, locations, artifacts, and otherworldly forces.",
@@ -612,7 +612,7 @@
       }
     ]
   },
-  {
+  "genealogy-map": {
     "id": "genealogy-map",
     "name": "Genealogy Map",
     "description": "Maps out familial, bloodline, or ancestral relationships between individuals or creatures — from mortal dynasties to vampiric sires and mythic progenitors.",
@@ -675,4 +675,4 @@
       }
     ]
   }
-]
+}

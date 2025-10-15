@@ -7,7 +7,7 @@ import { GraphApi } from "./graph_api.js";
 Hooks.once('init', async function () {
   await GraphApi.registerSettings();
   setDebugFlag(game.settings.get(MODULE_ID, "debug"));
-  const api = await GraphApi.create();
+  const api = new GraphApi();
 
   const mod = game.modules.get(MODULE_ID);
   log(api)

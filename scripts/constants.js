@@ -1,3 +1,7 @@
+import graph_types from "../data/graph-types.json" with { type: "json" };
+ 
+export const JSON_graph_types = graph_types;
+
 export const MODULE_ID = "foundry-graph";
 export const MODULE_NAME = "Foundry Graph";
 
