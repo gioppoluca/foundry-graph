@@ -1,5 +1,5 @@
 import { log, MODULE_ID } from './constants.js';
-import {getRenderer} from './renderers/index.js';
+//import {getRenderer} from './renderers/index.js';
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
