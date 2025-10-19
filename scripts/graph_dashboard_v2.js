@@ -10,6 +10,10 @@ import { log } from "./constants.js";
 
 
 export default class GraphDashboardV2 extends HandlebarsApplicationMixin(ApplicationV2) {
+
+  static ALLOWED_TABS = ["listGraph", "creationGraph"];
+  static DEFAULT_ACTIVE_TAB = "listGraph";
+
   /**
    * @param {GraphApi} api
    */
@@ -18,6 +22,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     super(options);
     this.api = options;
     this.currentGraph = null
+    this.activeTab = options.activeTab ?? GraphDashboardV2.DEFAULT_ACTIVE_TAB;
+    this.editingGraph = null;
   }
 
   /* ------------------------------------------------------------------------ */
@@ -85,14 +91,23 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   _prepareTabs(group) {
     const { tabs, labelPrefix, initial = null } = this._getTabsConfig(group) ?? { tabs: [] };
     this.tabGroups[group] ??= initial;
+    const activeId = this.activeTab;
     return tabs.reduce((prepared, { id, cssClass, ...tabConfig }) => {
-      const active = this.tabGroups[group] === id;
+      //const active = this.tabGroups[group] === id;
+      const active = id === activeId;
       if (active) cssClass = [cssClass, "active"].filterJoin(" ");
       const tab = { group, id, active, cssClass, ...tabConfig };
       if (labelPrefix) tab.label ??= `${labelPrefix}.${id}`;
       prepared[id] = tab;
       return prepared;
     }, {});
+  }
+
+  /** Programmatically switch tabs (optionally re-render). */
+  setActiveTab(tabId, { render = true } = {}) {
+    if (!GraphDashboardV2.ALLOWED_TABS.includes(tabId)) return;
+    this.activeTab = tabId;
+    if (render && this.rendered) this.render(false);
   }
 
   /* -------------------------------------------- */
@@ -105,6 +120,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
    */
   _getTabsConfig(group) {
     log("GraphDashboardV2._getTabsConfig", group)
+    log(this.constructor.TABS)
     return this.constructor.TABS[group] ?? null;
   }
 
@@ -114,6 +130,10 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     this._graphTypes = this.api.getGraphTypesArray();
     console.log(graphs)
     log(this._graphTypes)
+    if (this.editingGraph) {
+      log("editingGraph", this.editingGraph)
+    }
+    log(this.editingGraph?.graphType)
 
     return {
       title: this.title,
@@ -121,6 +141,9 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       is_gm: game.user.isGM,
       graphTypes: this._graphTypes,
       tabs: this._prepareTabs("primary"),
+      graph: this.editingGraph,
+      selectedGraphType: this.editingGraph?.graphType,
+      //      tabs: this._getTabsConfig("primary"),
       graphs
     };
   }
@@ -139,7 +162,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     const height = this.element.querySelector("#graph-height").value?.trim();
     const backgroundImagePath = this.element.querySelector("#graph-background").value?.trim();
 
-    metadata.background = backgroundImagePath || metadata.background;
+    const bkImage = backgroundImagePath || metadata.background;
+    log(metadata  )
 
     let newGraph = new GraphBuilder({
       id: id,
@@ -149,7 +173,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       width: isNaN(width) ? 800 : width,
       height: isNaN(height) ? 600 : height,
       background: {
-        image: backgroundImagePath
+        image: bkImage
       }
     }).build();
 
@@ -173,16 +197,22 @@ const graphData = {
     await this.api.upsertGraph(newGraph);
     ui.notifications.info(`Graph ${name} created.`);
     // Optionally, refresh the dashboard or list view
-    this.render(true);
+    this.editingGraph = null;
+    this.setActiveTab("listGraph");
+    //this.render(true);
     // Launch D3GraphApp with pre-filled data
     //new D3GraphApp({ graph: newGraph, mode: "new" }).render(true);
   }
 
-  static async onOpenGraph(event, target) {
-    this._prepareTabs("primary")
+  static async graphEdit(event, target) {
+    log("graphEdit", event, target)
+    const graph = this.api.getGraph(event.target.dataset.id);
+    this.editingGraph = graph;
+    this.setActiveTab("creationGraph");
+    //this._prepareTabs("primary")
   }
 
-  static async graphEdit(event, target) {
+  static async onOpenGraph(event, target) {
     console.log(event)
     console.log(target)
     console.log(event.target.dataset.id)

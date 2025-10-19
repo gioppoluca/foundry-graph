@@ -86,11 +86,12 @@
     "id": "vampire-relations-map",
     "name": "Relations Map",
     "description": "Relations map of the party",
-    "background": "modules/foundry-graph/img/parchment.webp",
+    "background": "modules/foundry-graph/img/vampire-relation-chart.webp",
     "renderer": "force",
     "color": "#ff0000",
     "systems": [
-      "vtm5e"
+      "vtm5e",
+      "*"
     ],
     "relations": [
       {

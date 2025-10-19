@@ -1,5 +1,4 @@
 import { log } from "../constants.js";
-//import * as d3 from "../lib/d3.js";
 import { BaseRenderer } from "./base-renderer.js";
 const { DialogV2 } = foundry.applications.api;
 
@@ -10,47 +9,129 @@ export class ForceRenderer extends BaseRenderer {
     super()
     this._linkingMode = false;
     this._linkSourceNode = null;
-    //this.relationId = null;
     this.relation = null
+    this.graph = null;
+    this._svg = null;
+    this._simulation = null;
+  }
 
+  initializeGraphData() {
+    return {
+      nodes: [],
+      links: []
+    };
+  }
+
+  getGraphData() {
+    console.log("SIM nodes:", this._simulation.nodes());                     // canonical node objects
+    console.log("SIM links:", this._simulation.force("link").links());
+    const links = this._simulation.force("link").links();
+    const nodes = this._simulation.nodes();
+    return {
+      nodes: nodes.map(n => ({
+        id: n.id,
+        uuid: n.uuid,
+        label: n.label,
+        type: n.type,
+        img: n.img,
+        x: n.x,
+        y: n.y,
+        // Keep fx/fy to preserve user-dragged positions
+        fx: n.fx,
+        fy: n.fy
+      })),
+      links: links.map(l => ({
+        // CRITICAL FIX: Store only the ID of the source and target nodes
+        source: l.source.id,
+        target: l.target.id,
+        // --- copy other link properties ---
+        relationId: l.relationId,
+        label: l.label,
+        color: l.color,
+        style: l.style,
+        strokeWidth: l.strokeWidth
+      }))
+    };
+    /*
+    return {
+      nodes: this._simulation.nodes(),
+      links: this._simulation.force("link").links()
+    };
+    */
+  }
+
+  teardown() {
+    log("ForceRenderer.teardown");
+    if (this._simulation) {
+      this._simulation.stop();
+      this._simulation = null;
+    }
+    if (this._svg) {
+      // Remove all D3-attached listeners and elements
+      this._svg.on(".zoom", null);
+      this._svg.selectAll("*").interrupt().remove();
+      this._svg = null;
+    }
+    if (this.graph) {
+      this.graph = null;
+    }
+    this._linkingMode = false;
+    this._linkSourceNode = null;
+    this.relation = null
   }
 
   render(svg, graph, ctx) {
-    log("ForceRenderer.render", svg, graph, ctx);
-    svg
-      .attr("width", graph.width)
-      .attr("height", graph.height)
-      .attr("viewBox", `0 0 ${graph.width} ${graph.height}`)
+    if (!this.graph) this.graph = graph;
+    const renderGraph = this.graph;
+    log("ForceRenderer.render", svg, this.graph, ctx);
+    // --- teardown from a previous render ---
+    //if (this._simulation) { this._simulation.stop(); this._simulation = null; }
+    if (!this._svg) this._svg = svg;
+    log("ForceRenderer.render - svg", this._svg)
+    if (this._svg) {
+      this._svg.on(".zoom", null);                       // remove zoom listeners
+      this._svg.selectAll("*").interrupt().remove();     // clear old DOM + timers
+    }
+    this._svg
+      .attr("width", renderGraph.width)
+      .attr("height", renderGraph.height)
+      .attr("viewBox", `0 0 ${renderGraph.width} ${renderGraph.height}`)
       .call(d3.zoom().on("zoom", (event) => {
-        svg.select("g.zoom-layer").attr("transform", event.transform);
+        this._svg.select("g.zoom-layer").attr("transform", event.transform);
       }));
 
-    svg.selectAll("*").remove();
-
+    this._svg.selectAll("*").remove();
+    /*
+        this._viewport = svg.append("g").attr("class", "fgraph-viewport");
+        this._view = this._view ?? { k: 1, x: 0, y: 0 };
+        this._zoom = d3.zoom()
+          .scaleExtent([0.2, 4])
+          .translateExtent([[-1e5, -1e5], [1e5, 1e5]]) // generous pan extents
+          .on("zoom", (ev) => {
+            this._view = ev.transform;          // keep latest transform
+            this._viewport.attr("transform", ev.transform);
+          });
+    
+        svg
+          .call(this._zoom)
+          .call(this._zoom.transform, d3.zoomIdentity.translate(this._view.x, this._view.y).scale(this._view.k))
+          .on("dblclick.zoom", null); // optional: disable dbl-click zoom
+    */
     // Create a layer inside for zoom/pan
-    const zoomLayer = svg.append("g").classed("zoom-layer", true);
-    console.log("GIOPPO :META")
-    svg.append("image")
-      .attr("xlink:href", graph.background.image || "modules/foundry-graph/img/vampire.png")
+    const zoomLayer = this._svg.append("g").classed("zoom-layer", true);
+    zoomLayer.append("image")
+      .attr("xlink:href", renderGraph.background.image || "modules/foundry-graph/img/vampire.png")
       .attr("x", 0)
       .attr("y", 0)
-      .attr("width", graph.width)
-      .attr("height", graph.height);
+      .attr("width", renderGraph.width)
+      .attr("height", renderGraph.height);
 
+log("added background image")
 
-    const simulation = d3.forceSimulation(graph.data.nodes)
-      .force("link", d3.forceLink(graph.data.links).id(d => d.id).distance(200))
-      .force("charge", d3.forceManyBody().strength(-400))
-      .force("center", d3.forceCenter(400, 300))
-      .on("tick", ticked)
-      .on("end", () => {
-        simulation.stop(); // 🔴 stop simulation once nodes settle
-      });
-
-    const link = svg.append("g")
+    const link = zoomLayer.append("g")
       .attr("stroke-opacity", 0.8)
       .selectAll("line")
-      .data(graph.data.links)
+      .data(renderGraph.data.links, d => d.id)
       .join("line")
       .attr("stroke", d => d.color || "#000")  // fallback if color is missing
       .style("stroke-dasharray", d => {
@@ -60,23 +141,25 @@ export class ForceRenderer extends BaseRenderer {
       })
       .attr("stroke-width", d => d.strokeWidth || 2)
       .on("contextmenu", (event, d) => {
+        log("RIGHT CLICK LINK", d, event)
         event.preventDefault();
-        this._onRightClickLink(d, svg, graph);
+        this._onRightClickLink(d);
       });
 
-    const linkLabels = svg.append("g")
+    const linkLabels = zoomLayer.append("g")
       .attr("class", "link-labels")
       .selectAll("text")
-      .data(graph.data.links)
+      .data(renderGraph.data.links)
       .join("text")
       .attr("font-size", 12)
       .attr("fill", "#000")
       .attr("text-anchor", "middle")
       .text(d => d.label || d.type || "");
 
-    const node = svg.append("g")
+log("added link labels")
+    const node = zoomLayer.append("g")
       .selectAll("image")
-      .data(graph.data.nodes)
+      .data(renderGraph.data.nodes, d => d.id)
       .join("image")
       .attr("xlink:href", d => d.img)
       .attr("width", 64)
@@ -99,7 +182,7 @@ export class ForceRenderer extends BaseRenderer {
             const target = d;
 
             // Prevent self-links or duplicate links
-            const alreadyLinked = graph.data.links.some(l =>
+            const alreadyLinked = renderGraph.data.links.some(l =>
               (l.source.id === source.id && l.target.id === target.id) ||
               (l.source.id === target.id && l.target.id === source.id)
             );
@@ -110,7 +193,7 @@ export class ForceRenderer extends BaseRenderer {
                 ui.notifications.warn("Please select a valid relation type before creating the link.");
                 return;
               }
-              graph.data.links.push({
+              renderGraph.data.links.push({
                 source: source.id,
                 target: target.id,
                 relationId: relation.id,
@@ -119,7 +202,7 @@ export class ForceRenderer extends BaseRenderer {
                 style: relation.style,
                 strokeWidth: relation.strokeWidth
               });
-              this.render(svg, graph);
+              this.render();
               ui.notifications.info(`Linked ${source.label} → ${target.label} (${relation.label})`);
             } else {
               ui.notifications.warn("Invalid or duplicate link");
@@ -132,7 +215,7 @@ export class ForceRenderer extends BaseRenderer {
       })
       .on("contextmenu", (event, d) => {
         event.preventDefault(); // Prevent default browser context menu
-        this._onRightClickNode(d, svg, graph);
+        this._onRightClickNode(d);
       })
       .on("dblclick", (event, d) => {
         ui.notifications.info(`Double-clicked node: ${d.label}`);
@@ -145,33 +228,60 @@ export class ForceRenderer extends BaseRenderer {
         }
       });
 
-    const nodeLabels = svg.append("g")
+    const nodeLabels = zoomLayer.append("g")
       .attr("class", "node-labels")
       .selectAll("text")
-      .data(graph.data.nodes)
+      .data(renderGraph.data.nodes)
       .join("text")
       .attr("font-size", 12)
       .attr("fill", "#000")
       .attr("text-anchor", "middle")
       .text(d => d.label || d.id);
 
+log("added nodes and labels")
+
+    const simulation = d3.forceSimulation(renderGraph.data.nodes).stop();
+    const linkForce = d3.forceLink().id(d => d.id).distance(200); // set id accessor *before* links
+    simulation.force("link", linkForce);
+    simulation.force("charge", d3.forceManyBody().strength(-400));
+    simulation.force("center", d3.forceCenter(400, 300));
+    linkForce.links(renderGraph.data.links);
+    simulation.on("tick", ticked)
+      .on("end", () => {
+        simulation.stop(); // 🔴 stop simulation once nodes settle
+      });
+
+    /*
+        const simulation = d3.forceSimulation(graph.data.nodes)
+          .force("link", d3.forceLink(graph.data.links).id(d => d.id).distance(200))
+          .force("charge", d3.forceManyBody().strength(-400))
+          .force("center", d3.forceCenter(400, 300))
+          .on("tick", ticked)
+          .on("end", () => {
+            simulation.stop(); // 🔴 stop simulation once nodes settle
+          });
+    */
+    simulation.alpha(0.2).restart();
+    this._simulation = simulation;
+
+log("started simulation")
     function ticked() {
       link
-        .attr("x1", d => d.source.fx)
-        .attr("y1", d => d.source.fy)
-        .attr("x2", d => d.target.fx)
-        .attr("y2", d => d.target.fy);
+        .attr("x1", d => d.source.x)
+        .attr("y1", d => d.source.y)
+        .attr("x2", d => d.target.x)
+        .attr("y2", d => d.target.y);
 
       node
-        .attr("x", d => d.fx - 32)
-        .attr("y", d => d.fy - 32);
+        .attr("x", d => d.x - 32)
+        .attr("y", d => d.y - 32);
 
       linkLabels
-        .attr("x", d => (d.source.fx + d.target.fx) / 2)
-        .attr("y", d => (d.source.fy + d.target.fy) / 2);
+        .attr("x", d => (d.source.x + d.target.x) / 2)
+        .attr("y", d => (d.source.y + d.target.y) / 2);
       nodeLabels
-        .attr("x", d => d.fx)
-        .attr("y", d => d.fy + 42); // 32 (half icon) + 10 spacing
+        .attr("x", d => d.x)
+        .attr("y", d => d.y + 42); // 32 (half icon) + 10 spacing
     }
 
     function dragstarted(event, d) {
@@ -183,29 +293,35 @@ export class ForceRenderer extends BaseRenderer {
 
     function dragged(event, d) {
       console.log("DRAGGING", d);
-      d.fx = event.x;
-      d.fy = event.y;
+      d.x = d.fx = event.x;
+      d.y = d.fy = event.y;
     }
 
     function dragended(event, d) {
       console.log("DRAG END", d);
       if (!event.active) simulation.alphaTarget(0);
       // Do NOT nullify fx/fy — keep node fixed after drag
-      d.fx = event.x;
-      d.fy = event.y;
+      d.x = d.fx = event.x;
+      d.y = d.fy = event.y;
     }
+    log("ForceRenderer.render complete");
   }
 
 
   addNode(graph, { id, label, type, img, uuid, x, y }) {
-    graph.data.nodes.push({
+    log("ForceRenderer.addNode", graph, id, label, type, img, uuid, x, y);
+    this.graph.data.nodes.push({
       id: id,
       uuid: uuid,
       label: label,
       type: type,
       img: img,
+      x: x,
+      y: y,
       fx: x,
-      fy: y
+      fy: y,
+      vx: 0,
+      vy: 0
     });
 
   }
@@ -219,26 +335,27 @@ export class ForceRenderer extends BaseRenderer {
     this.relation = relation;
   }
 
-  async _onRightClickNode(nodeData, svg, graph) {
-    log("_onRightClickNode", nodeData, graph)
+  async _onRightClickNode(nodeData) {
+    log("_onRightClickNode", nodeData)
     const confirmed = await DialogV2.confirm({
       content: `Delete node "${nodeData.label || nodeData.id}"?`,
     })
     if (confirmed) {
       // Remove node and connected links
-      graph.data.nodes = graph.data.nodes.filter(n => n.id !== nodeData.id);
-      graph.data.links = graph.data.links.filter(l => l.source.id !== nodeData.id && l.target.id !== nodeData.id);
-      this.render(svg, graph); // Redraw
+      this.graph.data.nodes = this.graph.data.nodes.filter(n => n.id !== nodeData.id);
+      this.graph.data.links = this.graph.data.links.filter(l => l.source.id !== nodeData.id && l.target.id !== nodeData.id);
+      this.render(); // Redraw
     }
   }
 
-  async _onRightClickLink(linkData, svg, graph) {
+  async _onRightClickLink(linkData) {
+    log("_onRightClickLink", linkData)
     const confirmed = await DialogV2.confirm({
-      content: `Delete link from "${linkData.source.label || linkData.source.id}" to "${linkData.target.label || linkData.target.id}"?`,
+      content: `Delete link from "${linkData.source?.label || linkData.source?.id}" to "${linkData.target?.label || linkData.target?.id}"?`,
     })
     if (confirmed) {
-      graph.data.links = graph.data.links.filter(l => l !== linkData);
-      this.render(svg, graph); // Redraw
+      this.graph.data.links = this.graph.data.links.filter(l => l !== linkData);
+      this.render(); // Redraw
     }
   }
   /*

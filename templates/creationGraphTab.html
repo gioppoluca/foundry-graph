@@ -24,9 +24,13 @@
       <label for="graph-type-select">Select Graph Type:</label>
       <select id="graph-type-select" name="graphId">
         <option value="">--Please choose an option--</option>
+        {{selectOptions graphTypes selected=selectedGraphType valueAttr="id" labelAttr="name"}}
+        <!--
         {{#each graphTypes}}
-        <option value="{{id}}" title="{{description}}">{{name}}</option>
+        <option value="{{id}}" title="{{description}}" {{#if (eq id selectedGraphType)}}selected{{/if}}>{{name}}
+        </option>
         {{/each}}
+        -->
       </select>
     </div>
     <div class="form-fields">
@@ -47,11 +51,8 @@
     <br>
 
     <button id="create-graph-btn" data-action="onCreateGraph">
-      <i class="fa-light fa-hexagon-nodes-bolt"></i> Create Graph
+      <i class="fa-solid fa-square-pen"></i> Save Graph
     </button>
-    
-    <button id="create-graph-btn" data-action="onOpenGraph">
-      <i class="fa-solid fa-square-pen"></i> Add nodes and edges
-    </button>
+
   </div>
 </section>

@@ -17,7 +17,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     },
     classes: ["fgraph", "fgraph-form"],
     window: {
-      title:  "",//this.windowTitle,
+      title: "",//this.windowTitle,
       resizable: true,
     },
     dragDrop: [{ dragSelector: '[data-drag="true"]', dropSelector: '.drop-zone' }],
@@ -44,9 +44,12 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   constructor(options = {}) {
     super(options);
+    log("D3GraphApp.constructor options", options, this)
+    if (this.graph) log("graph already set", this.graph)
     this.api = game.modules.get(MODULE_ID)?.api;
-    this.graph = options.graph || {};
+    this.graph = foundry.utils.deepClone(options.graph || {});
     this.renderer = this.api.getRenderer(options.graph?.renderer);
+    if (this.renderer._svg) log("renderer already has svg", this.renderer._svg)
     log("D3GraphApp.constructor", options, this.renderer)
     this._svgWidth = options.graph.width || 800;
     this._svgHeight = options.graph.height || 600;
@@ -57,9 +60,12 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   async _onRender(context, options) {
-    this.element.querySelector("#d3-graph").addEventListener("drop", this._onDrop.bind(this));
+    let el = this.element.querySelector("#d3-graph")
+    const onDrop = this._onDrop.bind(this);
+    el.addEventListener("drop", onDrop);
     this._disposers ??= [];
     this._disposers.push(() => el.removeEventListener("drop", onDrop));
+    this._disposers.push(() => this.renderer.teardown());
     this._drawGraph(); // fresh
   }
 
@@ -67,25 +73,10 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     console.log("PREPARE CONTEXT", options);
     console.log(this._mode)
     if ((this._mode === "edit") || (this._mode === "view")) {
-      /*
-      const api = game.modules.get("foundry-graph").api;
-      const graph = await api.getGraph(this._graphId);
-      if (!graph) {
-        ui.notifications.warn("Graph not found.");
-        return;
-      }
-      console.log("EDIT GRAPH")
-      */
-      // now we have the graph but we need to get the graphtype to assign to _graphTypeMetadata
-      //const graphType = await api.getGraphTypeById(graph.graphType);
       this._graphName = this.graph.name;
       this._graphDescription = this.graph.desc;
       this._svgWidth = this.graph.width;
       this._svgHeight = this.graph.height;
-//      this._graphTypeMetadata = graphType || {}; // keep existing, fallback on graph.graphType?
-      // Restore nodes, links, and position info
-//      this._nodes = this.graph.nodes || [];
-//      this._links = this.graph.links || [];
 
     }
     return {
@@ -111,6 +102,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const rect = svg.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
+    log("Drop position:", x, y, rect);
 
     // Add new node
     const newId = crypto.randomUUID();
@@ -125,15 +117,15 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
           return;
         }
 
-        this.renderer.addNode(this.graph,{
-//        this._nodes.push({
+        this.renderer.addNode(this.graph, {
+          //        this._nodes.push({
           id: newId,
           uuid: data.uuid,
           label: actor.name,
           type: 'Actor',
           img: actor.img,
-          fx: x,
-          fy: y
+          x: x,
+          y: y
         });
 
         ui.notifications.info(`Added node for actor: ${actor.name}`);
@@ -146,15 +138,15 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
           return;
         }
 
-        this.renderer.addNode(this.graph,{
-//        this._nodes.push({
+        this.renderer.addNode(this.graph, {
+          //        this._nodes.push({
           id: newId,
           uuid: data.uuid,
           label: page.name,
           type: 'JournalEntryPage',
           img: "modules/foundry-graph/img/journal.png",
-          fx: x,
-          fy: y
+          x: x,
+          y: y
         });
         ui.notifications.info(`Added node for page: ${page.name}`);
         break;
@@ -166,8 +158,8 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
           return;
         }
 
-        this.renderer.addNode(this.graph,{
-//        this._nodes.push({
+        this.renderer.addNode(this.graph, {
+          //        this._nodes.push({
           id: newId,
           uuid: data.uuid,
           label: scene.name,
@@ -186,8 +178,8 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
           return;
         }
 
-        this.renderer.addNode(this.graph,{
-//        this._nodes.push({
+        this.renderer.addNode(this.graph, {
+          //        this._nodes.push({
           id: newId,
           uuid: data.uuid,
           label: item.name,
@@ -201,7 +193,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
       default:
         break;
-    
+
     }
     log(this.graph)
     this._drawGraph();
@@ -294,38 +286,11 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static async _saveGraph() {
     const api = game.modules.get("foundry-graph").api;
 
-    // here I will only update the data since the metadata is not managed by this form
-    //I have this.graph that hosts all the info thus
-    //this.graph.data = { nodes: this._nodes, links: this._links };
-    /*
-    const fullGraph = {
-      id: this._graphId,
-      name: this._graphName,
-      desc: this._graphDescription,
-      graphType: this._graphTypeMetadata.id,
-      width: this._svgWidth,
-      height: this._svgHeight,
-      nodes: this._nodes.map(n => ({
-        id: n.id,
-        label: n.label,
-        img: n.img,
-        uuid: n.uuid,
-        fx: n.fx,
-        fy: n.fy,
-        type: n.type || null
-      })),
-      links: this._links.map(l => ({
-        source: l.source.id || l.source,
-        target: l.target.id || l.target,
-        relationId: l.relationId,
-        label: l.label,
-        color: l.color,
-        style: l.style,
-        strokeWidth: l.strokeWidth
-      }))
-    };
-*/
+    const data = this.renderer.getGraphData()
+    log("D3GraphApp._saveGraph", data)
+    this.graph.data = data;
     await api.upsertGraph(this.graph);
+    this.renderer.teardown();
     ui.notifications.info("Graph saved via API");
     console.log(this)
     this.close()
@@ -333,212 +298,23 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
 
   async _drawGraph(data = null) {
-   // log("D3GraphApp._drawGraph", data)
+    // log("D3GraphApp._drawGraph", data)
     let svg = d3.select("#d3-graph");
     log("D3GraphApp._drawGraph", this.renderer, this.graph)
-    this.renderer.render(svg, this.graph )
-    /*
-      .attr("width", this._svgWidth)
-      .attr("height", this._svgHeight)
-      .attr("viewBox", `0 0 ${this._svgWidth} ${this._svgHeight}`)
-      .call(d3.zoom().on("zoom", (event) => {
-        svg.select("g.zoom-layer").attr("transform", event.transform);
-      }));
-
-    svg.selectAll("*").remove();
-
-    // Create a layer inside for zoom/pan
-    const zoomLayer = svg.append("g").classed("zoom-layer", true);
-    console.log("GIOPPO :META")
-    console.log(this._graphTypeMetadata)
-    svg.append("image")
-      .attr("xlink:href", this?._graphTypeMetadata?.background || "modules/foundry-graph/img/vampire.png")
-      .attr("x", 0)
-      .attr("y", 0)
-      .attr("width", 800)
-      .attr("height", 600);
-
-
-    const simulation = d3.forceSimulation(this._nodes)
-      .force("link", d3.forceLink(this._links).id(d => d.id).distance(200))
-      .force("charge", d3.forceManyBody().strength(-400))
-      .force("center", d3.forceCenter(400, 300))
-      .on("tick", ticked)
-      .on("end", () => {
-        simulation.stop(); // 🔴 stop simulation once nodes settle
-      });
-
-    const link = svg.append("g")
-      .attr("stroke-opacity", 0.8)
-      .selectAll("line")
-      .data(this._links)
-      .join("line")
-      .attr("stroke", d => d.color || "#000")  // fallback if color is missing
-      .style("stroke-dasharray", d => {
-        if (d.style === "dashed") return "4 4";
-        if (d.style === "dotted") return "2 4";
-        return "0";
-      })
-      .attr("stroke-width", d => d.strokeWidth || 2)
-      .on("contextmenu", (event, d) => {
-        event.preventDefault();
-        this._onRightClickLink(d);
-      });
-
-    const linkLabels = svg.append("g")
-      .attr("class", "link-labels")
-      .selectAll("text")
-      .data(this._links)
-      .join("text")
-      .attr("font-size", 12)
-      .attr("fill", "#000")
-      .attr("text-anchor", "middle")
-      .text(d => d.label || d.type || "");
-
-    const node = svg.append("g")
-      .selectAll("image")
-      .data(this._nodes)
-      .join("image")
-      .attr("xlink:href", d => d.img)
-      .attr("width", 64)
-      .attr("height", 64)
-      .attr("clip-path", "circle(32px at center)")
-      .call(
-        d3.drag()
-          .on("start", dragstarted)
-          .on("drag", dragged)
-          .on("end", dragended)
-      )
-      .on("click", async (event, d) => {
-        ui.notifications.info(`Clicked node: ${d.label}`);
-        if (this._linkingMode) {
-          if (!this._linkSourceNode) {
-            this._linkSourceNode = d;
-            ui.notifications.info(`Selected source node: ${d.label}`);
-          } else {
-            const source = this._linkSourceNode;
-            const target = d;
-
-            // Prevent self-links or duplicate links
-            const alreadyLinked = this._links.some(l =>
-              (l.source.id === source.id && l.target.id === target.id) ||
-              (l.source.id === target.id && l.target.id === source.id)
-            );
-            if (!alreadyLinked && source.id !== target.id) {
-              const relationId = this.element.querySelector("#relation-type")?.value || "";
-              const relation = this._graphTypeMetadata.relations.find(r => r.id === relationId);
-              if (!relation) {
-                ui.notifications.warn("Please select a valid relation type before creating the link.");
-                return;
-              }
-              this._links.push({
-                source: source.id,
-                target: target.id,
-                relationId: relation.id,
-                label: relation.label,
-                color: relation.color,
-                style: relation.style,
-                strokeWidth: relation.strokeWidth
-              });
-              this._drawGraph({ nodes: this._nodes, links: this._links });
-              ui.notifications.info(`Linked ${source.label} → ${target.label} (${relation.label})`);
-            } else {
-              ui.notifications.warn("Invalid or duplicate link");
-            }
-            this._linkSourceNode = null;
-          }
-        } else {
-          ui.notifications.info(`Clicked node: ${d.label}`);
-        }
-      })
-      .on("contextmenu", (event, d) => {
-        event.preventDefault(); // Prevent default browser context menu
-        this._onRightClickNode(d);
-      })
-      .on("dblclick", (event, d) => {
-        ui.notifications.info(`Double-clicked node: ${d.label}`);
-        // Example: open the actor sheet if the UUID is valid
-        if (d.uuid) {
-          fromUuid(d.uuid).then(doc => {
-            if (doc?.sheet) doc.sheet.render(true);
-            else ui.notifications.warn("No document found for UUID");
-          });
-        }
-      });
-
-    const nodeLabels = svg.append("g")
-      .attr("class", "node-labels")
-      .selectAll("text")
-      .data(this._nodes)
-      .join("text")
-      .attr("font-size", 12)
-      .attr("fill", "#000")
-      .attr("text-anchor", "middle")
-      .text(d => d.label || d.id);
-
-    function ticked() {
-      link
-        .attr("x1", d => d.source.fx)
-        .attr("y1", d => d.source.fy)
-        .attr("x2", d => d.target.fx)
-        .attr("y2", d => d.target.fy);
-
-      node
-        .attr("x", d => d.fx - 32)
-        .attr("y", d => d.fy - 32);
-
-      linkLabels
-        .attr("x", d => (d.source.fx + d.target.fx) / 2)
-        .attr("y", d => (d.source.fy + d.target.fy) / 2);
-      nodeLabels
-        .attr("x", d => d.fx)
-        .attr("y", d => d.fy + 42); // 32 (half icon) + 10 spacing
-    }
-
-    function dragstarted(event, d) {
-      console.log("DRAG START", d);
-      simulation.alphaTarget(0.3).restart();
-      d.fx = d.x;
-      d.fy = d.y;
-    }
-
-    function dragged(event, d) {
-      console.log("DRAGGING", d);
-      d.fx = event.x;
-      d.fy = event.y;
-    }
-
-    function dragended(event, d) {
-      console.log("DRAG END", d);
-      if (!event.active) simulation.alphaTarget(0);
-      // Do NOT nullify fx/fy — keep node fixed after drag
-      d.fx = event.x;
-      d.fy = event.y;
-    }
-      */
+    this.renderer.render(svg, this.graph)
   }
 
-  /*
-  async _onRightClickNode(nodeData) {
-    const confirmed = await DialogV2.confirm({
-      content: `Delete node "${nodeData.label || nodeData.id}"?`,
-    })
-    if (confirmed) {
-      // Remove node and connected links
-      this._nodes = this._nodes.filter(n => n.id !== nodeData.id);
-      this._links = this._links.filter(l => l.source.id !== nodeData.id && l.target.id !== nodeData.id);
-      this._drawGraph(); // Redraw
-    }
+  async _onClose(options) {
+    log("D3GraphApp._onClose | Running disposers");
+
+    // 1. Execute all registered cleanup functions.
+    this._disposers?.forEach(d => d());
+
+    // 2. Clear the disposers array.
+    this._disposers = [];
+
+    // 3. Call the parent class's _onClose method.
+    await super._onClose(options);
   }
 
-  async _onRightClickLink(linkData) {
-    const confirmed = await DialogV2.confirm({
-      content: `Delete link from "${linkData.source.label || linkData.source.id}" to "${linkData.target.label || linkData.target.id}"?`,
-    })
-    if (confirmed) {
-      this._links = this._links.filter(l => l !== linkData);
-      this._drawGraph(); // Redraw
-    }
-  }
-  */
 }

@@ -164,6 +164,17 @@ export class GraphApi {
     }
 
     async upsertGraph(graph) {
+        // here we must initialize data attribure is the graph is just created, thus empty
+        log("GraphApi.upsertGraph", graph)
+        if (!graph.data) {
+            log("GraphApi.upsertGraph initializing data for graph", graph.id, graph.graphType)
+            // must ask the proper renderer to initialize the data, so we get the type of the graph and get the renderer of the type
+            const renderer = this.getRenderer(this.graphTypes[graph.graphType].renderer);
+            log("GraphApi.upsertGraph got renderer", renderer)
+            if (renderer) {
+                graph.data = renderer.initializeGraphData();
+            }
+        }
         this._graphMap.set(graph.id, graph);
         await this.saveGraphs();
     }

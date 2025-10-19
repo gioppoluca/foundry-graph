@@ -30,7 +30,6 @@ export class GraphBuilder {
                 [userId]: foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
             },
             relations: JSON_graph_types[graphType]?.relations || [],
-            data: { }
         };
     }
 
