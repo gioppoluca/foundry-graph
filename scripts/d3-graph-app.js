@@ -1,5 +1,4 @@
 import { log, MODULE_ID } from './constants.js';
-//import {getRenderer} from './renderers/index.js';
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -50,6 +49,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.graph = foundry.utils.deepClone(options.graph || {});
     this.renderer = this.api.getRenderer(options.graph?.renderer);
     if (this.renderer._svg) log("renderer already has svg", this.renderer._svg)
+    // just once we remove fix the window accordingly to the need of the renderer
     log("D3GraphApp.constructor", options, this.renderer)
     this._svgWidth = options.graph.width || 800;
     this._svgHeight = options.graph.height || 600;
@@ -61,10 +61,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   async _onRender(context, options) {
     let el = this.element.querySelector("#d3-graph")
-    const onDrop = this._onDrop.bind(this);
-    el.addEventListener("drop", onDrop);
     this._disposers ??= [];
-    this._disposers.push(() => el.removeEventListener("drop", onDrop));
     this._disposers.push(() => this.renderer.teardown());
     this._drawGraph(); // fresh
   }
@@ -72,6 +69,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   async _prepareContext(options) {
     console.log("PREPARE CONTEXT", options);
     console.log(this._mode)
+
     if ((this._mode === "edit") || (this._mode === "view")) {
       this._graphName = this.graph.name;
       this._graphDescription = this.graph.desc;
@@ -84,120 +82,6 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       relations: this.graph?.relations || [],
       isEdit: this._mode === "edit" || this._mode === "new",
     };
-  }
-
-
-  async _onDrop(event) {
-    console.log("_onDrop")
-    // in view no drop
-    if (this._mode === "view") {
-      ui.notifications.warn("Cannot drop nodes in view mode");
-      return;
-    }
-    console.log(event)
-    const data = TextEditor.getDragEventData(event);
-    console.log(data)
-    // Get mouse position relative to SVG
-    const svg = this.element.querySelector("#d3-graph");
-    const rect = svg.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    log("Drop position:", x, y, rect);
-
-    // Add new node
-    const newId = crypto.randomUUID();
-
-    // Handle different data types
-    switch (data.type) {
-      // write your cases
-      case "Actor":
-        const actor = await fromUuid(data.uuid);
-        if (!actor) {
-          ui.notifications.warn("Could not find actor");
-          return;
-        }
-
-        this.renderer.addNode(this.graph, {
-          //        this._nodes.push({
-          id: newId,
-          uuid: data.uuid,
-          label: actor.name,
-          type: 'Actor',
-          img: actor.img,
-          x: x,
-          y: y
-        });
-
-        ui.notifications.info(`Added node for actor: ${actor.name}`);
-        break;
-      case 'JournalEntryPage':
-        const page = await fromUuid(data.uuid);
-        console.log(page)
-        if (!page) {
-          ui.notifications.warn("Could not find page");
-          return;
-        }
-
-        this.renderer.addNode(this.graph, {
-          //        this._nodes.push({
-          id: newId,
-          uuid: data.uuid,
-          label: page.name,
-          type: 'JournalEntryPage',
-          img: "modules/foundry-graph/img/journal.png",
-          x: x,
-          y: y
-        });
-        ui.notifications.info(`Added node for page: ${page.name}`);
-        break;
-      case 'Scene':
-        const scene = await fromUuid(data.uuid);
-        console.log(scene)
-        if (!scene) {
-          ui.notifications.warn("Could not find scene");
-          return;
-        }
-
-        this.renderer.addNode(this.graph, {
-          //        this._nodes.push({
-          id: newId,
-          uuid: data.uuid,
-          label: scene.name,
-          type: 'Scene',
-          img: "modules/foundry-graph/img/mappin.png",
-          fx: x,
-          fy: y
-        });
-        ui.notifications.info(`Added node for scene: ${scene.name}`);
-        break;
-      case 'Item':
-        const item = await fromUuid(data.uuid);
-        console.log(item)
-        if (!item) {
-          ui.notifications.warn("Could not find item");
-          return;
-        }
-
-        this.renderer.addNode(this.graph, {
-          //        this._nodes.push({
-          id: newId,
-          uuid: data.uuid,
-          label: item.name,
-          type: 'Actor',
-          img: item.img,
-          fx: x,
-          fy: y
-        });
-        ui.notifications.info(`Added node for item: ${item.name}`);
-        break;
-
-      default:
-        break;
-
-    }
-    log(this.graph)
-    this._drawGraph();
-
   }
 
   static toggleLinkingMode(e) {

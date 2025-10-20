@@ -2,12 +2,9 @@ import { GraphBuilder } from "./model/graph_builder.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
-
-import GraphFormV2 from "./graph_form_v2.js";
 import { D3GraphApp } from "./d3-graph-app.js";
 import { GraphPermissionsDialog } from "./graph-permissions-dialog.js";
 import { log } from "./constants.js";
-
 
 export default class GraphDashboardV2 extends HandlebarsApplicationMixin(ApplicationV2) {
 
@@ -43,7 +40,6 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     tabs: {
       // Foundry-provided generic template
       template: 'templates/generic/tab-navigation.hbs',
-      // classes: ['sysclass'], // Optionally add extra classes to the part for extra customization
     },
     creationGraph: {
       template: "modules/foundry-graph/templates/creationGraphTab.html",
@@ -177,21 +173,6 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       }
     }).build();
 
-    /*
-const graphData = {
-  id: id,
-  name: name,
-  desc: desc,
-  width: isNaN(width) ? 800 : width,
-  height: isNaN(height) ? 600 : height,
-  graphTypeMetadata: metadata,  // Includes color, background, relations, etc.
-  mode: "new",
-  permissions: {
-    default: foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE,
-    [game.userId]: foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
-  }
-};
-*/
     log("newGraph", newGraph)
     // Save the new graph
     await this.api.upsertGraph(newGraph);
@@ -199,9 +180,6 @@ const graphData = {
     // Optionally, refresh the dashboard or list view
     this.editingGraph = null;
     this.setActiveTab("listGraph");
-    //this.render(true);
-    // Launch D3GraphApp with pre-filled data
-    //new D3GraphApp({ graph: newGraph, mode: "new" }).render(true);
   }
 
   static async graphEdit(event, target) {
@@ -209,7 +187,6 @@ const graphData = {
     const graph = this.api.getGraph(event.target.dataset.id);
     this.editingGraph = graph;
     this.setActiveTab("creationGraph");
-    //this._prepareTabs("primary")
   }
 
   static async onOpenGraph(event, target) {

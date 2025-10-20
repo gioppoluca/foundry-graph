@@ -617,8 +617,8 @@
     "id": "genealogy-map",
     "name": "Genealogy Map",
     "description": "Maps out familial, bloodline, or ancestral relationships between individuals or creatures — from mortal dynasties to vampiric sires and mythic progenitors.",
-    "background": "modules/foundry-graph/img/family-tree.png",
-    "renderer": "force",
+    "background": "modules/foundry-graph/img/tree.webp",
+    "renderer": "tree",
     "width": 1200,
     "height": 800,
     "systems": [
@@ -626,8 +626,8 @@
     ],
     "relations": [
       {
-        "id": "parent-of",
-        "label": "Parent Of",
+        "id": "father-of",
+        "label": "Father Of",
         "color": "#1f77b4",
         "style": "solid",
         "strokeWidth": 2

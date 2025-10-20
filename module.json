@@ -24,7 +24,8 @@
   "scripts": [
     "scripts/lib/lib.js",
     "scripts/lib/FileSaver.min.js",
-    "scripts/lib/d3.js"
+    "scripts/lib/d3.js",
+    "scripts/lib/family-chart.min.js"
   ],
   "styles": [
     "styles/module.css"

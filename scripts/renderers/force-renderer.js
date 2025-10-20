@@ -69,6 +69,7 @@ export class ForceRenderer extends BaseRenderer {
     if (this._svg) {
       // Remove all D3-attached listeners and elements
       this._svg.on(".zoom", null);
+      this._detachDropHandlers(this._svg.node());
       this._svg.selectAll("*").interrupt().remove();
       this._svg = null;
     }
@@ -80,13 +81,29 @@ export class ForceRenderer extends BaseRenderer {
     this.relation = null
   }
 
+  setWindow() {
+    log("ForceRenderer.setWindow");
+    const familyChartDiv = document.querySelector("#FamilyChart");
+    if (familyChartDiv) {
+      log("Removing existing FamilyChart div before rendering ForceRenderer");
+      familyChartDiv.style.display = "none";
+    }
+  }
+
   render(svg, graph, ctx) {
     if (!this.graph) this.graph = graph;
     const renderGraph = this.graph;
     log("ForceRenderer.render", svg, this.graph, ctx);
+    this.setWindow();
+    // Ensure only one set of handlers at a time
     // --- teardown from a previous render ---
     //if (this._simulation) { this._simulation.stop(); this._simulation = null; }
     if (!this._svg) this._svg = svg;
+    let el = document.querySelector("#d3-graph")
+    this._detachDropHandlers(el);
+
+    // Attach new drop handler
+    this._attachDropHandlers(el, this._onDrop.bind(this));
     log("ForceRenderer.render - svg", this._svg)
     if (this._svg) {
       this._svg.on(".zoom", null);                       // remove zoom listeners
@@ -101,22 +118,6 @@ export class ForceRenderer extends BaseRenderer {
       }));
 
     this._svg.selectAll("*").remove();
-    /*
-        this._viewport = svg.append("g").attr("class", "fgraph-viewport");
-        this._view = this._view ?? { k: 1, x: 0, y: 0 };
-        this._zoom = d3.zoom()
-          .scaleExtent([0.2, 4])
-          .translateExtent([[-1e5, -1e5], [1e5, 1e5]]) // generous pan extents
-          .on("zoom", (ev) => {
-            this._view = ev.transform;          // keep latest transform
-            this._viewport.attr("transform", ev.transform);
-          });
-    
-        svg
-          .call(this._zoom)
-          .call(this._zoom.transform, d3.zoomIdentity.translate(this._view.x, this._view.y).scale(this._view.k))
-          .on("dblclick.zoom", null); // optional: disable dbl-click zoom
-    */
     // Create a layer inside for zoom/pan
     const zoomLayer = this._svg.append("g").classed("zoom-layer", true);
     zoomLayer.append("image")
@@ -126,7 +127,7 @@ export class ForceRenderer extends BaseRenderer {
       .attr("width", renderGraph.width)
       .attr("height", renderGraph.height);
 
-log("added background image")
+    log("added background image")
 
     const link = zoomLayer.append("g")
       .attr("stroke-opacity", 0.8)
@@ -156,7 +157,7 @@ log("added background image")
       .attr("text-anchor", "middle")
       .text(d => d.label || d.type || "");
 
-log("added link labels")
+    log("added link labels")
     const node = zoomLayer.append("g")
       .selectAll("image")
       .data(renderGraph.data.nodes, d => d.id)
@@ -187,7 +188,6 @@ log("added link labels")
               (l.source.id === target.id && l.target.id === source.id)
             );
             if (!alreadyLinked && source.id !== target.id) {
-              //const relationId = this.relationId
               const relation = this.relation
               if (!relation) {
                 ui.notifications.warn("Please select a valid relation type before creating the link.");
@@ -238,7 +238,7 @@ log("added link labels")
       .attr("text-anchor", "middle")
       .text(d => d.label || d.id);
 
-log("added nodes and labels")
+    log("added nodes and labels")
 
     const simulation = d3.forceSimulation(renderGraph.data.nodes).stop();
     const linkForce = d3.forceLink().id(d => d.id).distance(200); // set id accessor *before* links
@@ -251,20 +251,10 @@ log("added nodes and labels")
         simulation.stop(); // 🔴 stop simulation once nodes settle
       });
 
-    /*
-        const simulation = d3.forceSimulation(graph.data.nodes)
-          .force("link", d3.forceLink(graph.data.links).id(d => d.id).distance(200))
-          .force("charge", d3.forceManyBody().strength(-400))
-          .force("center", d3.forceCenter(400, 300))
-          .on("tick", ticked)
-          .on("end", () => {
-            simulation.stop(); // 🔴 stop simulation once nodes settle
-          });
-    */
     simulation.alpha(0.2).restart();
     this._simulation = simulation;
 
-log("started simulation")
+    log("started simulation")
     function ticked() {
       link
         .attr("x1", d => d.source.x)
@@ -331,7 +321,6 @@ log("started simulation")
   }
 
   setRelationData(relation) {
-    //this.relationId = relationId;
     this.relation = relation;
   }
 
@@ -358,22 +347,28 @@ log("started simulation")
       this.render(); // Redraw
     }
   }
-  /*
+
   async _onDrop(event) {
     console.log("_onDrop")
     // in view no drop
-    if (this._mode === "view") {
-      ui.notifications.warn("Cannot drop nodes in view mode");
-      return;
-    }
+    //    if (this._mode === "view") {
+    //      ui.notifications.warn("Cannot drop nodes in view mode");
+    //      return;
+    //    }
     console.log(event)
     const data = TextEditor.getDragEventData(event);
     console.log(data)
     // Get mouse position relative to SVG
-    const svg = this.element.querySelector("#d3-graph");
-    const rect = svg.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    // 2) Compute SVG coords (correct under zoom/pan)
+    const svgEl = this._svg.node();
+    const pt = svgEl.createSVGPoint();
+    pt.x = event.clientX;
+    pt.y = event.clientY;
+    const svgPt = pt.matrixTransform(svgEl.getScreenCTM().inverse());
+    const x = svgPt.x;
+    const y = svgPt.y;
+
+    log("Drop position:", x, y);
 
     // Add new node
     const newId = crypto.randomUUID();
@@ -388,14 +383,14 @@ log("started simulation")
           return;
         }
 
-        this._nodes.push({
+        this.addNode(this.graph, {
           id: newId,
           uuid: data.uuid,
           label: actor.name,
           type: 'Actor',
           img: actor.img,
-          fx: x,
-          fy: y
+          x: x,
+          y: y
         });
 
         ui.notifications.info(`Added node for actor: ${actor.name}`);
@@ -408,14 +403,14 @@ log("started simulation")
           return;
         }
 
-        this._nodes.push({
+        this.addNode(this.graph, {
           id: newId,
           uuid: data.uuid,
           label: page.name,
           type: 'JournalEntryPage',
           img: "modules/foundry-graph/img/journal.png",
-          fx: x,
-          fy: y
+          x: x,
+          y: y
         });
         ui.notifications.info(`Added node for page: ${page.name}`);
         break;
@@ -427,7 +422,7 @@ log("started simulation")
           return;
         }
 
-        this._nodes.push({
+        this.addNode(this.graph, {
           id: newId,
           uuid: data.uuid,
           label: scene.name,
@@ -446,7 +441,7 @@ log("started simulation")
           return;
         }
 
-        this._nodes.push({
+        this.addNode(this.graph, {
           id: newId,
           uuid: data.uuid,
           label: item.name,
@@ -460,9 +455,11 @@ log("started simulation")
 
       default:
         break;
+
     }
-    this._drawGraph({ nodes: this._nodes, links: this._links });
+    log(this.graph)
+    this.render();
 
   }
-*/
+
 }
