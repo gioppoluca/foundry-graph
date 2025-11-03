@@ -186,7 +186,11 @@ export class ForceRenderer extends BaseRenderer {
         return "0";
       })
       .attr("stroke-width", d => d.strokeWidth || 2)
-      .attr("marker-end", "url(#fg-arrow)")
+      .attr("marker-end", d => {
+        const noArrow = d.noArrow === true || d.noArrow === "true";
+        console.log("LINK noArrow:", noArrow, d);
+        return noArrow ? null : "url(#fg-arrow)";
+      })
       .on("contextmenu", (event, d) => {
         log("RIGHT CLICK LINK", d, event)
         event.preventDefault();
@@ -247,6 +251,7 @@ export class ForceRenderer extends BaseRenderer {
                 label: relation.label,
                 color: relation.color,
                 style: relation.style,
+                noArrow: relation?.noArrow || false,
                 strokeWidth: relation.strokeWidth
               });
               this.render();
