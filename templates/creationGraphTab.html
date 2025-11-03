@@ -7,8 +7,8 @@
     <label for="graph-name">{{ localize 'FvttGraph.GraphForm.GraphName' }}</label>
     <div class="form-fields">
       <input class="droppable" data-drag="true" type="text" id="graph-name" value="{{ graph.name }}"
-        data-id="{{ graph.name }}" data-action="onChangeGraphName" data-dtype="String" {{#if edit }}{{#if graph.id }}
-        readonly="true" {{/if}}{{/if}} required="true">
+        data-id="{{ graph.name }}" data-action="onChangeGraphName" data-dtype="String" {{#if graph.id }} readonly="true"
+        {{/if}} required="true">
     </div>
     <div class="form-fields">
       <label for="graph-id">{{ localize 'FvttGraph.GraphForm.GraphId' }}</label>
@@ -22,7 +22,7 @@
     </div>
     <div class="graph-select-wrapper">
       <label for="graph-type-select">Select Graph Type:</label>
-      <select id="graph-type-select" name="graphId">
+      <select id="graph-type-select" name="graphId" {{#if graph.id}} disabled {{/if}}>
         <option value="">--Please choose an option--</option>
         {{selectOptions graphTypes selected=selectedGraphType valueAttr="id" labelAttr="name"}}
         <!--
@@ -35,11 +35,13 @@
     </div>
     <div class="form-fields">
       <label for="graph-width">Width (px):</label>
-      <input type="number" id="graph-width" value="{{graph.background.width}}" min="100" />
+      <input type="number" id="graph-width" value="{{graph.background.width}}" min="100" {{#if
+        graph.id}}readonly{{/if}} />
     </div>
     <div class="form-fields">
       <label for="graph-height">Height (px):</label>
-      <input type="number" id="graph-height" value="{{graph.background.height}}" min="100" />
+      <input type="number" id="graph-height" value="{{graph.background.height}}" min="100" {{#if
+        graph.id}}readonly{{/if}} />
     </div>
     <label for="graph-background">Background Image:</label>
     <file-picker id="graph-background" name="graph-background" type="image" value="{{graph.background.image}} "
@@ -50,8 +52,11 @@
     <span class="file-picker-info">Supported formats: PNG, JPG, GIF</span>
     <br>
 
-    <button id="create-graph-btn" data-action="onCreateGraph">
+    <button id="create-graph-btn" type="button"  data-action="onCreateGraph">
       <i class="fa-solid fa-square-pen"></i> Save Graph
+    </button>
+    <button id="cancel-graph-btn" type="button" data-action="onCancelCreate">
+      <i class="fa-solid fa-ban"></i> Cancel
     </button>
 
   </div>

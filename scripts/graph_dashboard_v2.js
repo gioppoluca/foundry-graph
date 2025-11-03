@@ -18,8 +18,10 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     log("GraphDashboardV2.constructor", options)
     super(options);
     this.api = options;
-    this.currentGraph = null
-    this.activeTab = options.activeTab ?? GraphDashboardV2.DEFAULT_ACTIVE_TAB;
+    //    this.currentGraph = null
+//    this.activeTab = options.activeTab ?? GraphDashboardV2.DEFAULT_ACTIVE_TAB;
+    this.tabGroups ??= {};
+    this.tabGroups.primary ??= options.activeTab ?? GraphDashboardV2.DEFAULT_ACTIVE_TAB;
     this.editingGraph = null;
   }
 
@@ -70,7 +72,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       onOpenGraph: GraphDashboardV2.onOpenGraph,
       graphEdit: GraphDashboardV2.graphEdit,
       graphDelete: GraphDashboardV2.graphDelete,
-      graphPerms: GraphDashboardV2.graphPerms
+      graphPerms: GraphDashboardV2.graphPerms,
+      onCancelCreate: GraphDashboardV2.onCancelCreate
     }
   };
 
@@ -87,7 +90,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   _prepareTabs(group) {
     const { tabs, labelPrefix, initial = null } = this._getTabsConfig(group) ?? { tabs: [] };
     this.tabGroups[group] ??= initial;
-    const activeId = this.activeTab;
+    const activeId = this.tabGroups[group];
+    //const activeId = this.activeTab;
     return tabs.reduce((prepared, { id, cssClass, ...tabConfig }) => {
       //const active = this.tabGroups[group] === id;
       const active = id === activeId;
@@ -100,9 +104,13 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   }
 
   /** Programmatically switch tabs (optionally re-render). */
-  setActiveTab(tabId, { render = true } = {}) {
+  //setActiveTab(tabId, { render = true } = {}) {
+  setActiveTab(tabId, { group = "primary", render = true } = {}) {
+
+    log("GraphDashboardV2.setActiveTab", tabId, render)
     if (!GraphDashboardV2.ALLOWED_TABS.includes(tabId)) return;
-    this.activeTab = tabId;
+    //this.activeTab = tabId;
+    this.tabGroups[group] = tabId;
     if (render && this.rendered) this.render(false);
   }
 
@@ -144,6 +152,24 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     };
   }
 
+
+  static blankGraph() {
+    return {
+      id: "",
+      name: "",
+      desc: "",
+      graphType: "",
+      background: { image: "", width: "", height: "" }
+    };
+  }
+
+  /** Cancel from Create tab: wipe form state and go back to list */
+  static onCancelCreate(event, target) {
+    // Clear any edit mode and reset inputs defensively
+    this.editingGraph = null;
+    //this._clearCreateForm();
+    this.setActiveTab("listGraph");
+  }
 
   static async onCreateGraph(event, target) {
     const type = this.element.querySelector("#graph-type-select").value?.trim();
@@ -309,5 +335,12 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     if (graphTypeSelect) {
       graphTypeSelect.addEventListener("change", (e) => this._onGraphTypeChange(e));
     }
+    this.updateButtonState();
+  }
+
+  async _onClose(options) {
+    this.editingGraph = null;
+    this.activeTab = GraphDashboardV2.DEFAULT_ACTIVE_TAB;
+    await super._onClose(options);
   }
 }
