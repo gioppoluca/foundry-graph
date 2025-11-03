@@ -120,12 +120,20 @@ export class ForceRenderer extends BaseRenderer {
     this._svg.selectAll("*").remove();
     // Create a layer inside for zoom/pan
     const zoomLayer = this._svg.append("g").classed("zoom-layer", true);
+// --- START: Background Image Update ---
+    const bgWidth = renderGraph.background.width || renderGraph.width;
+    const bgHeight = renderGraph.background.height || renderGraph.height;
+//    const bgX = (renderGraph.width - bgWidth) / 2;
+//    const bgY = (renderGraph.height - bgHeight) / 2;
+
     zoomLayer.append("image")
       .attr("xlink:href", renderGraph.background.image || "modules/foundry-graph/img/vampire.png")
       .attr("x", 0)
       .attr("y", 0)
-      .attr("width", renderGraph.width)
-      .attr("height", renderGraph.height);
+//      .attr("width", renderGraph.width)
+//      .attr("height", renderGraph.height);
+      .attr("width", bgWidth)
+      .attr("height", bgHeight);
 
     log("added background image")
 

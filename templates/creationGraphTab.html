@@ -35,17 +35,17 @@
     </div>
     <div class="form-fields">
       <label for="graph-width">Width (px):</label>
-      <input type="number" id="graph-width" value="800" min="100" />
+      <input type="number" id="graph-width" value="{{graph.background.width}}" min="100" />
     </div>
     <div class="form-fields">
       <label for="graph-height">Height (px):</label>
-      <input type="number" id="graph-height" value="600" min="100" />
+      <input type="number" id="graph-height" value="{{graph.background.height}}" min="100" />
     </div>
     <label for="graph-background">Background Image:</label>
-    <file-picker id="graph-background" name="graph-background" type="image" value="{{graph.backgroundImage}} "
+    <file-picker id="graph-background" name="graph-background" type="image" value="{{graph.background.image}} "
       data-tooltip="foundry-graph.gdh.tooltip.background" data-action="onChangeGraphBackground">
       <span class="file-picker-label">Select Background Image</span>
-      <span class="file-picker-value">{{graph.backgroundImage}}</span>
+      <span class="file-picker-value">{{graph.background.image}}</span>
     </file-picker>
     <span class="file-picker-info">Supported formats: PNG, JPG, GIF</span>
     <br>

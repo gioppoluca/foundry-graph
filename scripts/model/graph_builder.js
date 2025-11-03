@@ -8,7 +8,7 @@ export class GraphBuilder {
         graphType = "character-map",
         width = 800,
         height = 600,
-        background = { image: "", color: "#000000", opacity: 1.0, fit: "contain" },
+        background = { },
         relations = [],
         userId = game.userId,
     } = {}) {
@@ -20,6 +20,8 @@ export class GraphBuilder {
             width, height,
             background: {
                 image: JSON_graph_types[graphType]?.background,
+                width: JSON_graph_types[graphType]?.background?.width || width,
+                height: JSON_graph_types[graphType]?.background?.height || height,
                 color: "#000000",
                 opacity: 1.0, 
                 fit: "contain", 

@@ -158,18 +158,33 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     const height = this.element.querySelector("#graph-height").value?.trim();
     const backgroundImagePath = this.element.querySelector("#graph-background").value?.trim();
 
-    const bkImage = backgroundImagePath || metadata.background;
-    log(metadata  )
+    //const bkImage = backgroundImagePath || metadata.background.image;
+    const metadataBg = metadata.background;
+    let finalBgImg = backgroundImagePath || metadataBg?.image;
+    let finalBgWidth, finalBgHeight;
+
+    if (backgroundImagePath && backgroundImagePath !== metadataBg?.image) {
+      // User picked a new image. Assume the width/height are for the image.
+      finalBgWidth = width;
+      finalBgHeight = height;
+    } else {
+      // User is using the default. Use the metadata dimensions.
+      finalBgWidth = metadataBg?.width || width;
+      finalBgHeight = metadataBg?.height || height;
+    }
+    log(metadata)
 
     let newGraph = new GraphBuilder({
       id: id,
       name: name,
       desc: desc,
       graphType: type,
-      width: isNaN(width) ? 800 : width,
-      height: isNaN(height) ? 600 : height,
+      //      width: isNaN(width) ? 800 : width,
+      //      height: isNaN(height) ? 600 : height,
       background: {
-        image: bkImage
+        image: finalBgImg,
+        width: Number(finalBgWidth) || Number(width) || 800,
+        height: Number(finalBgHeight) || Number(height) || 600
       }
     }).build();
 
@@ -222,14 +237,6 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     const g = this.api.getGraph(graphId);
     new GraphPermissionsDialog({ graphId, permissions: g.permissions }).render(true);
   }
-  /*
-    _onEditGraph() {
-      const select = this.element.querySelector("#graph-select");
-      if (!select?.value) return ui.notifications.warn("Select a graph first");
-      //new GraphForm(this.api, { graphId: select.value }).render(true);
-      new GraphFormV2(this.api, { graphId }).render(true);
-    }
-  */
 
   _onPrintGraph() {
     const svgEl = this.element.querySelector("svg#graph-svg");
@@ -258,6 +265,29 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   /*  Rendering                                                               */
   /* ------------------------------------------------------------------------ */
 
+  /** Added to auto-fill form on graph type selection */
+  _onGraphTypeChange(event) {
+    // Only autofill if we are in "new graph" mode (no editingGraph)
+    if (this.editingGraph) return;
+
+    const typeId = event.target.value;
+    const metadata = this._graphTypes?.find(g => g.id === typeId);
+    if (!metadata || !metadata.background) return;
+
+    const widthInput = this.element.querySelector("#graph-width");
+    const heightInput = this.element.querySelector("#graph-height");
+    const bgInput = this.element.querySelector("#graph-background"); // FilePicker
+
+    if (metadata.background.width && widthInput) widthInput.value = metadata.background.width;
+    if (metadata.background.height && heightInput) heightInput.value = metadata.background.height;
+    if (metadata.background.image && bgInput) {
+      bgInput.value = metadata.background.image;
+      const valueDisplay = bgInput.querySelector(".file-picker-value");
+      if (valueDisplay) valueDisplay.textContent = metadata.background.image;
+    }
+    this.updateButtonState(); // Make sure save button updates
+  }
+
   /** Called after the HTML is rendered */
   _onRender() {
     const graphName = this.element.querySelector('#graph-name')
@@ -274,5 +304,10 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       this.element.querySelector('#graph-id').value = new_id
       this.updateButtonState();
     })
+    // Add listener for graph type dropdown
+    const graphTypeSelect = this.element.querySelector('#graph-type-select');
+    if (graphTypeSelect) {
+      graphTypeSelect.addEventListener("change", (e) => this._onGraphTypeChange(e));
+    }
   }
 }
