@@ -10,6 +10,7 @@
     },
     "renderer": "force",
     "color": "#ff0000",
+    "nodeLabelColor": "#000000",
     "systems": [
       "*"
     ],
@@ -97,6 +98,7 @@
     },
     "renderer": "force",
     "color": "#ff0000",
+    "nodeLabelColor": "#ffffff",
     "systems": [
       "vtm5e",
       "*"
@@ -227,6 +229,7 @@
     },
     "renderer": "force",
     "color": "#2e86c1",
+    "nodeLabelColor": "#000000",
     "width": 1200,
     "height": 800,
     "systems": [
@@ -295,6 +298,7 @@
     },
     "renderer": "force",
     "color": "#aa0000",
+    "nodeLabelColor": "#000000",
     "width": 1200,
     "height": 900,
     "systems": [
@@ -384,6 +388,7 @@
     },
     "renderer": "force",
     "color": "#3366cc",
+    "nodeLabelColor": "#000000",
     "width": 1000,
     "height": 800,
     "systems": [
@@ -473,6 +478,7 @@
     },
     "renderer": "force",
     "color": "#3366cc",
+    "nodeLabelColor": "#000000",
     "width": 1000,
     "height": 800,
     "systems": [
@@ -527,6 +533,7 @@
     },
     "renderer": "force",
     "color": "#3366cc",
+    "nodeLabelColor": "#000000",
     "width": 1000,
     "height": 800,
     "systems": [
@@ -588,6 +595,7 @@
     },
     "renderer": "force",
     "color": "#3366cc",
+    "nodeLabelColor": "#000000",
     "width": 1000,
     "height": 800,
     "systems": [
@@ -657,6 +665,8 @@
     "renderer": "tree",
     "width": 1200,
     "height": 800,
+    "color": "#3366cc",
+    "nodeLabelColor": "#000000",
     "systems": [
       "*"
     ],
