@@ -19,7 +19,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     super(options);
     this.api = options;
     //    this.currentGraph = null
-//    this.activeTab = options.activeTab ?? GraphDashboardV2.DEFAULT_ACTIVE_TAB;
+    //    this.activeTab = options.activeTab ?? GraphDashboardV2.DEFAULT_ACTIVE_TAB;
     this.tabGroups ??= {};
     this.tabGroups.primary ??= options.activeTab ?? GraphDashboardV2.DEFAULT_ACTIVE_TAB;
     this.editingGraph = null;
@@ -138,7 +138,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       log("editingGraph", this.editingGraph)
     }
     log(this.editingGraph?.graphType)
-
+    
     return {
       title: this.title,
       version: this.api.version,

@@ -16,13 +16,17 @@
       <tbody>
         {{#each graphs}}
         <tr data-graph-id="{{this.id}}">
-          <td>{{this.name}}</td>
+          <td style="color: {{ this.color }}">{{this.name}}</td>
           <td>{{this.desc}}</td>
           <td class="flexrow">
-            <button type="button" class="icon fa-solid fa-pencil" data-tooltip="foundry-graph.gdh.tooltip.edit" data-action="graphEdit" data-id="{{this.id}}" ></button>
-            <button type="button" class="icon fa-light fa-hexagon-nodes-bolt" data-tooltip="foundry-graph.gdh.tooltip.edit" data-action="onOpenGraph" data-id="{{this.id}}" ></button>
-            <button type="button" class="icon fa-solid fa-trash" data-tooltip="foundry-graph.gdh.tooltip.delete" data-action="graphDelete" data-id="{{this.id}}"></button>
-            <button type="button" class="icon fa-solid fa-user-lock" data-tooltip="foundry-graph.gdh.tooltip.image" data-action="graphPerms" data-id="{{this.id}}"></button>
+            <button type="button" class="icon fa-solid fa-pencil" data-tooltip="foundry-graph.gdh.tooltip.edit"
+              data-action="graphEdit" data-id="{{this.id}}"></button>
+            <button type="button" class="icon fa-light fa-hexagon-nodes-bolt"
+              data-tooltip="foundry-graph.gdh.tooltip.edit" data-action="onOpenGraph" data-id="{{this.id}}"></button>
+            <button type="button" class="icon fa-solid fa-trash" data-tooltip="foundry-graph.gdh.tooltip.delete"
+              data-action="graphDelete" data-id="{{this.id}}"></button>
+            <button type="button" class="icon fa-solid fa-user-lock" data-tooltip="foundry-graph.gdh.tooltip.image"
+              data-action="graphPerms" data-id="{{this.id}}"></button>
           </td>
         </tr>
         {{/each}}
