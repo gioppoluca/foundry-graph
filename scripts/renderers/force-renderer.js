@@ -120,22 +120,59 @@ export class ForceRenderer extends BaseRenderer {
     this._svg.selectAll("*").remove();
     // Create a layer inside for zoom/pan
     const zoomLayer = this._svg.append("g").classed("zoom-layer", true);
-// --- START: Background Image Update ---
+    // --- START: Background Image Update ---
     const bgWidth = renderGraph.background.width || renderGraph.width;
     const bgHeight = renderGraph.background.height || renderGraph.height;
-//    const bgX = (renderGraph.width - bgWidth) / 2;
-//    const bgY = (renderGraph.height - bgHeight) / 2;
+    //    const bgX = (renderGraph.width - bgWidth) / 2;
+    //    const bgY = (renderGraph.height - bgHeight) / 2;
 
     zoomLayer.append("image")
       .attr("xlink:href", renderGraph.background.image || "modules/foundry-graph/img/vampire.png")
       .attr("x", 0)
       .attr("y", 0)
-//      .attr("width", renderGraph.width)
-//      .attr("height", renderGraph.height);
+      //      .attr("width", renderGraph.width)
+      //      .attr("height", renderGraph.height);
       .attr("width", bgWidth)
       .attr("height", bgHeight);
 
     log("added background image")
+
+    const defs = this._svg.append("defs");
+    defs.append("marker")
+      .attr("id", "fg-arrow")
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 30)           // tweak if you want more/less offset on the target
+      .attr("refY", 0)
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("d", "M0,-5L10,0L0,5")
+      .attr("fill", "context-stroke");  // ← inherits the line’s stroke color
+
+    const shadow = defs.append("filter")
+      .attr("id", "link-label-shadow")
+      .attr("filterUnits", "objectBoundingBox")
+      // expand the box around the text (fractions, not %)
+      .attr("x", -0.5)
+      .attr("y", -0.5)
+      .attr("width", 2)
+      .attr("height", 2);
+
+    shadow.append("feGaussianBlur")
+      .attr("in", "SourceAlpha")
+      .attr("stdDeviation", 1.5)
+      .attr("result", "blur");
+
+    shadow.append("feOffset")
+      .attr("in", "blur")
+      .attr("dx", 1)
+      .attr("dy", 1)
+      .attr("result", "offsetBlur");
+
+    const merge = shadow.append("feMerge");
+    merge.append("feMergeNode").attr("in", "offsetBlur");
+    merge.append("feMergeNode").attr("in", "SourceGraphic");
 
     const link = zoomLayer.append("g")
       .attr("stroke-opacity", 0.8)
@@ -149,6 +186,7 @@ export class ForceRenderer extends BaseRenderer {
         return "0";
       })
       .attr("stroke-width", d => d.strokeWidth || 2)
+      .attr("marker-end", "url(#fg-arrow)")
       .on("contextmenu", (event, d) => {
         log("RIGHT CLICK LINK", d, event)
         event.preventDefault();
@@ -161,8 +199,9 @@ export class ForceRenderer extends BaseRenderer {
       .data(renderGraph.data.links)
       .join("text")
       .attr("font-size", 12)
-      .attr("fill", "#000")
+      .attr("fill", d => d.color || "#000")
       .attr("text-anchor", "middle")
+      .attr("filter", "url(#link-label-shadow)")
       .text(d => d.label || d.type || "");
 
     log("added link labels")
@@ -242,7 +281,7 @@ export class ForceRenderer extends BaseRenderer {
       .data(renderGraph.data.nodes)
       .join("text")
       .attr("font-size", 12)
-      .attr("fill", "#000")
+      .attr("fill", renderGraph?.nodeLabelColor || "#000")
       .attr("text-anchor", "middle")
       .text(d => d.label || d.id);
 

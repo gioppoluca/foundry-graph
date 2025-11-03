@@ -8,6 +8,8 @@ export class GraphBuilder {
         graphType = "character-map",
         width = 800,
         height = 600,
+        color = "#ffffff",
+        nodeLabelColor = "#000000",
         background = { },
         relations = [],
         userId = game.userId,
@@ -18,6 +20,8 @@ export class GraphBuilder {
             graphType,
             renderer: JSON_graph_types[graphType]?.renderer || "force",
             width, height,
+            color: JSON_graph_types[graphType]?.color || color,
+            nodeLabelColor: JSON_graph_types[graphType]?.nodeLabelColor || nodeLabelColor,
             background: {
                 image: JSON_graph_types[graphType]?.background,
                 width: JSON_graph_types[graphType]?.background?.width || width,
