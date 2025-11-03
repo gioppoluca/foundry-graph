@@ -1,7 +1,5 @@
 import { MODULE_ID,  setDebugFlag, log } from './constants.js';
 import { GraphApi } from "./graph_api.js";
-//import GraphDashboardV2 from "./graph_dashboard_v2.js"
-//import { D3GraphApp } from './d3-graph-app.js';
 
 
 Hooks.once('init', async function () {

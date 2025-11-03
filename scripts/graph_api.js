@@ -1,6 +1,5 @@
 import GraphDashboardV2 from "./graph_dashboard_v2.js"
 import { log, MODULE_ID, JSON_graph_types } from './constants.js';
-//import { ForceGraphType } from './graph_types/force.js';
 import { ForceRenderer } from "./renderers/force-renderer.js";
 import { TreeRenderer } from "./renderers/tree-renderer.js";
 
@@ -131,17 +130,6 @@ export class GraphApi {
     getAccessibleGraphs(user = game.user) {
         return Array.from(this._graphMap.values()).filter(g => this.canOpen(g, user));
     }
-
-
-    /** Demo JSON from data/demo-nodes-links.json */
-    getDemoData() {
-        return this.defaults.demoData;
-    }
-
-    getDefaultRelations() {
-        return this.defaults.defaultRelations;
-    }
-
 
     async updateGraphPermissions(graphId, newPerms) {
         const g = this.getGraph(graphId);
