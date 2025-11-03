@@ -88,8 +88,8 @@
   },
   "vampire-relations-map": {
     "id": "vampire-relations-map",
-    "name": "Relations Map",
-    "description": "Relations map of the party",
+    "name": "Relationship Map",
+    "description": "Relationship map of the coterie and connections of vampires in a Vampire: The Masquerade game.",
     "background": {
       "image": "modules/foundry-graph/img/vampire-relation-chart.webp",
       "width": 2500,
