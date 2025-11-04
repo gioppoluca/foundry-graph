@@ -228,7 +228,7 @@
       "width": 2500,
       "height": 1667
     },
-    "renderer": "force",
+    "renderer": "genealogy",
     "color": "#454500",
     "nodeLabelColor": "#000000",
     "width": 1200,

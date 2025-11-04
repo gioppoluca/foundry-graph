@@ -926,3 +926,36 @@ svg image {
   margin-top: 5px;
   margin-bottom: 5px;
 }
+
+
+.person {
+    stroke: steelblue;
+    stroke-width: 3px;
+}
+
+.extendable {
+    fill: lightsteelblue;
+}
+
+.non-extendable {
+    fill: #fff;
+}
+
+.node-label {
+    font: 12px sans-serif;
+}
+
+.link {
+    fill: none;
+    stroke: #ccc;
+    stroke-width: 2px;
+}
+
+.tooltip {
+    position: absolute;
+    font: 12px sans-serif;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    border-radius: 5px;
+}

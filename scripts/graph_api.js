@@ -2,6 +2,7 @@ import GraphDashboardV2 from "./graph_dashboard_v2.js"
 import { log, MODULE_ID, JSON_graph_types } from './constants.js';
 import { ForceRenderer } from "./renderers/force-renderer.js";
 import { TreeRenderer } from "./renderers/tree-renderer.js";
+import { GenealogyRenderer } from "./renderers/genealogy-renderer.js";
 
 
 const LEVELS = foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS; // { NONE:0, LIMITED:1, OBSERVER:2, OWNER:3 }
@@ -64,7 +65,8 @@ export class GraphApi {
 
         this.registryRenderers = new Map([
             [ForceRenderer.ID, new ForceRenderer()],
-            [TreeRenderer.ID, new TreeRenderer()]
+            [TreeRenderer.ID, new TreeRenderer()],
+            [GenealogyRenderer.ID, new GenealogyRenderer()]
         ]);
 
         log("GraphApi.constructor", this.graphTypes)
