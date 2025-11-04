@@ -13,6 +13,9 @@ export class TreeRenderer extends BaseRenderer {
     this._linkingMode = false;
     this._linkSourceNode = null;
     this.relation = null
+    this.search_input = null
+    this.dropdown = null
+    this.all_select_options = []
   }
 
   initializeGraphData() {
@@ -43,25 +46,6 @@ export class TreeRenderer extends BaseRenderer {
 
 
     log(f3)
-    /*
-    this.data = [
-      {
-        "id": "1",
-        "data": { "first name": "John", "last name": "Doe", "birthday": "1980", "gender": "M" },
-        "rels": { "spouses": ["2"], "children": ["3"] }
-      },
-      {
-        "id": "2",
-        "data": { "first name": "Jane", "last name": "Doe", "birthday": "1982", "gender": "F" },
-        "rels": { "spouses": ["1"], "children": ["3"] }
-      },
-      {
-        "id": "3",
-        "data": { "first name": "Bob", "last name": "Doe", "birthday": "2005", "gender": "M" },
-        "rels": { "father": "1", "mother": "2" }
-      }
-    ]
-      */
     this.data = graph.data;
     log(this.data)
     this.f3Chart = f3.createChart('#FamilyChart', this.data)
@@ -74,20 +58,36 @@ export class TreeRenderer extends BaseRenderer {
     log(this.f3Chart)
 
     // prevent recenter on click
-    this.f3Chart.onCardClick = (datum /*, event */) => {
+    this.f3Chart.onCardClick = (datum/*, event*/) => {
       log("Card clicked:", datum);
+      //log("Event:", event);
       // Option A: keep selection UI, but DO NOT change main id
       // f3Chart.updateMainId(datum.id);   // <-- do NOT call this
 
       // Option B: if you do change main id, inherit the current view instead of recentering:
       // f3Chart.updateMainId(datum.id);
-      this.f3Chart.updateTree({ initial: false, tree_position: "inherit" })
+      this.f3Chart.updateTree({ initial: true, tree_position: "inherit" })
         .setAncestryDepth(5)
     };
     this.f3Chart.setCardHtml()
+      .setCardDisplay([["first name", "last name"], []])
+      .setOnCardClick((e, d) => {
+        log("Card clicked:", e, d);
+      });
+    /*
+    let f3Card = this.f3Chart.setCardHtml()
       .setCardDisplay([["first name", "last name"], ["birthday"]])
-
+      
+    const f3EditTree = this.f3Chart.editTree()
+      .setFields(["first name", "last name", "birthday"])
+      .setEditFirst(true)  // true = open form on click, false = open info in click
+      .setCardClickOpen(f3Card)
+*/
     this.f3Chart.updateTree({ initial: true, tree_position: "fit" });
+    //    f3EditTree.open(this.f3Chart.getMainDatum())
+    this.f3Chart.updateTree({ initial: true })
+
+
     const elHtml = document.querySelector("#FamilyChart #f3Canvas");  // present in many f3 builds
     log("elHtml", elHtml);
     //    [elSvg, elHtml, elRoot].forEach(el => {
@@ -97,7 +97,122 @@ export class TreeRenderer extends BaseRenderer {
       this._attachDropHandlers(el, this._onDrop.bind(this));
     });
 
+
+    const f3Card = this.f3Chart.setCardHtml()
+      .setOnCardUpdate(function (d) {
+        if (d.data._new_rel_data) return
+
+        d3.select(this).select('.card').style('cursor', 'default')
+        const card = this.querySelector('.card-inner')
+        d3.select(card)
+          .append('div')
+          .attr('class', 'f3-svg-circle-hover')
+          .attr('style', 'cursor: pointer; width: 20px; height: 20px;position: absolute; top: 0; right: 0;')
+          .html(f3.icons.userEditSvgIcon())
+          .select('svg')
+          .style('padding', '0')
+          .on('click', (e) => {
+            e.stopPropagation()
+            log("edit click", d, e)
+            /*
+            f3EditTree.open(d.data)
+            if (f3EditTree.isAddingRelative()) return
+            if (f3EditTree.isRemovingRelative()) return
+            */
+            f3Card.onCardClickDefault(e, d)
+          })
+        d3.select(card)
+          .append('div')
+          .attr('class', 'f3-svg-circle-hover')
+          .attr('style', 'cursor: pointer; width: 20px; height: 20px;position: absolute; top: 0; right: 23px;')
+          .html(f3.icons.trashIcon())
+          .select('svg')
+          .style('padding', '0')
+          .on('click', (e) => {
+            e.stopPropagation()
+            log("delete", d, e)
+            log("f3", f3  )
+            /*
+            if (f3EditTree.isAddingRelative()) {
+              if (f3Chart.store.getMainDatum().id === d.data.id) {
+                f3EditTree.addRelativeInstance.onCancel()
+              } else {
+                f3EditTree.addRelativeInstance.onCancel()
+                f3EditTree.open(d.data)
+                f3Card.onCardClickDefault(e, d)
+                document.querySelector('.f3-add-relative-btn').click()
+              }
+            } else {
+              f3EditTree.open(d.data)
+              f3Card.onCardClickDefault(e, d)
+              document.querySelector('.f3-add-relative-btn').click()
+            }
+              */
+          })
+      })
+
+    this.f3Chart.updateTree({ initial: true })
+    // setup search dropdown
+    this.all_select_options = []
+    this.data.forEach(d => {
+      if (this.all_select_options.find(d0 => d0.value === d["id"])) return
+      this.all_select_options.push({ label: `${d.data["first name"]}`, value: d["id"] })
+    })
+    log("all_select_options", this.all_select_options)
+    this.search_cont = d3.select(document.querySelector("#FamilyChart")).append("div")
+      .attr("style", "position: absolute; top: 10px; left: 10px; width: 150px; z-index: 1000;")
+      .on("focusout", () => {
+        setTimeout(() => {
+          if (!this.search_cont.node().contains(document.activeElement)) {
+            this.updateDropdown([]);
+          }
+        }, 200);
+      })
+    log("search_cont", this.search_cont)
+    this.search_input = this.search_cont.append("input")
+      .attr("id", "tree-search-input")
+      .attr("style", "width: 100%;")
+      .attr("type", "text")
+      .attr("placeholder", "Search")
+      .on("focus", this.activateDropdown.bind(this))
+      .on("input", this.activateDropdown.bind(this))
+    log("this.search_input", this.search_input)
+    this.dropdown = this.search_cont.append("div").attr("style", "overflow-y: auto; max-height: 300px; background-color: #000;")
+      .attr("tabindex", "0")
+      .on("wheel", (e) => {
+        e.stopPropagation()
+      })
+
   }
+
+
+  activateDropdown() {
+    log("activateDropdown")
+    log("this.search_input", this.search_input)
+    let si = d3.select(document.querySelector("#tree-search-input"))
+    log("si", si)
+    log("this", this)
+    log("this.all_select_options", this.all_select_options)
+    const search_input_value = si.property("value")
+    const filtered_options = this.all_select_options.filter(d => d.label.toLowerCase().includes(search_input_value.toLowerCase()))
+    this.updateDropdown(filtered_options)
+  }
+
+  updateDropdown(filtered_options) {
+    this.dropdown.selectAll("div").data(filtered_options).join("div")
+      .attr("style", "padding: 5px;cursor: pointer;border-bottom: .5px solid currentColor;")
+      .on("click", (e, d) => {
+        this.updateTreeWithNewMainPerson(d.value, true)
+      })
+      .text(d => d.label)
+  }
+
+  // with person_id this function will update the tree
+  updateTreeWithNewMainPerson(person_id, animation_initial = true) {
+    this.f3Chart.updateMainId(person_id)
+    this.f3Chart.updateTree({ initial: animation_initial })
+  }
+
 
   addNode(graph, { id, label, type, img, uuid, x, y }) {
   }
@@ -121,7 +236,7 @@ export class TreeRenderer extends BaseRenderer {
     const data = TextEditor.getDragEventData(event);
     const newId = crypto.randomUUID();
     log("Drop data:", data);
-    let nodeLabel = "Node", nodeImg = "", nodeType = data.type, dropped;
+    let nodeLabel = "Node", nodeImg = "", nodeType = data.type, dropped, nodeGender = "";
 
     try { dropped = await fromUuid(data.uuid); } catch { }
     log("Dropped entity:", dropped);
@@ -131,7 +246,11 @@ export class TreeRenderer extends BaseRenderer {
     }
     switch (data.type) {
       case "Actor":
-        nodeLabel = dropped.name; nodeImg = dropped.img || ""; break;
+        nodeLabel = dropped.name;
+        nodeImg = dropped.img || "";
+        nodeGender = dropped.system.details?.gender || "";
+        log("Actor", dropped, nodeGender);
+        break;
       case "Scene":
         nodeLabel = dropped.name; nodeImg = "modules/foundry-graph/img/mappin.png"; break;
       case "Item":
@@ -147,25 +266,35 @@ export class TreeRenderer extends BaseRenderer {
     const idx = this.data.findIndex(el => el.id === md.id);
     log("Main datum:", md);
     let newNode = null;
+    newNode = {
+      id: newId,
+      "data": { "first name": nodeLabel, "last name": "", "birthday": "", "gender": "", "avatar": nodeImg },
+      "rels": {
+        "spouses": [],
+        "children": []
+      }
+    };
     switch (this.relation.id) {
       case "father-of":
       case "parent-of":
-        newNode = {
-          id: newId,
-          "data": { "first name": nodeLabel, "last name": "", "birthday": "", "gender": "", "avatar": nodeImg },
-          "rels": {
-            "father": `${md.id}`,
-            "spouses": [],
-            "children": []
-          }
-        };
+        newNode.rels.father = md.id;
         if (this.data[idx].rels.children) {
           this.data[idx].rels.children.push(newId);
         } else {
           this.data[idx].rels = { children: [newId] }
         }
         break;
+      case 'child-of':
+        newNode.rels.children = [md.id];
+        switch (nodeGender) {
+          case "F":
 
+            break;
+
+          default:
+            md.rels.father = newId;
+            break;
+        }
       default:
         break;
     }
