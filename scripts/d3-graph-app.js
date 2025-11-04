@@ -12,7 +12,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     id: "fgraph-form",
     position: {
       width: 600,
-      height: 600
+      height: 700
     },
     classes: ["fgraph", "fgraph-form"],
     window: {
@@ -48,7 +48,9 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.api = game.modules.get(MODULE_ID)?.api;
     this.graph = foundry.utils.deepClone(options.graph || {});
     this.renderer = this.api.getRenderer(options.graph?.renderer);
-    if (this.renderer._svg) log("renderer already has svg", this.renderer._svg)
+    log("D3GraphApp.constructor renderer", this.renderer)
+//    if (this.renderer._svg) 
+//      log("renderer already has svg", this.renderer._svg)
     // just once we remove fix the window accordingly to the need of the renderer
     log("D3GraphApp.constructor", options, this.renderer)
     this._svgWidth = options.graph.width || 800;
