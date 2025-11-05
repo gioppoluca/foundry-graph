@@ -653,5 +653,46 @@
         "strokeWidth": 2
       }
     ]
+  },
+  "genealogy-tree": {
+    "id": "genealogy-tree",
+    "name": "Genealogy Tree",
+    "description": "Maps out familial, bloodline, or ancestral relationships between individuals or creatures — from mortal dynasties to vampiric sires and mythic progenitors.",
+    "background": {
+      "image": "modules/foundry-graph/img/tree.webp",
+      "width": 2500,
+      "height": 1667
+    },
+    "renderer": "genealogy",
+    "width": 1200,
+    "height": 800,
+    "color": "#226633",
+    "nodeLabelColor": "#000000",
+    "systems": [
+      "*"
+    ],
+    "relations": [
+      {
+        "id": "child-of",
+        "label": "Child Of",
+        "color": "#1f77b4",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "parent-of",
+        "label": "Parent Of",
+        "color": "#1f77b4",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "spouse-of",
+        "label": "Spouse Of",
+        "color": "#d62728",
+        "style": "solid",
+        "strokeWidth": 3
+      }
+    ]
   }
 }

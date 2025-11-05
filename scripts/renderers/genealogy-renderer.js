@@ -12,6 +12,27 @@ export class GenealogyRenderer extends BaseRenderer {
     this.relation = null
     this.graph = null;
     this._svg = null;
+    this.opts = {
+      nodeClickFunction: (node, ft) => {
+        console.log("nodeClickFunction")
+        if (this._linkingMode) {
+          log("Linking mode active");
+          //          if (!this._linkSourceNode) {
+          log("Setting source node for linking:", node);
+          this._linkSourceNode = node;
+          ui.notifications.info(`Selected source node: ${node.data.name}`);
+          return
+          //        } else {
+          //      }
+        }
+        log("Node clicked:", node, ft);
+        ft.nodeClickHandler(node);
+
+        //        node.click()
+        //return;
+      },
+    }
+    this.selectedNode = null;
 
   }
 
@@ -74,7 +95,6 @@ export class GenealogyRenderer extends BaseRenderer {
     this._linkingMode = false;
     this._linkSourceNode = null;
     this.relation = null
-
   }
 
   setWindow() {
@@ -136,8 +156,8 @@ export class GenealogyRenderer extends BaseRenderer {
       const container = document.getElementById('FamilyChartInnerSVG');
       log("container:", container);
 
-
-      this.familytree = new FT.FamilyTree(this.graph.data, container);
+      log("this.opts:", this.opts)
+      this.familytree = new FT.FamilyTree(this.graph.data, container, this.opts);
       log("FT:", this.familytree)
     }
 
@@ -149,18 +169,98 @@ export class GenealogyRenderer extends BaseRenderer {
     log("GenealogyRenderer.addNode", graph, id, label, type, img, uuid, x, y);
     if (graph.data.start) {
       // already initialized
+      if (!this._linkSourceNode) {
+        ui.notifications.warn("Please activate linking mode and select a source node before adding a new node.");
+        return;
+      }
+      // we look if the existing node has a family
+      let familyId = null;
+      if (this._linkSourceNode.data.ownFamily) {
+        familyId = this._linkSourceNode.data.ownFamily;
+        log("Source node has family:", familyId);
+      } else {
+        log("Source node has no family.");
+        familyId = crypto.randomUUID();
+        // now we must update the parent node to have this family
+        this.familytree.addPerson({
+          id: this._linkSourceNode.data.id,
+          name: this._linkSourceNode.data.name,
+          ownFamily: familyId,
+          parentFamily: this._linkSourceNode.data.parentFamily
+        });
+      }
+      log("Adding person to existing familytree", this._linkSourceNode);
+
+      log("this.relation:", this.relation);
+      switch (this.relation.id) {
+        case "child-of":
+          // since the existing node is the parent the child has not a family of its own yet
+          this.familytree.addPerson({ id: uuid, name: label, parentFamily: familyId });
+          // add the union of the parents if not already existing (should overwrite it in any case)
+          this.familytree.addUnion({ id: familyId });
+          // before the link from the source to union - again should overwrite if already present
+          this.familytree.addLink(this._linkSourceNode.data.id, familyId);
+          // then the link from union to new node [child]
+          this.familytree.addLink(familyId, uuid);
+
+          break;
+        case "parent-of":
+          // since the existing node is the child and I'm adding a parent we must create a new family 
+          // for the new parent unless the child already has a parentFamily field
+          let parentFamilyId = null;
+          if (this._linkSourceNode.data.parentFamily) {
+            parentFamilyId = this._linkSourceNode.data.parentFamily;
+            log("Source node has parent family:", parentFamilyId);
+          } else {
+            parentFamilyId = crypto.randomUUID();
+            // now we must update the child node to have this parentFamily
+            this.familytree.addPerson({
+              id: this._linkSourceNode.data.id,
+              name: this._linkSourceNode.data.name,
+              parentFamily: parentFamilyId,
+              ownFamily: this._linkSourceNode.data.ownFamily
+            });
+            // also we must add the union and link it to the child
+            this.familytree.addUnion({ id: parentFamilyId });
+            this.familytree.addLink(parentFamilyId, this._linkSourceNode.data.id);
+          }
+          // add the new parent
+          this.familytree.addPerson({ id: uuid, name: label, ownFamily: parentFamilyId });
+          // add the link of the parent
+          this.familytree.addLink(uuid, parentFamilyId);
+
+          break;
+        case "spouse-of":
+          // since we are adding a spouse we assign it to the existing family of the existing spouse
+          this.familytree.addPerson({ id: uuid, name: label, ownFamily: familyId });
+          // add the union of the parents if not already existing (should overwrite it in any case)
+          this.familytree.addUnion({ id: familyId });
+          // before the link from the source to union - again should overwrite if already present
+          this.familytree.addLink(this._linkSourceNode.data.id, familyId);
+          // then the link from new node [spouse] to union
+          this.familytree.addLink(uuid, familyId);
+          break;
+        default:
+          break;
+      }
+      // here we must manage the type of relation but for now we assume child
+      // reset linking mode
+      this._linkSourceNode = null;
+      this._linkingMode = false;
+
     } else {
       // first node
       this.graph.data = {
-        "start": id,
-        "persons": { [id]: { name: label } },
+        "start": uuid,
+        "persons": { [uuid]: { name: label } },
         "unions": {},
         "links": []
       }
       log("initialize familytree", this.graph.data, this._svg)
       const container = document.getElementById('FamilyChartInnerSVG');
       log("container:", container);
-      this.familytree = new FT.FamilyTree(this.graph.data, container);
+      log("this.opts:", this.opts)
+      this.familytree = new FT.FamilyTree(this.graph.data, container, this.opts);
     }
     /*
     this.graph.data.nodes.push({
@@ -216,6 +316,17 @@ export class GenealogyRenderer extends BaseRenderer {
     console.log(event)
     const data = TextEditor.getDragEventData(event);
     console.log(data)
+    log("this.graph:", this.graph)
+    const hasStart =
+      typeof this.graph?.data?.start === "string" &&
+      this.graph.data.start.trim() !== "";
+    log("hasStart:", hasStart)
+    log("this._linkSourceNode:", this._linkSourceNode)
+    log("!this._linkSourceNode:", !this._linkSourceNode)
+    if (hasStart && !this._linkSourceNode) {
+      ui.notifications.warn("Please select one node before linking or activate linking mode.");
+      return
+    }
     // Get mouse position relative to SVG
     // 2) Compute SVG coords (correct under zoom/pan)
     const svgEl = this._svg.node();
