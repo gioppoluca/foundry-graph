@@ -23,25 +23,35 @@
     "FvttGraph.GraphForm.GraphTabNodeSource": "Source resource",
     "FvttGraph.GraphForm.GraphTabNodeRelation": "Relation",
     "FvttGraph.GraphForm.GraphTabNodeTarget": "Target resource",
-    "foundry-graph.creationGraphTab": "Create Graph",
-    "foundry-graph.listGraphTab": "Graph List",
     "foundry-graph.gdh.tooltip.edit": "Edit Graph",
     "foundry-graph.gdh.tooltip.delete": "Delete Graph",
     "foundry-graph.gdh.tooltip.image": "Export Graph as image",
     "foundry-graph.toolclip.header": "Graph Management",
     "foundry-graph": {
+        "Tabs": {
+            "creationGraph": "Create Graph",
+            "listGraph": "Graph List"
+        },
         "Manager": {
             "ControlTitle": "Graphs Management",
             "ControlManage": "Graphs Management"
         },
         "Window": {
             "DashboardTitle": "Graphs",
-            "GraphTitle": "Graph"
+            "GraphTitle": "Graph",
+            "ViewOnlyMode": "View-only mode"
+        },
+        "List": {
+            "SavedGraphs": "Saved Graphs",
+            "Name": "Name",
+            "Description": "Description",
+            "Actions": "Actions"
         },
         "Buttons": {
-            "ExportSvg": "Export SVG",
+            "ExportSvg": "Export Graph",
             "LinkNodes": "Link Nodes",
             "Save": "Save",
+            "CancelLinking": "Cancel Linking",
             "CreateGraph": "Create Graph"
         },
         "Labels": {
@@ -53,7 +63,14 @@
             "DeleteLink": "Delete link from \"{source}\" to \"{target}\"?"
         },
         "Errors": {
-            "SaveError": "Error while saving the graph."
+            "SaveError": "Error while saving the graph.",
+            "ExportFailed": "Export failed. See console for details."
+        },
+        "Notifications": {
+            "LinkingOn": "Linking mode ON",
+            "LinkingOff": "Linking mode OFF",
+            "ExportFinished": "Export finished.",
+            "GraphSaved": "Graph saved."
         }
     }
 }

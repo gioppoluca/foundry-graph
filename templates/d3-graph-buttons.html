@@ -1,5 +1,4 @@
 <div class="graph-controls">
-  <button data-action="exportAction" id="export-btn">🖼 Export SVG</button>
   <div class="flexrow">
     <button type="button" data-action="linkNodes" class="graph-btn">Link Nodes</button>
     <label for="relation-type">Relation Type:</label>
@@ -11,5 +10,10 @@
       {{/each}}
     </select>
   </div>
-  <button data-action="saveAction" id="save-btn" {{#unless isEdit}}disabled title="View‑only mode"{{/unless}} >💾 Save</button>
+  <div class="flexrow">
+    <button data-action="exportAction" id="export-btn">🖼 {{localize "foundry-graph.Buttons.ExportSvg"}}</button>
+    <button data-action="saveAction" id="save-btn" {{#unless isEdit}}disabled
+      title='{{localize "foundry-graph.Window.ViewOnlyMode"}}' {{/unless}}>💾 {{localize
+      "foundry-graph.Buttons.Save"}}</button>
+  </div>
 </div>

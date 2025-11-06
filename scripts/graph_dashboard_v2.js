@@ -31,10 +31,11 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   static TABS = {
     primary: {
       tabs: [
-        { id: 'creationGraph', group: 'graph', label: 'foundry-graph.creationGraphTab' },
-        { id: 'listGraph', group: 'graph', label: 'foundry-graph.listGraphTab' }
+        { id: 'creationGraph', group: 'graph' },
+        { id: 'listGraph', group: 'graph' }
       ],
-      initial: 'listGraph'
+      initial: 'listGraph',
+      labelPrefix: "foundry-graph.Tabs",
     }
   }
 
@@ -138,7 +139,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       log("editingGraph", this.editingGraph)
     }
     log(this.editingGraph?.graphType)
-    
+
     return {
       title: this.title,
       version: this.api.version,

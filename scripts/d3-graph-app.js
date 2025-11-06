@@ -102,8 +102,14 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this._linkingMode = !this._linkingMode;
     this._linkSourceNode = null;
     e.target.classList.toggle("active", this._linkingMode);
-    e.target.innerText = this._linkingMode ? "Cancel Linking" : "Link Nodes";
-    ui.notifications.info(this._linkingMode ? "Linking mode ON" : "Linking mode OFF");
+    const tCancel = game.i18n.localize("foundry-graph.Buttons.CancelLinking");
+    const tLink   = game.i18n.localize("foundry-graph.Buttons.LinkNodes");
+    e.target.innerText = this._linkingMode ? tCancel : tLink;
+    const tOn  = game.i18n.localize("foundry-graph.Notifications.LinkingOn");
+    const tOff = game.i18n.localize("foundry-graph.Notifications.LinkingOff");
+    ui.notifications.info(this._linkingMode ? tOn : tOff);
+//    e.target.innerText = this._linkingMode ? "Cancel Linking" : "Link Nodes";
+//    ui.notifications.info(this._linkingMode ? "Linking mode ON" : "Linking mode OFF");
     const relationId = this.element.querySelector("#relation-type")?.value || "";
     const relation = this.graph.relations.find(r => r.id === relationId);
     log("toggleLinkingMode", relationId, relation)
@@ -320,12 +326,15 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         URL.revokeObjectURL(url);
       }
     } catch (err) {
-      console.error("Export failed:", err);
-      ui?.notifications?.error?.("Export failed. See console for details.");
+      console.error(game.i18n.localize("foundry-graph.Errors.ExportFailed"), err);
+      ui?.notifications?.error?.(game.i18n.localize("foundry-graph.Errors.ExportFailed"));
+//      console.error("Export failed:", err);
+//      ui?.notifications?.error?.("Export failed. See console for details.");
     } finally {
       // --- Always restore cursor, even on error
       _root.style.cursor = _prevCursor || "";
-      ui?.notifications?.info?.("Export finished.");
+//      ui?.notifications?.info?.("Export finished.");
+      ui?.notifications?.info?.(game.i18n.localize("foundry-graph.Notifications.ExportFinished"));
     }
   }
 
@@ -339,7 +348,8 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.graph.data = data;
     await api.upsertGraph(this.graph);
     this.renderer.teardown();
-    ui.notifications.info("Graph saved via API");
+//    ui.notifications.info("Graph saved via API");
+    ui.notifications.info(game.i18n.localize("foundry-graph.Notifications.GraphSaved"));
     console.log(this)
     this.close()
   }
