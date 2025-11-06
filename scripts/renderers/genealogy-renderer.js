@@ -144,6 +144,7 @@ export class GenealogyRenderer extends BaseRenderer {
       .attr("xlink:href", renderGraph.background.image || "modules/foundry-graph/img/vampire.png")
       .attr("x", 0)
       .attr("y", 0)
+      .attr("id", "background")
       .attr("width", bgWidth)
       .attr("height", bgHeight);
     // create inner SVG container for Family Chart
@@ -245,8 +246,8 @@ export class GenealogyRenderer extends BaseRenderer {
       }
       // here we must manage the type of relation but for now we assume child
       // reset linking mode
-      this._linkSourceNode = null;
-      this._linkingMode = false;
+      //this._linkSourceNode = null;
+      //this._linkingMode = false;
 
     } else {
       // first node
