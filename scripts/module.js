@@ -1,4 +1,4 @@
-import { MODULE_ID,  setDebugFlag, log } from './constants.js';
+import { MODULE_ID, setDebugFlag, log } from './constants.js';
 import { GraphApi } from "./graph_api.js";
 
 
@@ -14,21 +14,16 @@ Hooks.once('init', async function () {
   log(mod)
 
   await mod.api.loadGraphs();
-  // Build V2 dashboard once
-//  api.dashboard = new GraphDashboardV2({ api: api });
-
   // TODO in case we need to give other modules hooks access to the API
   //Hooks.callAll(`${MODULE_ID}.ready`, api);
 });
 
 Hooks.once('ready', async function () {
-//  game.d3Graph = () => new D3GraphApp().render(true);
 
 });
 
 /*************************  Scene‑controls button ***************************/
 Hooks.on("getSceneControlButtons", (controls) => {
-  log(`GIOPPO-----------------------`);
   log(`adding button to scene controls`, controls);
   let tokensControl = null
   if (game.release.generation > 12) {
@@ -47,7 +42,7 @@ Hooks.on("getSceneControlButtons", (controls) => {
 
         button: true,
         onChange: () => {
-           log("onClick")
+          log("onClick")
           const api = game.modules.get(MODULE_ID)?.api;
           log(api)
           if (!api) return;

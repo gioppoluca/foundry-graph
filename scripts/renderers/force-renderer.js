@@ -52,12 +52,6 @@ export class ForceRenderer extends BaseRenderer {
         strokeWidth: l.strokeWidth
       }))
     };
-    /*
-    return {
-      nodes: this._simulation.nodes(),
-      links: this._simulation.force("link").links()
-    };
-    */
   }
 
   teardown() {
@@ -95,9 +89,6 @@ export class ForceRenderer extends BaseRenderer {
     const renderGraph = this.graph;
     log("ForceRenderer.render", svg, this.graph, ctx);
     this.setWindow();
-    // Ensure only one set of handlers at a time
-    // --- teardown from a previous render ---
-    //if (this._simulation) { this._simulation.stop(); this._simulation = null; }
     if (!this._svg) this._svg = svg;
     let el = document.querySelector("#d3-graph")
     this._detachDropHandlers(el);
@@ -123,15 +114,11 @@ export class ForceRenderer extends BaseRenderer {
     // --- START: Background Image Update ---
     const bgWidth = renderGraph.background.width || renderGraph.width;
     const bgHeight = renderGraph.background.height || renderGraph.height;
-    //    const bgX = (renderGraph.width - bgWidth) / 2;
-    //    const bgY = (renderGraph.height - bgHeight) / 2;
 
     zoomLayer.append("image")
       .attr("xlink:href", renderGraph.background.image || "modules/foundry-graph/img/vampire.png")
       .attr("x", 0)
       .attr("y", 0)
-      //      .attr("width", renderGraph.width)
-      //      .attr("height", renderGraph.height);
       .attr("width", bgWidth)
       .attr("height", bgHeight);
 
@@ -402,11 +389,6 @@ export class ForceRenderer extends BaseRenderer {
 
   async _onDrop(event) {
     console.log("_onDrop")
-    // in view no drop
-    //    if (this._mode === "view") {
-    //      ui.notifications.warn("Cannot drop nodes in view mode");
-    //      return;
-    //    }
     console.log(event)
     const data = TextEditor.getDragEventData(event);
     console.log(data)

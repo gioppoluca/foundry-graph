@@ -57,7 +57,6 @@ export class GraphPermissionsDialog extends HandlebarsApplicationMixin(Applicati
     console.log(event);
     console.log(this);
     const app  = this;                        // ApplicationV2 instance
-//    const form = app.element[0];
     const selects = this.element.querySelectorAll("select.user-perm");
 
     const perms = {};                                           // collect result
