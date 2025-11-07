@@ -12,7 +12,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     id: "fgraph-form",
     position: {
       width: 600,
-      height: 700
+      height: 750
     },
     classes: ["fgraph", "fgraph-form"],
     window: {
@@ -49,8 +49,6 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.graph = foundry.utils.deepClone(options.graph || {});
     this.renderer = this.api.getRenderer(options.graph?.renderer);
     log("D3GraphApp.constructor renderer", this.renderer)
-    //    if (this.renderer._svg) 
-    //      log("renderer already has svg", this.renderer._svg)
     // just once we remove fix the window accordingly to the need of the renderer
     log("D3GraphApp.constructor", options, this.renderer)
     this._svgWidth = options.graph.width || 800;
@@ -143,8 +141,6 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       // --- helper: convert any image href -> PNG dataURL (handles webp/png/jpg/blob)
       const hrefToPngDataURL = async (src) => {
         const img = new Image();
-        // If you ever use external hosts, you may need CORS:
-        // img.crossOrigin = "anonymous";
         img.decoding = "async";
         img.src = src;
         await img.decode();
@@ -328,18 +324,14 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     } catch (err) {
       console.error(game.i18n.localize("foundry-graph.Errors.ExportFailed"), err);
       ui?.notifications?.error?.(game.i18n.localize("foundry-graph.Errors.ExportFailed"));
-//      console.error("Export failed:", err);
-//      ui?.notifications?.error?.("Export failed. See console for details.");
     } finally {
       // --- Always restore cursor, even on error
       _root.style.cursor = _prevCursor || "";
-//      ui?.notifications?.info?.("Export finished.");
       ui?.notifications?.info?.(game.i18n.localize("foundry-graph.Notifications.ExportFinished"));
     }
   }
 
 
-  // ---------
   static async _saveGraph() {
     const api = game.modules.get("foundry-graph").api;
 
@@ -348,7 +340,6 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.graph.data = data;
     await api.upsertGraph(this.graph);
     this.renderer.teardown();
-//    ui.notifications.info("Graph saved via API");
     ui.notifications.info(game.i18n.localize("foundry-graph.Notifications.GraphSaved"));
     console.log(this)
     this.close()
@@ -356,7 +347,6 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
 
   async _drawGraph(data = null) {
-    // log("D3GraphApp._drawGraph", data)
     let svg = d3.select("#d3-graph");
     log("D3GraphApp._drawGraph", this.renderer, this.graph)
     this.renderer.render(svg, this.graph)
@@ -374,5 +364,4 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // 3. Call the parent class's _onClose method.
     await super._onClose(options);
   }
-
 }
