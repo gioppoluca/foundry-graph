@@ -29,4 +29,15 @@ export class BaseRenderer {
       this._dnd = null;
     }
   }
+
+  _abstract(name) {
+    throw new Error(`[Renderer] ${this.constructor.name}.${name} must be implemented`);
+  }
+
+  // ===== REQUIRED: must be overridden =====
+  setWindow(_element) { this._abstract("setWindow"); }
+  initializeGraphData(_graph) { this._abstract("initializeGraphData"); }
+  render(_svgEl, _graph, _ctx) { this._abstract("render"); }
+  getGraphData() { this._abstract("getGraphData"); }
+  teardown() { this._abstract("teardown"); }
 }
