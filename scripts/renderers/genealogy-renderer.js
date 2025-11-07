@@ -27,13 +27,15 @@ export class GenealogyRenderer extends BaseRenderer {
         }
         log("Node clicked:", node, ft);
         ft.nodeClickHandler(node);
-
-        //        node.click()
-        //return;
       },
+      nodeLabelFunction: (node, missingData) => {
+        if (node.isUnion) return [];
+        const name = node.data.name;
+        const lines = [name];
+        return lines;
+      }
     }
     this.selectedNode = null;
-
   }
 
   initializeGraphData() {
@@ -47,37 +49,6 @@ export class GenealogyRenderer extends BaseRenderer {
 
   getGraphData() {
     return this.graph.data
-    /*
-    console.log("SIM nodes:", this._simulation.nodes());                     // canonical node objects
-    console.log("SIM links:", this._simulation.force("link").links());
-    const links = this._simulation.force("link").links();
-    const nodes = this._simulation.nodes();
-    return {
-      nodes: nodes.map(n => ({
-        id: n.id,
-        uuid: n.uuid,
-        label: n.label,
-        type: n.type,
-        img: n.img,
-        x: n.x,
-        y: n.y,
-        // Keep fx/fy to preserve user-dragged positions
-        fx: n.fx,
-        fy: n.fy
-      })),
-      links: links.map(l => ({
-        // CRITICAL FIX: Store only the ID of the source and target nodes
-        source: l.source.id,
-        target: l.target.id,
-        // --- copy other link properties ---
-        relationId: l.relationId,
-        label: l.label,
-        color: l.color,
-        style: l.style,
-        strokeWidth: l.strokeWidth
-      }))
-    };
-    */
   }
 
   teardown() {
@@ -99,15 +70,103 @@ export class GenealogyRenderer extends BaseRenderer {
 
   setWindow() {
     log("GenealogyRenderer.setWindow");
-  }
-
-  setWindow() {
-    log("ForceRenderer.setWindow");
     const familyChartDiv = document.querySelector("#FamilyChart");
     if (familyChartDiv) {
       log("Removing existing FamilyChart div before rendering ForceRenderer");
       familyChartDiv.style.display = "none";
     }
+  }
+
+  /**
+   * Find all nodes (persons + unions + links) connected to a starting person id.
+   * Traversal is undirected.
+   */
+  getConnectedIds(data, startId) {
+    const visited = new Set([startId]);
+    const queue = [startId];
+    const connectedLinks = new Set();
+
+    // BFS
+    while (queue.length > 0) {
+      const current = queue.shift();
+      for (const [src, dst] of data.links || []) {
+        if (src === current && !visited.has(dst)) {
+          visited.add(dst);
+          queue.push(dst);
+          connectedLinks.add(`${src}->${dst}`);
+        } else if (dst === current && !visited.has(src)) {
+          visited.add(src);
+          queue.push(src);
+          connectedLinks.add(`${dst}->${src}`);
+        } else if (src === current || dst === current) {
+          // even if both visited, still mark link as connected
+          connectedLinks.add(`${src}->${dst}`);
+        }
+      }
+    }
+
+    // Split by type
+    const connectedPersons = new Set(
+      Object.keys(data.persons).filter(id => visited.has(id))
+    );
+    const connectedUnions = new Set(
+      Object.keys(data.unions).filter(id => visited.has(id))
+    );
+
+    return {
+      persons: connectedPersons,
+      unions: connectedUnions,
+      links: connectedLinks,
+    };
+  }
+
+  /**
+   * Find all nodes NOT connected to startId.
+   */
+  getDisconnectedIds(data, startId) {
+    const connected = this.getConnectedIds(data, startId);
+
+    const disconnectedPersons = new Set(
+      Object.keys(data.persons).filter(id => !connected.persons.has(id))
+    );
+    const disconnectedUnions = new Set(
+      Object.keys(data.unions).filter(id => !connected.unions.has(id))
+    );
+
+    const allLinks = new Set(
+      (data.links || []).map(([a, b]) => `${a}->${b}`)
+    );
+    const disconnectedLinks = new Set(
+      [...allLinks].filter(k => !connected.links.has(k))
+    );
+
+    return {
+      persons: disconnectedPersons,
+      unions: disconnectedUnions,
+      links: disconnectedLinks,
+    };
+  }
+
+  /**
+ * Find all parent persons of a given personId.
+ * Returns an array of parent ids (could be empty).
+ */
+  getParents(data, personId) {
+    const parents = new Set();
+
+    // find all unions where this person is a child
+    const parentUnions = (data.links || [])
+      .filter(([src, dst]) => dst === personId && data.unions[src])
+      .map(([src]) => src);
+
+    // for each of those unions, find persons that link to it
+    for (const [src, dst] of data.links || []) {
+      if (data.persons[src] && parentUnions.includes(dst)) {
+        parents.add(src);
+      }
+    }
+
+    return Array.from(parents);
   }
 
   render(svg, graph, ctx) {
@@ -153,6 +212,8 @@ export class GenealogyRenderer extends BaseRenderer {
     log("renderGraph:", renderGraph)
     log("this._svg:", this._svg)
     log("zoomLayer:", zoomLayer)
+
+
     if (this.graph.data.start) {
       const container = document.getElementById('FamilyChartInnerSVG');
       log("container:", container);
@@ -162,7 +223,65 @@ export class GenealogyRenderer extends BaseRenderer {
       log("FT:", this.familytree)
     }
 
+    // add right click only afterr the graph is created or there are no circles
+    this._svg.selectAll('circle')
+      .on('contextmenu', (event, d) => {
+        event.preventDefault();
+        event.stopPropagation();
 
+        // Get the D3 node’s bound data if any
+        const nodeData = d || event.target.__data__ || null;
+        const nodeId = nodeData?.data?.id ?? event.target.getAttribute('data-id') ?? null;
+
+        console.log('Right-clicked circle:', nodeId, nodeData);
+
+        this._onNodeRightClick(nodeId, nodeData, event);
+      });
+
+  }
+
+  async _onNodeRightClick(nodeId, nodeData, event) {
+    log("_onNodeRightClick", nodeId, nodeData)
+    let dialogContent = ""
+    const deletingStart = false;
+    const parents = []
+    if (nodeId === this.graph.data.start) {
+      deletingStart = true
+      parents = getParents(this.graph.data, nodeId);
+      if (parents.length > 0) {
+        dialogContent = `Delete node "${nodeData.data.name || nodeId}" and all descendants? One of its parents will be promoted to graph start.`
+      } else {
+        dialogContent = `By deleting "${nodeData.data.name || nodeId}" you are deleting the whole graph are you sure?`
+      }
+    } else {
+      dialogContent = `Delete node "${nodeData.data.name || nodeId}" and all descendants?`
+    }
+    const confirmed = await DialogV2.confirm({
+      content: dialogContent,
+    })
+    if (confirmed) {
+      if (deletingStart) {
+        if (parents.length > 0) {
+          this.graph.data.start = parents[0];
+          ui.notifications.info(game.i18n.format("genealogy.promoteStart", { newStart: parents[0] }));
+        } else {
+          // delete all graph
+          this.graph.data = this.initializeGraphData()
+        }
+      }
+      // Remove node and connected links
+      this.familytree.deletePerson(nodeId, false)
+      let dis = this.getDisconnectedIds(this.graph.data, this.graph.data.start)
+      log("disconnected", dis)
+      dis.persons.forEach((person) => {
+        this.familytree.deletePerson(person, false)
+      })
+      dis.unions.forEach((union) => {
+        this.familytree.deleteUnion(union, false)
+      })
+
+      this.render(); // Redraw
+    }
   }
 
 
@@ -244,10 +363,6 @@ export class GenealogyRenderer extends BaseRenderer {
         default:
           break;
       }
-      // here we must manage the type of relation but for now we assume child
-      // reset linking mode
-      //this._linkSourceNode = null;
-      //this._linkingMode = false;
 
     } else {
       // first node
@@ -263,21 +378,6 @@ export class GenealogyRenderer extends BaseRenderer {
       log("this.opts:", this.opts)
       this.familytree = new FT.FamilyTree(this.graph.data, container, this.opts);
     }
-    /*
-    this.graph.data.nodes.push({
-      id: id,
-      uuid: uuid,
-      label: label,
-      type: type,
-      img: img,
-      x: x,
-      y: y,
-      fx: x,
-      fy: y,
-      vx: 0,
-      vy: 0
-    });
-*/
   }
 
   setLinkingMode(enabled) {
@@ -286,19 +386,6 @@ export class GenealogyRenderer extends BaseRenderer {
 
   setRelationData(relation) {
     this.relation = relation;
-  }
-
-  async _onRightClickNode(nodeData) {
-    log("_onRightClickNode", nodeData)
-    const confirmed = await DialogV2.confirm({
-      content: `Delete node "${nodeData.label || nodeData.id}"?`,
-    })
-    if (confirmed) {
-      // Remove node and connected links
-      this.graph.data.nodes = this.graph.data.nodes.filter(n => n.id !== nodeData.id);
-      this.graph.data.links = this.graph.data.links.filter(l => l.source.id !== nodeData.id && l.target.id !== nodeData.id);
-      this.render(); // Redraw
-    }
   }
 
   async _onRightClickLink(linkData) {
@@ -425,11 +512,8 @@ export class GenealogyRenderer extends BaseRenderer {
 
       default:
         break;
-
     }
     log(this.graph)
     this.render();
-
   }
-
 }
