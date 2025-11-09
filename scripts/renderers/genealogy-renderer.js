@@ -51,6 +51,7 @@ export class GenealogyRenderer extends BaseRenderer {
     return this.graph.data
   }
 
+
   teardown() {
     log("GenealogyRenderer.teardown");
     if (this._svg) {
@@ -179,6 +180,10 @@ export class GenealogyRenderer extends BaseRenderer {
 
     let el = document.querySelector("#d3-graph")
     log("attach drop handlers to", el, this._svg, this.graph)
+    //this._attachDropHandlers(el, this._onDrop.bind(this));
+    this._detachDropHandlers(el);
+
+    // Attach new drop handler
     this._attachDropHandlers(el, this._onDrop.bind(this));
     if (this._svg) {
       this._svg.on(".zoom", null);                       // remove zoom listeners
@@ -243,11 +248,11 @@ export class GenealogyRenderer extends BaseRenderer {
   async _onNodeRightClick(nodeId, nodeData, event) {
     log("_onNodeRightClick", nodeId, nodeData)
     let dialogContent = ""
-    const deletingStart = false;
-    const parents = []
+    let deletingStart = false;
+    let parents = []
     if (nodeId === this.graph.data.start) {
       deletingStart = true
-      parents = getParents(this.graph.data, nodeId);
+      parents = this.getParents(this.graph.data, nodeId);
       if (parents.length > 0) {
         dialogContent = `Delete node "${nodeData.data.name || nodeId}" and all descendants? One of its parents will be promoted to graph start.`
       } else {
@@ -402,6 +407,8 @@ export class GenealogyRenderer extends BaseRenderer {
   async _onDrop(event) {
     console.log("_onDrop")
     console.log(event)
+    event.preventDefault();
+    event.stopPropagation();
     const data = TextEditor.getDragEventData(event);
     console.log(data)
     log("this.graph:", this.graph)

@@ -57,6 +57,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this._graphDescription = options.graph.desc || "desc";
     this._graphId = options.graph.id || "test";
     this._mode = options.mode || "new";
+    this._rendererHandlersRegistered = false;
   }
 
   async _onRender(context, options) {
@@ -77,6 +78,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     log("_onRelationsChange", relationId, relation)
     this.renderer.setRelationData(relation);
   }
+
 
   async _prepareContext(options) {
     console.log("PREPARE CONTEXT", options);
@@ -101,13 +103,11 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this._linkSourceNode = null;
     e.target.classList.toggle("active", this._linkingMode);
     const tCancel = game.i18n.localize("foundry-graph.Buttons.CancelLinking");
-    const tLink   = game.i18n.localize("foundry-graph.Buttons.LinkNodes");
+    const tLink = game.i18n.localize("foundry-graph.Buttons.LinkNodes");
     e.target.innerText = this._linkingMode ? tCancel : tLink;
-    const tOn  = game.i18n.localize("foundry-graph.Notifications.LinkingOn");
+    const tOn = game.i18n.localize("foundry-graph.Notifications.LinkingOn");
     const tOff = game.i18n.localize("foundry-graph.Notifications.LinkingOff");
     ui.notifications.info(this._linkingMode ? tOn : tOff);
-//    e.target.innerText = this._linkingMode ? "Cancel Linking" : "Link Nodes";
-//    ui.notifications.info(this._linkingMode ? "Linking mode ON" : "Linking mode OFF");
     const relationId = this.element.querySelector("#relation-type")?.value || "";
     const relation = this.graph.relations.find(r => r.id === relationId);
     log("toggleLinkingMode", relationId, relation)
@@ -123,20 +123,25 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       console.error("SVG element not found");
       return;
     }
+    //await this.renderer.render(svgElement, this.graph)
     // --- UX: show busy cursor + heads-up message
     const _root = document.body;
     const _prevCursor = _root.style.cursor;
     _root.style.cursor = "progress"; // or "wait"
-    const _notice = ui?.notifications?.info?.(
-      "Preparing high-resolution export… this may take a few seconds for large graphs."
-    );
+    ui?.notifications?.info?.("Preparing high-resolution export… this may take a few seconds for large graphs.");
     try {
       // 2) Clone so we don’t mutate the on-screen SVG
+      console.log("phase 2")
       const svgClone = svgElement.cloneNode(true);
 
       // 3) Ensure namespaces (helps some renderers)
       svgClone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
       svgClone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+
+      // 3.1) IMPORTANT: reset any zoom/pan transform so we export the full diagram
+      // D3 applies transforms to the inner <g class="zoom-layer">; remove it in the clone.
+      const zl = svgClone.querySelector("g.zoom-layer");
+      if (zl) zl.removeAttribute("transform");
 
       // --- helper: convert any image href -> PNG dataURL (handles webp/png/jpg/blob)
       const hrefToPngDataURL = async (src) => {
@@ -232,7 +237,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       // 4) Inline images + styles
       await inlineImages();
       inlineComputedStyles();
-
+      console.log("end phase 4")
       // 5) Use the background image dimensions to export the WHOLE graph
       let exportX = 0, exportY = 0, exportW, exportH;
       const bgImg =
@@ -242,10 +247,10 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         svgClone.querySelector("image.bg") ||
         svgClone.querySelector("image");
 
-      log("BG:", bgImg)
+      console.log("BG:", bgImg)
       if (bgImg) {
-        exportX = parseFloat(bgImg.getAttribute("x") ?? "0") || 0;
-        exportY = parseFloat(bgImg.getAttribute("y") ?? "0") || 0;
+        //        exportX = parseFloat(bgImg.getAttribute("x") ?? "0") || 0;
+        //        exportY = parseFloat(bgImg.getAttribute("y") ?? "0") || 0;
 
         let wAttr = parseFloat(bgImg.getAttribute("width") ?? "NaN");
         let hAttr = parseFloat(bgImg.getAttribute("height") ?? "NaN");
@@ -266,7 +271,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
         exportW = Math.max(1, Math.floor(wAttr || 0));
         exportH = Math.max(1, Math.floor(hAttr || 0));
-
+        console.log("bgImg export dimensions", exportX, exportY, exportW, exportH, bgImg)
         // Make the cloned SVG render exactly the whole background area
         svgClone.setAttribute("viewBox", `${exportX} ${exportY} ${exportW} ${exportH}`);
         svgClone.setAttribute("width", exportW);
@@ -274,15 +279,16 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       } else {
         // Fallback: union bbox of content
         const bbox = svgElement.getBBox();
-        exportX = bbox.x;
-        exportY = bbox.y;
+        //        exportX = bbox.x;
+        //        exportY = bbox.y;
         exportW = Math.max(1, Math.floor(bbox.width || 1024));
         exportH = Math.max(1, Math.floor(bbox.height || 768));
+        console.log("bbox export dimensions", exportX, exportY, exportW, exportH, bgImg)
         svgClone.setAttribute("viewBox", `${exportX} ${exportY} ${exportW} ${exportH}`);
         svgClone.setAttribute("width", exportW);
         svgClone.setAttribute("height", exportH);
       }
-
+      console.log("end phase 5", svgClone)
       // 6) Serialize prepared SVG
       const serializer = new XMLSerializer();
       const svgStr = serializer.serializeToString(svgClone);
@@ -306,6 +312,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         const canvas = document.createElement("canvas");
         canvas.width = Math.round(exportW * pixelRatio);
         canvas.height = Math.round(exportH * pixelRatio);
+        console.log("drawimage export dimensions", exportX, exportY, exportW, exportH, canvas.width, canvas.height)
 
         const ctx = canvas.getContext("2d");
         ctx.imageSmoothingEnabled = true;
@@ -319,6 +326,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         a.href = pngUrl;
         a.click();
       } finally {
+        log("error create image")
         URL.revokeObjectURL(url);
       }
     } catch (err) {
