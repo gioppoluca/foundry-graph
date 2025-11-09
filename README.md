@@ -16,18 +16,26 @@ You can choose between a set of graph types and create your **relation map**
 
 | Graph type     | System    | Description                                                                          |
 | ----------------- | ------------ | ------------------------------------------------------------------------------ |
-| Relations Map     | WoD   | The relation map for a coterie or a single character, with dedicated relations   |
-| Enemy Map     | any   | The classical map between generic Actors  |
+| Relationship Map     | WoD   | The relationship map for a coterie or a single character, with dedicated relations for the World of Darkness system   |
+| Characters Map     | any   | The classical map between generic Actors  |
+| Genealogy Tree | any | Genealogical tree for Actors only |
 
+New graph types are cooking, add an issue if you would like to have a specific graph type.
+
+In this initial phase of the module the goal is to confront with the users and define a good set of relations for each graph type and create together the graph types that are needed.
 
 
 ✨ Features
 - **Interactive Graph Builder**: with drag-and-drop node placement and zoom/pan support.
 - **Custom Graph Types**: (e.g., "Enemy Map", "Coterie Web", "Political Factions").
 - **Relation Styling**: Each relationship type can have a unique color, line style, and width (e.g., dashed red for "Enemy", dotted green for "Ally").
-- **Link & Node Management**: Easily link or unlink entities, edit metadata, and delete with a right double-click.
+- **Link & Node Management**: Easily link or unlink entities or delete nodes.
 - **Background Support**: Set a background image for your graph to anchor it in a visual context (maps, floor plans, etc.) [at the moment linked to the graph type, but planned to make it custom].
 - **Persistent Storage**: Graphs are saved and managed per world, supporting editing, exporting, and rendering as SVG.
+- **Export of Diagram**: Graphs can be exported as PNG. The VtM Relationship Map below is an example
+- **Open Sheet from Graph**: it is possible to open the sheet of the Document in the graph by double clicking on the node.
+
+![Oddfellows Coterie](doc/Oddfellows_Coterie.png)
 
 🧩 Use Cases
 - Track political alliances and betrayals in a Game of Thrones-style intrigue.
@@ -38,6 +46,11 @@ You can choose between a set of graph types and create your **relation map**
 ## Changelog
 
 [Changelog](CHANGELOG.md)
+
+## Planned features
+- Custom background overloading the one proposed
+- customization of the relations on a per graph base
+- better link drawing: allow for splines of segmented links
 
 ## Support
 
