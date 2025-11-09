@@ -11,6 +11,7 @@
     "renderer": "force",
     "color": "#550044",
     "nodeLabelColor": "#000000",
+    "version": "1.0.0",
     "systems": [
       "*"
     ],
@@ -89,7 +90,7 @@
   },
   "vampire-relations-map": {
     "id": "vampire-relations-map",
-    "name": "Relationship Map",
+    "name": "World of Darkness Relationship Map",
     "description": "Relationship map of the coterie and connections of vampires in a Vampire: The Masquerade game.",
     "background": {
       "image": "modules/foundry-graph/img/vampire-relation-chart.webp",
@@ -99,9 +100,9 @@
     "renderer": "force",
     "color": "#ff0000",
     "nodeLabelColor": "#ffffff",
+    "version": "1.0.0",
     "systems": [
-      "vtm5e",
-      "*"
+      "vtm5e"
     ],
     "relations": [
       {
@@ -204,6 +205,41 @@
         "strokeWidth": 2
       },
       {
+        "id": "prince",
+        "label": "Prince of",
+        "color": "#808000",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "baron",
+        "label": "Baron of",
+        "color": "#808000",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "cell-leader",
+        "label": "Cell Leader of",
+        "color": "#808000",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "hierophant",
+        "label": "Hierophant of",
+        "color": "#808000",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
+        "id": "alpha",
+        "label": "Alpha of",
+        "color": "#808000",
+        "style": "solid",
+        "strokeWidth": 2
+      },
+      {
         "id": "descendant",
         "label": "Descendant",
         "color": "#4682b4",
@@ -219,75 +255,6 @@
       }
     ]
   },
-  "quest-dependency-tree": {
-    "id": "quest-dependency-tree",
-    "name": "Quest Dependency Tree",
-    "description": "Visualize the dependency and progression between quests, including prerequisites, branching paths, optional content, and consequences.",
-    "background": {
-      "image": "modules/foundry-graph/img/parchment.webp",
-      "width": 2500,
-      "height": 1667
-    },
-    "renderer": "genealogy",
-    "color": "#454500",
-    "nodeLabelColor": "#000000",
-    "width": 1200,
-    "height": 800,
-    "systems": [
-      "*"
-    ],
-    "relations": [
-      {
-        "id": "prerequisite",
-        "label": "Prerequisite For",
-        "color": "#1f618d",
-        "style": "solid",
-        "strokeWidth": 2.5
-      },
-      {
-        "id": "unlocks",
-        "label": "Unlocks",
-        "color": "#27ae60",
-        "style": "dashed",
-        "strokeWidth": 2
-      },
-      {
-        "id": "optional",
-        "label": "Optional Path",
-        "color": "#f39c12",
-        "style": "dotted",
-        "strokeWidth": 1.5
-      },
-      {
-        "id": "blocks",
-        "label": "Blocks",
-        "color": "#c0392b",
-        "style": "solid",
-        "strokeWidth": 2
-      },
-      {
-        "id": "branches-to",
-        "label": "Branches To",
-        "color": "#8e44ad",
-        "style": "dotted",
-        "strokeWidth": 2
-      },
-      {
-        "id": "leads-to-ending",
-        "label": "Leads to Ending",
-        "color": "#2c3e50",
-        "style": "solid",
-        "strokeWidth": 3
-      },
-      {
-        "id": "side-effect",
-        "label": "Side Effect Of",
-        "color": "#7f8c8d",
-        "style": "dashed",
-        "strokeWidth": 1.5
-      }
-    ]
-  },
   "faction-power-structure": {
     "id": "faction-power-structure",
     "name": "Faction Power Structure",
@@ -300,6 +267,7 @@
     "renderer": "force",
     "color": "#0000aa",
     "nodeLabelColor": "#000000",
+    "version": "1.0.0",
     "width": 1200,
     "height": 900,
     "systems": [
@@ -383,6 +351,7 @@
     "renderer": "force",
     "color": "#ffffff",
     "nodeLabelColor": "#000000",
+    "version": "1.0.0",
     "width": 1000,
     "height": 800,
     "systems": [
@@ -461,199 +430,6 @@
       }
     ]
   },
-  "region-control-map": {
-    "id": "region-control-map",
-    "name": "Region Control Map",
-    "description": "Visualizes which faction or power controls specific geographic regions, settlements, or locations. Useful for political intrigue, war campaigns, or faction-based conflicts.",
-    "background": {
-      "image": "modules/foundry-graph/img/parchment.webp",
-      "width": 2500,
-      "height": 1667
-    },
-    "renderer": "force",
-    "color": "#3366cc",
-    "nodeLabelColor": "#000000",
-    "width": 1000,
-    "height": 800,
-    "systems": [
-      "*"
-    ],
-    "relations": [
-      {
-        "id": "controls",
-        "label": "Controls",
-        "color": "#cc0000",
-        "style": "solid",
-        "strokeWidth": 3
-      },
-      {
-        "id": "contested",
-        "label": "Contested",
-        "color": "#ff9900",
-        "style": "dashed",
-        "strokeWidth": 2
-      },
-      {
-        "id": "has-base-in",
-        "label": "Has Base In",
-        "color": "#3366cc",
-        "style": "dotted",
-        "strokeWidth": 2
-      },
-      {
-        "id": "allied-control",
-        "label": "Ally Controls",
-        "color": "#66cc66",
-        "style": "solid",
-        "strokeWidth": 2
-      },
-      {
-        "id": "lost-control",
-        "label": "Lost Control",
-        "color": "#999999",
-        "style": "dashed",
-        "strokeWidth": 1
-      }
-    ]
-  },
-  "supernatural-influence-web": {
-    "id": "supernatural-influence-web",
-    "name": "Supernatural Influence Web",
-    "description": "Visualizes mystical connections, pacts, curses, blessings, bindings, and supernatural influence across characters, locations, artifacts, and otherworldly forces.",
-    "background": {
-      "image": "modules/foundry-graph/img/parchment.webp",
-      "width": 2500,
-      "height": 1667
-    },
-    "renderer": "force",
-    "color": "#3366cc",
-    "nodeLabelColor": "#000000",
-    "width": 1000,
-    "height": 800,
-    "systems": [
-      "vtm5e"
-    ],
-    "relations": [
-      {
-        "id": "blessed-by",
-        "label": "Blessed By",
-        "color": "#00ffcc",
-        "style": "solid",
-        "strokeWidth": 2
-      },
-      {
-        "id": "cursed-by",
-        "label": "Cursed By",
-        "color": "#9900ff",
-        "style": "dashed",
-        "strokeWidth": 3
-      },
-      {
-        "id": "bound-to",
-        "label": "Bound To",
-        "color": "#ff4500",
-        "style": "dotted",
-        "strokeWidth": 2
-      },
-      {
-        "id": "owes-favor",
-        "label": "Owes Favor",
-        "color": "#ffd700",
-        "style": "dashed",
-        "strokeWidth": 2
-      },
-      {
-        "id": "linked-to",
-        "label": "Linked To",
-        "color": "#00bfff",
-        "style": "solid",
-        "strokeWidth": 1
-      },
-      {
-        "id": "controlled-by",
-        "label": "Controlled By",
-        "color": "#ff1493",
-        "style": "solid",
-        "strokeWidth": 3
-      },
-      {
-        "id": "haunted-by",
-        "label": "Haunted By",
-        "color": "#666666",
-        "style": "dotted",
-        "strokeWidth": 1
-      }
-    ]
-  },
-  "genealogy-map": {
-    "id": "genealogy-map",
-    "name": "Genealogy Map",
-    "description": "Maps out familial, bloodline, or ancestral relationships between individuals or creatures — from mortal dynasties to vampiric sires and mythic progenitors.",
-    "background": {
-      "image": "modules/foundry-graph/img/tree.webp",
-      "width": 2500,
-      "height": 1667
-    },
-    "renderer": "tree",
-    "width": 1200,
-    "height": 800,
-    "color": "#226633",
-    "nodeLabelColor": "#000000",
-    "systems": [
-      "*"
-    ],
-    "relations": [
-      {
-        "id": "father-of",
-        "label": "Father Of",
-        "color": "#1f77b4",
-        "style": "solid",
-        "strokeWidth": 2
-      },
-      {
-        "id": "child-of",
-        "label": "Child Of",
-        "color": "#1f77b4",
-        "style": "solid",
-        "strokeWidth": 2
-      },
-      {
-        "id": "sibling-of",
-        "label": "Sibling Of",
-        "color": "#2ca02c",
-        "style": "dashed",
-        "strokeWidth": 2
-      },
-      {
-        "id": "spouse-of",
-        "label": "Spouse Of",
-        "color": "#d62728",
-        "style": "solid",
-        "strokeWidth": 3
-      },
-      {
-        "id": "ancestor-of",
-        "label": "Ancestor Of",
-        "color": "#9467bd",
-        "style": "dotted",
-        "strokeWidth": 2
-      },
-      {
-        "id": "descendant-of",
-        "label": "Descendant Of",
-        "color": "#8c564b",
-        "style": "dotted",
-        "strokeWidth": 2
-      },
-      {
-        "id": "adopted-by",
-        "label": "Adopted By",
-        "color": "#e377c2",
-        "style": "dashed",
-        "strokeWidth": 2
-      }
-    ]
-  },
   "genealogy-tree": {
     "id": "genealogy-tree",
     "name": "Genealogy Tree",
@@ -668,6 +444,7 @@
     "height": 800,
     "color": "#226633",
     "nodeLabelColor": "#000000",
+    "version": "1.0.0",
     "systems": [
       "*"
     ],
