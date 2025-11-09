@@ -1,11 +1,11 @@
-- ![](https://img.shields.io/badge/Foundry-v12-informational)![](https://img.shields.io/badge/Foundry-v13-informational)
+- ![](https://img.shields.io/badge/Foundry-v13-informational)
 - ![Latest Release Download Count](https://img.shields.io/github/downloads/gioppoluca/foundry-graph/latest/module.zip)
 - ![Total Download Count](https://img.shields.io/github/downloads/gioppoluca/foundry-graph/total?color=d1b124&label=Total%20Download)
 - ![Forge Installs](https://img.shields.io/badge/dynamic/json?label=Forge%20Installs&query=package.installs&suffix=%25&url=https%3A%2F%2Fforge-vtt.com%2Fapi%2Fbazaar%2Fpackage%2Ffoundry-graph&colorB=4aa94a)
 
 # Foundry Graph - Visual Relationship Mapping
 
-# !!! WARNING !!! - this module is still in alpha mode until this comment is removed.  Use it to test its features and give feedback, but do not manage real data, the development is at early stage: metadata will change and there will be no migration path
+# !!! WARNING !!! - this module is still in alpha mode until this comment is removed.  Use it to test its features and give feedback, but do not manage real data, the development is at early stage: metadata will change and there will be no migration path for graphs created.
 
 Draw the threads that connect your world. Turn relationships into stories you can see.
 Visualize lineage, alliances, and secrets in living diagrams with ease.
@@ -16,7 +16,9 @@ You can choose between a set of graph types and create your **relation map**
 
 | Graph type     | System    | Description                                                                          |
 | ----------------- | ------------ | ------------------------------------------------------------------------------ |
-| Relationship Map     | WoD   | The relationship map for a coterie or a single character, with dedicated relations for the World of Darkness system   |
+| Enemy Map | any | A diagram to represent better relationship with enemies |
+| World of Darkness Relationship Map     | WoD   | The relationship map for a coterie or a single character, with dedicated relations for the World of Darkness system   |
+| Faction Power Structure | any | A diagram with relations useful for mapping the internal hierarchy of a faction |
 | Characters Map     | any   | The classical map between generic Actors  |
 | Genealogy Tree | any | Genealogical tree for Actors only |
 
@@ -36,6 +38,7 @@ In this initial phase of the module the goal is to confront with the users and d
 - **Open Sheet from Graph**: it is possible to open the sheet of the Document in the graph by double clicking on the node.
 
 ![Oddfellows Coterie](doc/Oddfellows_Coterie.png)
+![Vampire genealogy](doc/Camarilla_Map.png)
 
 🧩 Use Cases
 - Track political alliances and betrayals in a Game of Thrones-style intrigue.
