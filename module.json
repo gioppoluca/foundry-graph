@@ -2,9 +2,9 @@
   "id": "foundry-graph",
   "title": "Foundry Graph",
   "description": "Draw graphs of different styles",
-  "version": "This is auto replaced",
+  "version": "#{VERSION}#",
   "library": "false",
-  "compatibility": { "minimum": "12", "verified": "13" },
+  "compatibility": { "minimum": "13", "verified": "13" },
   "authors": [
     {
       "name": "Luca Gioppo",
@@ -38,9 +38,9 @@
       "path": "languages/en.json"
     }
   ],
-  "url": "This is auto replaced",
-  "manifest": "This is auto replaced",
-  "download": "This is auto replaced",
+  "url": "#{URL}#",
+  "manifest": "#{MANIFEST}#",
+  "download": "#{DOWNLOAD}#",
   "license": "LICENSE",
   "readme": "README.md",
   "media": [
