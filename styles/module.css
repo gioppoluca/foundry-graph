@@ -14,9 +14,13 @@
 }
 
 .graph-table {
-  margin: 0 !important
+  margin: 0 !important;
+  color: #cccccc;
 }
 
+.creationGraph-details{
+  color: #cccccc;
+}
 svg image {
   cursor: move;
   pointer-events: all;
