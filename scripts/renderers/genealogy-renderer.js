@@ -29,6 +29,7 @@ export class GenealogyRenderer extends BaseRenderer {
         ft.nodeClickHandler(node);
       },
       nodeLabelFunction: (node, missingData) => {
+
         if (node.isUnion) return [];
         const name = node.data.name;
         const lines = [name];
@@ -68,16 +69,6 @@ export class GenealogyRenderer extends BaseRenderer {
     this._linkSourceNode = null;
     this.relation = null
   }
-
-  setWindow() {
-    log("GenealogyRenderer.setWindow");
-    const familyChartDiv = document.querySelector("#FamilyChart");
-    if (familyChartDiv) {
-      log("Removing existing FamilyChart div before rendering ForceRenderer");
-      familyChartDiv.style.display = "none";
-    }
-  }
-
   /**
    * Find all nodes (persons + unions + links) connected to a starting person id.
    * Traversal is undirected.
@@ -176,7 +167,7 @@ export class GenealogyRenderer extends BaseRenderer {
     const renderGraph = this.graph;
 
     if (!this._svg) this._svg = svg;
-    this.setWindow();
+//    this.setWindow();
 
     let el = document.querySelector("#d3-graph")
     log("attach drop handlers to", el, this._svg, this.graph)
@@ -184,7 +175,7 @@ export class GenealogyRenderer extends BaseRenderer {
     this._detachDropHandlers(el);
 
     // Attach new drop handler
-    this._attachDropHandlers(el, this._onDrop.bind(this));
+    this._attachDropHandlers(el);
     if (this._svg) {
       this._svg.on(".zoom", null);                       // remove zoom listeners
       this._svg.selectAll("*").interrupt().remove();     // clear old DOM + timers
@@ -315,6 +306,8 @@ export class GenealogyRenderer extends BaseRenderer {
         });
       }
       log("Adding person to existing familytree", this._linkSourceNode);
+// in case of wanting to read birth from system:
+// WoD: system.bio.dateof.birth/death
 
       log("this.relation:", this.relation);
       switch (this.relation.id) {

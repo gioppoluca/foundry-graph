@@ -13,6 +13,9 @@ export class ForceRenderer extends BaseRenderer {
     this.graph = null;
     this._svg = null;
     this._simulation = null;
+    this._zoomBehavior = null;       // Stores the d3.zoom() instance
+    this._zoomLayer = null;          // Stores the <g> element
+    this._currentTransform = null; // Stores the last zoom/pan transform
   }
 
   initializeGraphData() {
@@ -73,48 +76,67 @@ export class ForceRenderer extends BaseRenderer {
     this._linkingMode = false;
     this._linkSourceNode = null;
     this.relation = null
-  }
 
-  setWindow() {
-    log("ForceRenderer.setWindow");
-    const familyChartDiv = document.querySelector("#FamilyChart");
-    if (familyChartDiv) {
-      log("Removing existing FamilyChart div before rendering ForceRenderer");
-      familyChartDiv.style.display = "none";
-    }
+    // Reset persistent zoom state
+    this._zoomBehavior = null;
+    this._zoomLayer = null;
+    this._currentTransform = null;
   }
 
   render(svg, graph, ctx) {
     if (!this.graph) this.graph = graph;
     const renderGraph = this.graph;
     log("ForceRenderer.render", svg, this.graph, ctx);
-    this.setWindow();
     if (!this._svg) this._svg = svg;
-    let el = document.querySelector("#d3-graph")
-    this._detachDropHandlers(el);
 
-    // Attach new drop handler
-    this._attachDropHandlers(el, this._onDrop.bind(this));
-    log("ForceRenderer.render - svg", this._svg)
-    if (this._svg) {
-      this._svg.on(".zoom", null);                       // remove zoom listeners
-      this._svg.selectAll("*").interrupt().remove();     // clear old DOM + timers
+    if (!this._zoomBehavior) {
+      // FIRST RENDER: Set up persistent elements
+      log("ForceRenderer: First render, setting up zoom.");
+
+      // 1. Create the zoom behavior
+      this._zoomBehavior = d3.zoom().on("zoom", (event) => {
+        this._currentTransform = event.transform; // Store the transform
+        if (this._zoomLayer) {
+          this._zoomLayer.attr("transform", this._currentTransform);
+        }
+      });
+
+      // 2. Apply zoom behavior to the main SVG
+      this._svg
+        .attr("width", renderGraph.width)
+        .attr("height", renderGraph.height)
+        .attr("viewBox", `0 0 ${renderGraph.width} ${renderGraph.height}`)
+        .call(this._zoomBehavior); // Attach the behavior
+
+      // 3. Create the persistent <g> layer for zoom/pan
+      this._svg.selectAll("*").remove(); // Clear SVG *once*
+      this._zoomLayer = this._svg.append("g").classed("zoom-layer", true);
+
+      // 4. Store the initial transform
+      this._currentTransform = d3.zoomIdentity;
+
+      // 5. Attach drop handlers (only needs to be done once)
+      let el = document.querySelector("#d3-graph") || this._svg.node();
+      this._detachDropHandlers(el);
+      this._attachDropHandlers(el);
+    } else {
+      // SUBSEQUENT RENDERS: Just clear the layer's contents
+      log("ForceRenderer: Re-render, clearing zoom layer contents.");
+      this._zoomLayer.selectAll("*").remove();
+
+      // Ensure the layer has the correct transform
+      this._zoomLayer.attr("transform", this._currentTransform);
     }
-    this._svg
-      .attr("width", renderGraph.width)
-      .attr("height", renderGraph.height)
-      .attr("viewBox", `0 0 ${renderGraph.width} ${renderGraph.height}`)
-      .call(d3.zoom().on("zoom", (event) => {
-        this._svg.select("g.zoom-layer").attr("transform", event.transform);
-      }));
 
-    this._svg.selectAll("*").remove();
-    // Create a layer inside for zoom/pan
-    const zoomLayer = this._svg.append("g").classed("zoom-layer", true);
+    // All rendering now happens inside this._zoomLayer
+    const zoomLayer = this._zoomLayer;
+    // ------------------------------------
+
     // --- START: Background Image Update ---
     const bgWidth = renderGraph.background.width || renderGraph.width;
     const bgHeight = renderGraph.background.height || renderGraph.height;
 
+    // APPSND TO 'zoomLayer', NOT 'this._svg'
     zoomLayer.append("image")
       .attr("xlink:href", renderGraph.background.image || "modules/foundry-graph/img/vampire.png")
       .attr("x", 0)
@@ -124,7 +146,14 @@ export class ForceRenderer extends BaseRenderer {
 
     log("added background image")
 
-    const defs = this._svg.append("defs");
+    // --- FIX: <defs> must be a child of <svg>, NOT the zoomLayer ---
+    let defs = this._svg.select("defs");
+    if (defs.empty()) {
+      defs = this._svg.append("defs");
+    }
+    // -----------------------------------------------------------
+
+    // This marker setup is fine, it just appends to 'defs'
     defs.append("marker")
       .attr("id", "fg-arrow")
       .attr("viewBox", "0 -5 10 10")
@@ -161,6 +190,7 @@ export class ForceRenderer extends BaseRenderer {
     merge.append("feMergeNode").attr("in", "offsetBlur");
     merge.append("feMergeNode").attr("in", "SourceGraphic");
 
+    // --- All other elements go inside the 'zoomLayer' ---
     const link = zoomLayer.append("g")
       .attr("stroke-opacity", 0.8)
       .selectAll("line")
@@ -333,7 +363,9 @@ export class ForceRenderer extends BaseRenderer {
       d.x = d.fx = event.x;
       d.y = d.fy = event.y;
     }
+
     log("ForceRenderer.render complete");
+
   }
 
 
@@ -393,17 +425,20 @@ export class ForceRenderer extends BaseRenderer {
     const data = TextEditor.getDragEventData(event);
     console.log(data)
     // Get mouse position relative to SVG
-    // 2) Compute SVG coords (correct under zoom/pan)
-    const svgEl = this._svg.node();
-    const pt = svgEl.createSVGPoint();
-    pt.x = event.clientX;
-    pt.y = event.clientY;
-    const svgPt = pt.matrixTransform(svgEl.getScreenCTM().inverse());
-    const x = svgPt.x;
-    const y = svgPt.y;
 
-    log("Drop position:", x, y);
+    // 1. Get the <g> element that is being transformed by zoom
+    const zoomLayerNode = this._svg.select("g.zoom-layer").node();
+    if (!zoomLayerNode) {
+      console.error("Could not find zoom layer!");
+      return;
+    }
 
+    // 2. Use d3.pointer() to get coordinates relative to the zoom layer
+    //    This automatically accounts for the current pan and zoom.
+    const [x, y] = d3.pointer(event, zoomLayerNode);
+    // ==========================================================
+
+    log("Drop position (transformed):", x, y);
     // Add new node
     const newId = crypto.randomUUID();
 

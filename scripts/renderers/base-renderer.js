@@ -4,27 +4,36 @@ import { log } from "../constants.js";
 export class BaseRenderer {
 
   static ID = "base";
-  render(svg, data, ctx) { throw new Error("BaseRenderer.render must be implemented"); }
+  //render(svg, data, ctx) { throw new Error("BaseRenderer.render must be implemented"); }
 
-  _attachDropHandlers(svgEl, onDrop) {
+  _attachDropHandlers(svgEl) {
     // store bound handlers so we can remove them in teardown
-    log("BaseRenderer._attachDropHandlers", svgEl, onDrop);
+    log("BaseRenderer._attachDropHandlers", svgEl);
     this._dnd = this._dnd || {};
     this._dnd.onDragOver = (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
     };
-    this._dnd.onDrop = onDrop;
+    //this._dnd.onDrop = onDrop;
+    this._dnd.onDrop = this._onDrop?.bind(this);
+    log(this._dnd.onDrop)
+    const selection = d3.select(svgEl);
+    log(selection)
+    selection.on("dragover.drop", this._dnd.onDragOver);
+    selection.on("drop.drop", this._dnd.onDrop);
+//    svgEl.addEventListener("dragover", this._dnd.onDragOver);
+//    svgEl.addEventListener("drop", this._dnd.onDrop);
 
-    svgEl.addEventListener("dragover", this._dnd.onDragOver);
-    svgEl.addEventListener("drop", this._dnd.onDrop);
   }
 
   _detachDropHandlers(svgEl) {
     if (!this._dnd || !svgEl) return;
     try {
-      svgEl.removeEventListener("dragover", this._dnd.onDragOver);
-      svgEl.removeEventListener("drop", this._dnd.onDrop);
+      const selection = d3.select(svgEl);
+      selection.on("dragover.drop", null);
+      selection.on("drop.drop", null);
+//      svgEl.removeEventListener("dragover", this._dnd.onDragOver);
+//      svgEl.removeEventListener("drop", this._dnd.onDrop);
     } finally {
       this._dnd = null;
     }
@@ -35,9 +44,12 @@ export class BaseRenderer {
   }
 
   // ===== REQUIRED: must be overridden =====
-  setWindow(_element) { this._abstract("setWindow"); }
   initializeGraphData(_graph) { this._abstract("initializeGraphData"); }
   render(_svgEl, _graph, _ctx) { this._abstract("render"); }
   getGraphData() { this._abstract("getGraphData"); }
   teardown() { this._abstract("teardown"); }
+  _onDrop(_event) {
+    log("base._onDrop")
+    this._abstract("_onDrop");
+  }
 }

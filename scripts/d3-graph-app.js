@@ -19,7 +19,13 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       title: "",//this.windowTitle,
       resizable: true,
     },
-    dragDrop: [{ dragSelector: '[data-drag="true"]', dropSelector: '.drop-zone' }],
+    dragDrop: [{
+      dragSelector: '[data-drag="true"]', dropSelector: '.drop-zone',
+      callbacks: {
+        dragover: this._onDragOver,
+        drop: this._onDrop
+      }
+    }],
     minimizable: false,
     resizable: false,
     submitOnChange: false,
@@ -57,7 +63,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this._graphDescription = options.graph.desc || "desc";
     this._graphId = options.graph.id || "test";
     this._mode = options.mode || "new";
-    this._rendererHandlersRegistered = false;
+    //    this._rendererHandlersRegistered = false;
   }
 
   async _onRender(context, options) {
@@ -339,6 +345,13 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
   }
 
+  /*
+  _onDrop(event){
+    log("ondrop of the d3-app", this, event)
+    console.log("**************************************")
+    this.renderer._onDrop(event)
+  }
+*/
 
   static async _saveGraph() {
     const api = game.modules.get("foundry-graph").api;
@@ -356,7 +369,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   async _drawGraph(data = null) {
     let svg = d3.select("#d3-graph");
-    log("D3GraphApp._drawGraph", this.renderer, this.graph)
+    log("D3GraphApp._drawGraph", this.renderer, this.graph, svg)
     this.renderer.render(svg, this.graph)
   }
 
