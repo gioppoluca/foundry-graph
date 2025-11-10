@@ -162,7 +162,7 @@ jobs:
         uses: indiesdev/curl@v1.1
         id: foundry-api
         with:
-          url: https://api.foundryvtt.com/_api/packages/release_version/
+          url: https://foundryvtt.com/_api/packages/release_version/
           method: "POST"
           headers: '{ "Content-Type": "application/json", "Authorization": "${{ secrets.FOUNDRY_API_TOKEN }}" }'
           accept: 200
