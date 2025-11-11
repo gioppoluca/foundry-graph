@@ -10,9 +10,9 @@
 Draw the threads that connect your world. Turn relationships into stories you can see.
 Visualize lineage, alliances, and secrets in living diagrams with ease.
 
+
 Foundry Graph is a powerful and intuitive module that lets you visually map relationships between actors, scenes, items, or any other entity in your world. Whether you're managing political intrigue, faction conflicts, character connections, or ancient bloodlines, this tool gives you a dynamic canvas to build, edit, and explore complex networks.
 You can choose between a set of graph types and create your **relation map**
-![graph example](doc/graph_example.png)
 
 | Graph type     | System    | Description                                                                          |
 | ----------------- | ------------ | ------------------------------------------------------------------------------ |
@@ -39,6 +39,15 @@ In this initial phase of the module the goal is to confront with the users and d
 
 ![Oddfellows Coterie](doc/Oddfellows_Coterie.png)
 ![Vampire genealogy](doc/Camarilla_Map.png)
+
+# Usage
+You will find the **Graph Management** button in the Token toolset.
+![Module Button](doc/moduleButton.png)
+
+![graph example](doc/graph_example.png)
+The way of building a graph diagram differs slightly between graph types:
+- Genealogy types: cannot have dangling nodes so - apart the first node - each node must be dropped once the **Link Nodes** button is activated and the dropped node will get the relation - chosen in the select list - with the clicked node.
+- Free Diagrams types: nodes can be placed on the diagram as please and all type of entities can be dropped (Actors, Items, Scenes). Using the **Link Nodes** button it will be possible to draw links between nodes (the first clicked will be the source, the second the target). A left click on either the node or the link will allow deletion
 
 🧩 Use Cases
 - Track political alliances and betrayals in a Game of Thrones-style intrigue.
