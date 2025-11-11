@@ -1,5 +1,5 @@
 import { GraphBuilder } from "./model/graph_builder.js";
-
+import { GraphRelationsDialog } from "./graph-relations-dialog.js";
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 import { D3GraphApp } from "./d3-graph-app.js";
@@ -72,6 +72,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       graphEdit: GraphDashboardV2.graphEdit,
       graphDelete: GraphDashboardV2.graphDelete,
       graphPerms: GraphDashboardV2.graphPerms,
+      graphRelations: GraphDashboardV2.onGraphRelations,
       onCancelCreate: GraphDashboardV2.onCancelCreate
     }
   };
@@ -263,6 +264,33 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     window.open(url, "_blank");
   }
 
+
+/**
+   * Open the dialog to manage relations for a specific graph.
+   */
+  static async onGraphRelations(event, target) {
+    log("onGraphRelations", event, target);
+    const graphId = event.target.dataset.id;
+    const graph = this.api.getGraph(graphId);
+    if (!graph) return ui.notifications.warn("Graph not found!");
+
+    // Define the callback function to run when the dialog saves
+    const onSaveCallback = async (newRelations) => {
+      log(`Saving ${newRelations.length} relations for graph ${graphId}`);
+      graph.relations = newRelations;
+      await this.api.upsertGraph(graph);
+      this.render(true); // Refresh the dashboard
+      ui.notifications.info(`Relations for "${graph.name}" updated.`);
+    };
+
+    // Create and render the dialog
+    // We pass a deepClone of relations so canceling doesn't modify the original
+    new GraphRelationsDialog({
+      graphId: graphId,
+      relations: foundry.utils.deepClone(graph.relations),
+      onSave: onSaveCallback
+    }).render(true);
+  }
 
   updateButtonState() {
     console.log("updateButtonState")

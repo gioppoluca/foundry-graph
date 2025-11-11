@@ -6,6 +6,7 @@
             "openGraph": "Open and manage Graph Diagram",
             "backgroundImage": "Set background image for the graph",
             "selectGraphType": "Select the type of graph to create",
+            "manageRelations": "Manage Relations",
             "permissions": "Manage Graph permissions"
         },
         "Tabs": {
