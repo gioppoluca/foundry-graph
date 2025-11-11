@@ -1,33 +1,13 @@
 {
-    "FvttGraph.ActorButton": "Actor Graphs",
-    "FvttGraph.CreateDiagram": "Create Diagram",
-    "FvttGraph.PrintDiagram": "Print Diagram",
-    "FvttGraph.CreateGraph": "Create Graphs",
-    "FvttGraph.EditGraph": "Edit Graphs",
-    "FvttGraph.SaveGraph": "Save Graphs",
-    "FvttGraph.AddRelation": "Add node relation",
-    "FvttGraph.ActorDashTitle": "Actor graph dashboard",
-    "FvttGraph.GraphForm.SaveError": "You cannot save the graph, there are errors in the data",
-    "FvttGraph.GraphForm.AddGraphTitle": "Add a graph",
-    "FvttGraph.GraphForm.GraphName": "Graph name:",
-    "FvttGraph.GraphForm.GraphId": "Graph ID:",
-    "FvttGraph.GraphForm.GraphType": "Graph type:",
-    "FvttGraph.GraphForm.GraphTypeActor": "Actor map",
-    "FvttGraph.GraphForm.GraphTypeStory": "Story map",
-    "FvttGraph.GraphForm.GraphDesc": "Graph description:",
-    "FvttGraph.GraphForm.GraphRelations": "Graph resources relations:",
-    "FvttGraph.GraphForm.GraphOptionChoose": "--Please choose an option--",
-    "FvttGraph.GraphForm.GraphNodeRelSource": "Choose resource source",
-    "FvttGraph.GraphForm.GraphNodeRelRelation": "Choose resource relation",
-    "FvttGraph.GraphForm.GraphNodeRelTarget": "Choose resource target",
-    "FvttGraph.GraphForm.GraphTabNodeSource": "Source resource",
-    "FvttGraph.GraphForm.GraphTabNodeRelation": "Relation",
-    "FvttGraph.GraphForm.GraphTabNodeTarget": "Target resource",
-    "foundry-graph.gdh.tooltip.edit": "Edit Graph",
-    "foundry-graph.gdh.tooltip.delete": "Delete Graph",
-    "foundry-graph.gdh.tooltip.image": "Export Graph as image",
-    "foundry-graph.toolclip.header": "Graph Management",
     "foundry-graph": {
+        "tooltip": {
+            "edit": "Edit Graph metadata",
+            "delete": "Delete Graph",
+            "openGraph": "Open and manage Graph Diagram",
+            "backgroundImage": "Set background image for the graph",
+            "selectGraphType": "Select the type of graph to create",
+            "permissions": "Manage Graph permissions"
+        },
         "Tabs": {
             "creationGraph": "Create Graph",
             "listGraph": "Graph List"
@@ -56,6 +36,9 @@
         },
         "Labels": {
             "RelationType": "Relation Type",
+            "graphId": "Graph ID",
+            "graphName": "Graph Name",
+            "graphDesc": "Graph Description",
             "SelectGraphType": "Select Graph Type"
         },
         "Confirm": {

@@ -4,7 +4,6 @@
   {{!-- Tab content here --}}
   <div class="listGraph-details">
     <!-- form fields, etc. -->
-    <h2>{{localize "foundry-graph.List.SavedGraphs"}}</h2>
     <table class="graph-table">
       <thead>
         <tr>
@@ -19,13 +18,13 @@
           <td style="color: {{ this.color }}">{{this.name}}</td>
           <td>{{this.desc}}</td>
           <td class="flexrow">
-            <button type="button" class="icon fa-solid fa-pencil" data-tooltip="foundry-graph.gdh.tooltip.edit"
+            <button type="button" class="icon fa-solid fa-pencil" data-tooltip="foundry-graph.tooltip.edit"
               data-action="graphEdit" data-id="{{this.id}}"></button>
             <button type="button" class="icon fa-light fa-hexagon-nodes-bolt"
-              data-tooltip="foundry-graph.gdh.tooltip.edit" data-action="onOpenGraph" data-id="{{this.id}}"></button>
-            <button type="button" class="icon fa-solid fa-trash" data-tooltip="foundry-graph.gdh.tooltip.delete"
+              data-tooltip="foundry-graph.tooltip.openGraph" data-action="onOpenGraph" data-id="{{this.id}}"></button>
+            <button type="button" class="icon fa-solid fa-trash" data-tooltip="foundry-graph.tooltip.delete"
               data-action="graphDelete" data-id="{{this.id}}"></button>
-            <button type="button" class="icon fa-solid fa-user-lock" data-tooltip="foundry-graph.gdh.tooltip.image"
+            <button type="button" class="icon fa-solid fa-user-lock" data-tooltip="foundry-graph.tooltip.permissions"
               data-action="graphPerms" data-id="{{this.id}}"></button>
           </td>
         </tr>

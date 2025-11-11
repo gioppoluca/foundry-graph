@@ -4,25 +4,25 @@
   {{!-- Tab content here --}}
   <div class="creationGraph-details">
     <!-- form fields, etc. -->
-    <label for="graph-name">{{ localize 'FvttGraph.GraphForm.GraphName' }}</label>
     <div class="form-fields">
+      <label for="graph-name">{{ localize 'foundry-graph.Labels.graphName' }}</label>
       <input class="droppable" data-drag="true" type="text" id="graph-name" value="{{ graph.name }}"
         data-id="{{ graph.name }}" data-action="onChangeGraphName" data-dtype="String" {{#if graph.id }} readonly="true"
         {{/if}} required="true">
     </div>
     <div class="form-fields">
-      <label for="graph-id">{{ localize 'FvttGraph.GraphForm.GraphId' }}</label>
+      <label for="graph-id" hidden="true">{{ localize 'foundry-graph.Labels.graphId' }}</label>
       <input type="text" id="graph-id" value="{{ graph.id }}" data-id="{{ graph.id }}" data-dtype="String"
-        readonly="true" />
+        readonly="true" hidden="true"/>
     </div>
     <div class="form-fields">
-      <label for="graph-desc">{{ localize 'FvttGraph.GraphForm.GraphDesc' }}</label>
+      <label for="graph-desc">{{ localize 'foundry-graph.Labels.graphDesc' }}</label>
 
-      <textarea id="graph-desc" rows="5" cols="33">{{graph.desc}}</textarea>
+      <textarea id="graph-desc" rows="5" cols="45">{{graph.desc}}</textarea>
     </div>
     <div class="graph-select-wrapper">
       <label for="graph-type-select">Select Graph Type:</label>
-      <select id="graph-type-select" name="graphId" {{#if graph.id}} disabled {{/if}}>
+      <select id="graph-type-select" name="graphId" {{#if graph.id}} disabled {{/if}} data-tooltip="foundry-graph.tooltip.selectGraphType">
         <option value="">--Please choose an option--</option>
         {{selectOptions graphTypes selected=selectedGraphType valueAttr="id" labelAttr="name"}}
         <!--
@@ -33,31 +33,33 @@
         -->
       </select>
     </div>
-    <div class="form-fields">
-      <label for="graph-width">Width (px):</label>
-      <input type="number" id="graph-width" value="{{graph.background.width}}" min="100" {{#if
-        graph.id}}readonly{{/if}} />
-    </div>
-    <div class="form-fields">
-      <label for="graph-height">Height (px):</label>
-      <input type="number" id="graph-height" value="{{graph.background.height}}" min="100" {{#if
-        graph.id}}readonly{{/if}} />
+    <div class="flexrow">
+      <div class="form-fields">
+        <label for="graph-width">Width (px):</label>
+        <input type="number" id="graph-width" value="{{graph.background.width}}" min="100" {{#if
+          graph.id}}readonly{{/if}} />
+      </div>
+      <div class="form-fields">
+        <label for="graph-height">Height (px):</label>
+        <input type="number" id="graph-height" value="{{graph.background.height}}" min="100" {{#if
+          graph.id}}readonly{{/if}} />
+      </div>
     </div>
     <label for="graph-background">Background Image:</label>
     <file-picker id="graph-background" name="graph-background" type="image" value="{{graph.background.image}} "
-      data-tooltip="foundry-graph.gdh.tooltip.background" data-action="onChangeGraphBackground">
+      data-tooltip="foundry-graph.tooltip.backgroundImage" data-action="onChangeGraphBackground">
       <span class="file-picker-label">Select Background Image</span>
       <span class="file-picker-value">{{graph.background.image}}</span>
     </file-picker>
     <span class="file-picker-info">Supported formats: PNG, JPG, GIF</span>
     <br>
-
-    <button id="create-graph-btn" type="button"  data-action="onCreateGraph">
-      <i class="fa-solid fa-square-pen"></i> Save Graph
-    </button>
-    <button id="cancel-graph-btn" type="button" data-action="onCancelCreate">
-      <i class="fa-solid fa-ban"></i> Cancel
-    </button>
-
+    <div class="flexrow">
+      <button id="create-graph-btn" type="button" data-action="onCreateGraph">
+        <i class="fa-solid fa-square-pen"></i> Save Graph
+      </button>
+      <button id="cancel-graph-btn" type="button" data-action="onCancelCreate">
+        <i class="fa-solid fa-ban"></i> Cancel
+      </button>
+    </div>
   </div>
 </section>
