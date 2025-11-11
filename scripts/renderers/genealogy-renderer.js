@@ -165,9 +165,9 @@ export class GenealogyRenderer extends BaseRenderer {
     if (!this.graph) this.graph = graph;
     log("GenealogyRenderer.render complete");
     const renderGraph = this.graph;
-
+    log("renderGraph:", renderGraph)
     if (!this._svg) this._svg = svg;
-//    this.setWindow();
+    //    this.setWindow();
 
     let el = document.querySelector("#d3-graph")
     log("attach drop handlers to", el, this._svg, this.graph)
@@ -180,10 +180,13 @@ export class GenealogyRenderer extends BaseRenderer {
       this._svg.on(".zoom", null);                       // remove zoom listeners
       this._svg.selectAll("*").interrupt().remove();     // clear old DOM + timers
     }
+    const bgWidth = renderGraph.background.width || renderGraph.width;
+    const bgHeight = renderGraph.background.height || renderGraph.height;
+
     this._svg
-      .attr("width", renderGraph.width)
-      .attr("height", renderGraph.height)
-      .attr("viewBox", `0 0 ${renderGraph.width} ${renderGraph.height}`)
+      .attr("width", bgWidth)
+      .attr("height", bgHeight)
+      .attr("viewBox", `0 0 ${bgWidth} ${bgHeight}`)
       .call(d3.zoom().on("zoom", (event) => {
         this._svg.select("g.zoom-layer").attr("transform", event.transform);
       }));
@@ -192,8 +195,6 @@ export class GenealogyRenderer extends BaseRenderer {
     // Create a layer inside for zoom/pan
     const zoomLayer = this._svg.append("g").classed("zoom-layer", true);
     // --- START: Background Image Update ---
-    const bgWidth = renderGraph.background.width || renderGraph.width;
-    const bgHeight = renderGraph.background.height || renderGraph.height;
 
     zoomLayer.append("image")
       .attr("xlink:href", renderGraph.background.image || "modules/foundry-graph/img/vampire.png")
@@ -306,8 +307,8 @@ export class GenealogyRenderer extends BaseRenderer {
         });
       }
       log("Adding person to existing familytree", this._linkSourceNode);
-// in case of wanting to read birth from system:
-// WoD: system.bio.dateof.birth/death
+      // in case of wanting to read birth from system:
+      // WoD: system.bio.dateof.birth/death
 
       log("this.relation:", this.relation);
       switch (this.relation.id) {
@@ -453,61 +454,13 @@ export class GenealogyRenderer extends BaseRenderer {
         ui.notifications.info(`Added node for actor: ${actor.name}`);
         break;
       case 'JournalEntryPage':
-        const page = await fromUuid(data.uuid);
-        console.log(page)
-        if (!page) {
-          ui.notifications.warn("Could not find page");
-          return;
-        }
-
-        this.addNode(this.graph, {
-          id: newId,
-          uuid: data.uuid,
-          label: page.name,
-          type: 'JournalEntryPage',
-          img: "modules/foundry-graph/img/journal.png",
-          x: x,
-          y: y
-        });
-        ui.notifications.info(`Added node for page: ${page.name}`);
+        ui.notifications.info(`You cannot add a Journal Page on a genealogy tree.`);
         break;
       case 'Scene':
-        const scene = await fromUuid(data.uuid);
-        console.log(scene)
-        if (!scene) {
-          ui.notifications.warn("Could not find scene");
-          return;
-        }
-
-        this.addNode(this.graph, {
-          id: newId,
-          uuid: data.uuid,
-          label: scene.name,
-          type: 'Scene',
-          img: "modules/foundry-graph/img/mappin.png",
-          fx: x,
-          fy: y
-        });
-        ui.notifications.info(`Added node for scene: ${scene.name}`);
+        ui.notifications.info(`You cannot add a Scene on a genealogy tree.`);
         break;
       case 'Item':
-        const item = await fromUuid(data.uuid);
-        console.log(item)
-        if (!item) {
-          ui.notifications.warn("Could not find item");
-          return;
-        }
-
-        this.addNode(this.graph, {
-          id: newId,
-          uuid: data.uuid,
-          label: item.name,
-          type: 'Actor',
-          img: item.img,
-          fx: x,
-          fy: y
-        });
-        ui.notifications.info(`Added node for item: ${item.name}`);
+        ui.notifications.info(`You cannot add an Item on a genealogy tree.`);
         break;
 
       default:
