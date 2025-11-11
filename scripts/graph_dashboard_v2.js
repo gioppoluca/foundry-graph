@@ -229,7 +229,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     console.log("mode", mode)
     const appData = {
       graph: graph,
-      mode: mode
+      mode: mode,
+      onCloseCallback: () => this.render(false)
     };
     log("graphData", appData)
     await new D3GraphApp(appData).render(true);
@@ -331,6 +332,10 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   async _onClose(options) {
     this.editingGraph = null;
     this.activeTab = GraphDashboardV2.DEFAULT_ACTIVE_TAB;
+    if (typeof this.onCloseCallback === 'function') {
+      log("D3GraphApp._onClose | Executing dashboard refresh callback");
+      this.onCloseCallback();
+    }
     await super._onClose(options);
   }
 }

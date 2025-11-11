@@ -63,6 +63,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this._graphDescription = options.graph.desc || "desc";
     this._graphId = options.graph.id || "test";
     this._mode = options.mode || "new";
+    this.onCloseCallback = options.onCloseCallback;
     //    this._rendererHandlersRegistered = false;
   }
 
