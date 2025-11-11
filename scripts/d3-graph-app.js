@@ -383,7 +383,13 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // 2. Clear the disposers array.
     this._disposers = [];
 
-    // 3. Call the parent class's _onClose method.
+    // 3. If an onCloseCallback is defined, execute it.
+    if (typeof this.onCloseCallback === 'function') {
+      log("D3GraphApp._onClose | Executing dashboard refresh callback");
+      this.onCloseCallback();
+    }
+
+    // 4. Call the parent class's _onClose method.
     await super._onClose(options);
   }
 }

@@ -332,10 +332,6 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   async _onClose(options) {
     this.editingGraph = null;
     this.activeTab = GraphDashboardV2.DEFAULT_ACTIVE_TAB;
-    if (typeof this.onCloseCallback === 'function') {
-      log("D3GraphApp._onClose | Executing dashboard refresh callback");
-      this.onCloseCallback();
-    }
     await super._onClose(options);
   }
 }
