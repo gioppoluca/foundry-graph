@@ -34,6 +34,10 @@ svg image {
   overflow: auto;
 }
 
+.creationGraph-details .form-fields{
+  margin-top: 1em;
+}
+
 
 .graph-btn.active {
   background-color: #4CAF50; /* green */
