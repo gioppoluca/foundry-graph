@@ -14,13 +14,13 @@ Visualize lineage, alliances, and secrets in living diagrams with ease.
 Foundry Graph is a powerful and intuitive module that lets you visually map relationships between actors, scenes, items, or any other entity in your world. Whether you're managing political intrigue, faction conflicts, character connections, or ancient bloodlines, this tool gives you a dynamic canvas to build, edit, and explore complex networks.
 You can choose between a set of graph types and create your **relation map**
 
-| Graph type     | System    | Description                                                                          |
-| ----------------- | ------------ | ------------------------------------------------------------------------------ |
-| Enemy Map | any | A diagram to represent better relationship with enemies |
-| World of Darkness Relationship Map     | WoD   | The relationship map for a coterie or a single character, with dedicated relations for the World of Darkness system   |
-| Faction Power Structure | any | A diagram with relations useful for mapping the internal hierarchy of a faction |
-| Characters Map     | any   | The classical map between generic Actors  |
-| Genealogy Tree | any | Genealogical tree for Actors only |
+| Graph type | Renderer    | System    | Description                                                                          |
+| ---------- | ------- | ------------ | ------------------------------------------------------------------------------ |
+| Enemy Map | Free Diagram| any | A diagram to represent better relationship with enemies |
+| World of Darkness Relationship Map | Free Diagram    | WoD   | The relationship map for a coterie or a single character, with dedicated relations for the World of Darkness system   |
+| Faction Power Structure | Free Diagram | any | A diagram with relations useful for mapping the internal hierarchy of a faction |
+| Characters Map   | Free Diagram  | any   | The classical map between generic Actors  |
+| Genealogy Tree  | Genealogy | any | Genealogical tree for Actors only |
 
 New graph types are cooking, add an issue if you would like to have a specific graph type.
 
@@ -43,6 +43,15 @@ In this initial phase of the module the goal is to confront with the users and d
 # Usage
 You will find the **Graph Management** button in the Token toolset.
 ![Module Button](doc/moduleButton.png)
+
+The butto will open 
+the **Graph Dashboard** with the list of the existing graphs on the world.
+![alt text](doc/listGraphs.png)
+The **Create Graph** tab allows you to create a new graph or to edit an existing one.
+![alt text](doc/createGraphs.png)
+Each graph type comes with a predefined background; the option of managing a custom background image for a graph is under construction.
+
+By pressing the **Open Graph** button in the list view it will be possible to manage the graph.
 
 ![graph example](doc/graph_example.png)
 The way of building a graph diagram differs slightly between graph types:
