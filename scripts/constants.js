@@ -1,6 +1,6 @@
-import graph_types from "../data/graph-types.json" with { type: "json" };
- 
-export const JSON_graph_types = graph_types;
+import { GRAPH_TYPES } from "../data/graph-types.js";
+
+export const JSON_graph_types = GRAPH_TYPES;
 export const MODULE_ID = "foundry-graph";
 export const MODULE_NAME = "Foundry Graph";
 export let isDebug = false;
@@ -19,7 +19,7 @@ function getCallerInfo(depth = 3) {
     const line = stack?.[depth] || stack?.[stack.length - 1];
     if (!line) return "";
     const match = line.match(/at\s+(.*?)\s+\((.*?):(\d+):(\d+)\)/) ||
-                  line.match(/at\s+(.*?):(\d+):(\d+)/);
+      line.match(/at\s+(.*?):(\d+):(\d+)/);
     if (!match) return "";
     const func = match[1].replace(/^Object\./, "");
     const file = match[2].split("/").pop();

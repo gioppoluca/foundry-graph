@@ -1,4 +1,4 @@
-{
+export const GRAPH_TYPES = {
   "enemy-map": {
     "id": "enemy-map",
     "name": "Enemy Map",

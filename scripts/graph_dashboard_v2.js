@@ -216,7 +216,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
 
   static async graphEdit(event, target) {
     log("graphEdit", event, target)
-    const graph = this.api.getGraph(event.target.dataset.id);
+    const graph = await this.api.getGraph(event.target.dataset.id);
     this.editingGraph = graph;
     this.setActiveTab("creationGraph");
   }
@@ -225,7 +225,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     console.log(event)
     console.log(target)
     console.log(event.target.dataset.id)
-    const graph = this.api.getGraph(event.target.dataset.id);
+    const graph = await this.api.getGraph(event.target.dataset.id);
     const mode = this.api.canEditById(event.target.dataset.id) ? "edit" : "view";
     console.log("mode", mode)
     const appData = {
@@ -248,11 +248,11 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     // Or you can trigger a re-render of the entire dashboard
   }
 
-  static graphPerms(event, target) {
+  static async graphPerms(event, target) {
     console.log(event)
     const graphId = event.target.dataset.id;
     if (!graphId) return ui.notifications.warn("No graph selected for export");
-    const g = this.api.getGraph(graphId);
+    const g = await this.api.getGraph(graphId);
     new GraphPermissionsDialog({ graphId, permissions: g.permissions }).render(true);
   }
 
@@ -271,7 +271,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   static async onGraphRelations(event, target) {
     log("onGraphRelations", event, target);
     const graphId = event.target.dataset.id;
-    const graph = this.api.getGraph(graphId);
+    const graph = await this.api.getGraph(graphId);
     if (!graph) return ui.notifications.warn("Graph not found!");
 
     // Define the callback function to run when the dialog saves
