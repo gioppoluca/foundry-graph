@@ -49,7 +49,7 @@ Hooks.on("getSceneControlButtons", (controls) => {
           api.openDashboard(true)
         }
       }
-    } else if (!tokensControl.tools.find(t => t.name === id)) {
+    } else if (!tokensControl.tools.find(t => t.name === "graphs")) {
       tokensControl.tools.push({
         name: "graphs",
         title: game.i18n.localize(`${MODULE_ID}.Manager.ControlManage`),
