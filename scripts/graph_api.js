@@ -141,7 +141,7 @@ export class GraphApi {
     }
 
     getAccessibleGraphs(user = game.user) {
-        return Array.from(this._graphMap.values()).filter(g => this.canOpen(g, user));
+        return Array.from(this._indexMap.values()).filter(g => this.canOpen(g, user));
     }
 
     async updateGraphPermissions(graphId, newPerms) {
