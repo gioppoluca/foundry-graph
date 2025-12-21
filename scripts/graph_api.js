@@ -240,16 +240,22 @@ export class GraphApi {
             desc: graph.desc,
             graphType: graph.graphType,
             renderer: graph.renderer,
+            width: graph.width ?? 800,
+            height: graph.height ?? 600,
+            color: graph.color ?? "#ffffff",
+            nodeLabelColor: graph.nodeLabelColor ?? "#000000",
+            background: graph.background ?? null,
             permissions: graph.permissions ?? {},
+            relations: graph.relations ?? {},
             data: graph.data,
             file: filePath,
-            createdAt,
-            updatedAt,
-            revision
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            revision: revision
         };
 
-        this._indexMap.set(graph.id, entry);
-        this._graphMap.set(graph.id, graph);
+        this._indexMap.set(graph.id, graph);
+        this._graphMap.set(graph.id, entry);
 
         await this._saveIndex();
         return graph;
