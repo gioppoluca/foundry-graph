@@ -531,4 +531,40 @@ export class ForceRenderer extends BaseRenderer {
 
   }
 
+  hasEntity(graphData, uuid) {
+    console.log("ForceRenderer.hasEntity", graphData, uuid);
+    return graphData.data.nodes.some(n => n.uuid === uuid);
+  }
+
+  removeEntity(graphData, uuid) {
+    // Clone to ensure immutability
+    const graph = foundry.utils.deepClone(graphData);
+
+    // Locate the nodes array
+    let nodes = graph.data?.nodes;
+    let links = graph.data?.links;
+
+    if (!nodes) return graph;
+
+    // 1. Find the node IDs to remove
+    const nodesToRemove = nodes.filter(n => n.uuid === uuid);
+    if (nodesToRemove.length === 0) return graph;
+
+    const nodeIdsToRemove = new Set(nodesToRemove.map(n => n.id));
+
+    // 2. Filter Nodes
+    const cleanNodes = nodes.filter(n => n.uuid !== uuid);
+
+    // 3. Filter Links (remove if source OR target is gone)
+    const cleanLinks = (links || []).filter(l =>
+      !nodeIdsToRemove.has(l.source) && !nodeIdsToRemove.has(l.target)
+    );
+
+    // 4. Assign back
+    graph.data.nodes = cleanNodes;
+    graph.data.links = cleanLinks;
+
+    return graph;
+  }
+
 }

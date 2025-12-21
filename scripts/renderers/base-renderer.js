@@ -39,6 +39,26 @@ export class BaseRenderer {
     }
   }
 
+  /**
+   * Checks if the graph data contains a node representing the given UUID.
+   * @param {Object} graphData - The raw data of the graph
+   * @param {string} uuid - The UUID of the actor/item/scene being deleted
+   * @returns {boolean}
+   */
+  static hasEntity(graphData, uuid) {
+     throw new Error("BaseRenderer.hasEntity must be implemented by subclasses");
+  }
+
+  /**
+   * Removes the node (and associated links) for the given UUID.
+   * @param {Object} graphData - The raw data of the graph
+   * @param {string} uuid - The UUID of the entity to remove
+   * @returns {Object} - The updated graphData
+   */
+  static removeEntity(graphData, uuid) {
+    throw new Error("BaseRenderer.removeEntity must be implemented by subclasses");
+  }
+
   _abstract(name) {
     throw new Error(`[Renderer] ${this.constructor.name}.${name} must be implemented`);
   }
