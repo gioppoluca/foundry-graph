@@ -469,4 +469,20 @@ export class GenealogyRenderer extends BaseRenderer {
     log(this.graph)
     this.render();
   }
+
+    hasEntity(graphData, uuid) {
+    console.log("GenealogyRenderer.hasEntity", graphData, uuid);
+    if (!graphData.data.persons) {
+        return false;
+    }
+
+    const persons = graphData.data.persons;
+
+    // 2. Direct Lookup (O(1))
+    // Based on your JSON, the keys of the 'persons' object ARE the UUIDs.
+    if (Object.prototype.hasOwnProperty.call(persons, uuid)) {
+        return true;
+    }
+    return false;
+  }
 }
