@@ -424,6 +424,11 @@ export class ForceRenderer extends BaseRenderer {
     console.log(event)
     const data = TextEditor.getDragEventData(event);
     console.log(data)
+    const allowed = this.graph?.allowedEntities;
+    if (Array.isArray(allowed) && allowed.length > 0 && !allowed.includes(data.type)) {
+      ui.notifications.warn(`You cannot add a ${data.type} on this graph type.`);
+      return;
+    }
     // Get mouse position relative to SVG
 
     // 1. Get the <g> element that is being transformed by zoom
@@ -514,7 +519,7 @@ export class ForceRenderer extends BaseRenderer {
           id: newId,
           uuid: data.uuid,
           label: item.name,
-          type: 'Actor',
+          type: 'Item',
           img: item.img,
           fx: x,
           fy: y

@@ -31,6 +31,7 @@ export class GraphBuilder {
                 fit: "contain", 
                 ...background
             },
+            allowedEntities: JSON_graph_types[graphType]?.allowedEntities || [],
             permissions: {
                 default: foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE,
                 [userId]: foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER

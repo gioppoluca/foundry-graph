@@ -12,6 +12,7 @@ export const GRAPH_TYPES = {
     "color": "#550044",
     "nodeLabelColor": "#000000",
     "version": "1.0.0",
+    "allowedEntities": ["Actor"],
     "systems": [
       "*"
     ],
@@ -101,6 +102,7 @@ export const GRAPH_TYPES = {
     "color": "#ff0000",
     "nodeLabelColor": "#ffffff",
     "version": "1.0.0",
+    "allowedEntities": ["Actor"],
     "systems": [
       "vtm5e"
     ],
@@ -268,6 +270,7 @@ export const GRAPH_TYPES = {
     "color": "#0000aa",
     "nodeLabelColor": "#000000",
     "version": "1.0.0",
+    "allowedEntities": ["Actor"],
     "width": 1200,
     "height": 900,
     "systems": [
@@ -352,6 +355,7 @@ export const GRAPH_TYPES = {
     "color": "#ffffff",
     "nodeLabelColor": "#000000",
     "version": "1.0.0",
+    "allowedEntities": ["Actor"],
     "width": 1000,
     "height": 800,
     "systems": [
@@ -445,6 +449,7 @@ export const GRAPH_TYPES = {
     "color": "#226633",
     "nodeLabelColor": "#000000",
     "version": "1.0.0",
+    "allowedEntities": ["Actor"],
     "systems": [
       "*"
     ],

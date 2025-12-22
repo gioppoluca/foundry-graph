@@ -226,6 +226,10 @@ export class GraphApi {
             else graph.data = {};
         }
 
+        if (!Array.isArray(graph.allowedEntities)) {
+            graph.allowedEntities = this.graphTypes?.[graph.graphType]?.allowedEntities || [];
+        }
+
         const dir = await this._pickWritableStorageDir();
         const filePath = await this._writeGraphFile(dir, graph);
 
@@ -247,6 +251,7 @@ export class GraphApi {
             background: graph.background ?? null,
             permissions: graph.permissions ?? {},
             relations: graph.relations ?? {},
+            allowedEntities: graph.allowedEntities ?? [],
             data: graph.data,
             file: filePath,
             createdAt: createdAt,

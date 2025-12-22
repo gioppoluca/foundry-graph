@@ -405,6 +405,11 @@ export class GenealogyRenderer extends BaseRenderer {
     event.stopPropagation();
     const data = TextEditor.getDragEventData(event);
     console.log(data)
+    const allowed = this.graph?.allowedEntities;
+    if (Array.isArray(allowed) && allowed.length > 0 && !allowed.includes(data.type)) {
+      ui.notifications.warn(`You cannot add a ${data.type} on this graph type.`);
+      return;
+    }
     log("this.graph:", this.graph)
     const hasStart =
       typeof this.graph?.data?.start === "string" &&
