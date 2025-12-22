@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2025-12-21
+### :sparkles: New Features
+- [`9188786`](https://github.com/gioppoluca/foundry-graph/commit/91887865f4f788a475e413a58f07e30650e30bda) - added management of deletion of entity *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`0d4c1ce`](https://github.com/gioppoluca/foundry-graph/commit/0d4c1ce709a6abc19e3fa56bc5d1faab4b34d8ae) - partial implementation for deletion of entity *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+### :bug: Bug Fixes
+- [`16386b5`](https://github.com/gioppoluca/foundry-graph/commit/16386b5231accb36d6bcd85a0d76e09243a15bda) - saving less data *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.2.1] - 2025-12-21
 ### :bug: Bug Fixes
 - [`b7c6ca8`](https://github.com/gioppoluca/foundry-graph/commit/b7c6ca88d536d4ca304ef53bdcf8c7ad8dcebe4f) - missing read from folder instead of cache *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -55,3 +64,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.1.0]: https://github.com/gioppoluca/foundry-graph/compare/0.0.3...0.1.0
 [0.2.0]: https://github.com/gioppoluca/foundry-graph/compare/0.1.0...0.2.0
 [0.2.1]: https://github.com/gioppoluca/foundry-graph/compare/0.2.0...0.2.1
+[0.2.2]: https://github.com/gioppoluca/foundry-graph/compare/0.2.1...0.2.2
