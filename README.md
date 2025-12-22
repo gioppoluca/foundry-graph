@@ -44,7 +44,7 @@ In this initial phase of the module the goal is to confront with the users and d
 You will find the **Graph Management** button in the Token toolset.
 ![Module Button](doc/moduleButton.png)
 
-The butto will open 
+The button will open 
 the **Graph Dashboard** with the list of the existing graphs on the world.
 ![alt text](doc/listGraphs.png)
 The **Create Graph** tab allows you to create a new graph or to edit an existing one.
