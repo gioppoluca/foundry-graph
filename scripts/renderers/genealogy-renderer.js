@@ -470,10 +470,10 @@ export class GenealogyRenderer extends BaseRenderer {
     this.render();
   }
 
-    hasEntity(graphData, uuid) {
+  hasEntity(graphData, uuid) {
     console.log("GenealogyRenderer.hasEntity", graphData, uuid);
     if (!graphData.data.persons) {
-        return false;
+      return false;
     }
 
     const persons = graphData.data.persons;
@@ -481,8 +481,102 @@ export class GenealogyRenderer extends BaseRenderer {
     // 2. Direct Lookup (O(1))
     // Based on your JSON, the keys of the 'persons' object ARE the UUIDs.
     if (Object.prototype.hasOwnProperty.call(persons, uuid)) {
-        return true;
+      return true;
     }
     return false;
+  }
+  removeEntity(graphData, uuid) {
+    // Defensive clone to keep callers safe
+    const graph = foundry.utils.deepClone(graphData);
+
+    const data = graph?.data;
+    if (!data || !data.persons || !data.links) return graph;
+
+    // If the person is not in the map, nothing to do
+    if (!Object.prototype.hasOwnProperty.call(data.persons, uuid)) return graph;
+
+    const persons = data.persons;
+    const unions = data.unions ?? {};
+    const links = data.links ?? [];
+
+    // --- Build adjacency for fast traversal (src -> [dst...]) ---
+    const out = new Map(); // Map<string, Set<string>>
+    for (const pair of links) {
+      if (!Array.isArray(pair) || pair.length < 2) continue;
+      const [src, dst] = pair;
+      if (!out.has(src)) out.set(src, new Set());
+      out.get(src).add(dst);
+    }
+
+    // --- Descendant traversal (downward only) ---
+    // Rule: descendants are reached via: person.ownFamily (union) -> children persons
+    const personsToDelete = new Set();
+    const unionsToDelete = new Set();
+    const queue = [uuid];
+
+    while (queue.length > 0) {
+      const personId = queue.shift();
+      if (!personId || personsToDelete.has(personId)) continue;
+
+      const p = persons[personId];
+      if (!p) continue;
+
+      personsToDelete.add(personId);
+
+      const ownFamily = p.ownFamily;
+      if (ownFamily && unions[ownFamily]) {
+        unionsToDelete.add(ownFamily);
+
+        // children are linked as: [ownFamily, childPersonId]
+        const children = out.get(ownFamily);
+        if (children) {
+          for (const childId of children) {
+            if (persons[childId] && !personsToDelete.has(childId)) {
+              queue.push(childId);
+            }
+          }
+        }
+      }
+    }
+
+    // --- If we're deleting the start, try to promote a surviving parent ---
+    if (data.start && personsToDelete.has(data.start)) {
+      const parents = this.getParents(data, data.start); // uses links + unions
+      const promoted = parents.find(pid => !personsToDelete.has(pid) && persons[pid]);
+      data.start = promoted ?? "";
+    }
+
+    // --- Remove persons ---
+    for (const pid of personsToDelete) {
+      delete persons[pid];
+    }
+
+    // --- Remove unions (the ones that belong to deleted subtree) ---
+    for (const uid of unionsToDelete) {
+      delete unions[uid];
+    }
+    data.unions = unions;
+
+    // --- Remove links touching deleted persons/unions ---
+    data.links = (links || []).filter(([src, dst]) => {
+      if (personsToDelete.has(src) || personsToDelete.has(dst)) return false;
+      if (unionsToDelete.has(src) || unionsToDelete.has(dst)) return false;
+      return true;
+    });
+
+    // --- Cleanup: remove any remaining unions that are now isolated (no links) ---
+    // (optional but keeps data tidy)
+    const usedUnionIds = new Set();
+    for (const [src, dst] of data.links) {
+      if (data.unions[src]) usedUnionIds.add(src);
+      if (data.unions[dst]) usedUnionIds.add(dst);
+    }
+    for (const unionId of Object.keys(data.unions)) {
+      if (!usedUnionIds.has(unionId)) delete data.unions[unionId];
+    }
+
+    // If start is empty, you may want to pick any remaining person as start (optional).
+    // Here we leave it empty to avoid unexpected graph "teleporting".
+    return graph;
   }
 }

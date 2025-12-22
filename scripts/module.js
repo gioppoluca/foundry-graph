@@ -70,3 +70,114 @@ Hooks.on("getSceneControlButtons", (controls) => {
   console.log(controls);
 
 });
+
+async function performCleanup(affectedList, uuid) {
+  for (const graph of affectedList) {
+    const RendererClass = game.modules.get(MODULE_ID)?.api.getRenderer(graph?.renderer);
+    console.log(RendererClass);
+    console.log(`Foundry Graph | Cleaning up graph ${graph.name} (${graph.id})`,affectedList);
+    // 1. Delegate logic to Renderer
+    const cleanedData = RendererClass.removeEntity(graph, uuid);
+    console.log(cleanedData);
+
+    // 2. Save via API
+    await game.modules.get(MODULE_ID)?.api.upsertGraph(cleanedData);
+
+    console.log(`Foundry Graph | Removed ${uuid} from ${graph.name}`);
+  }
+  ui.notifications.info(`Cleaned up graph references.`);
+}
+
+async function performAsyncCheck(document, options) {
+  if (!game.user.isGM) return true;
+
+  const docUuid = document.uuid;
+
+  // 1. GET ALL GRAPHS VIA API
+  // Ensure this returns the full object list, not just IDs
+  const allGraphs = await game.modules.get(MODULE_ID)?.api.getAllGraphs();
+
+  // 2. FIND AFFECTED GRAPHS
+  // Delegate detection to the specific Renderer
+  const affectedGraphs = [];
+
+  for (const graph of allGraphs) {
+    const RendererClass = game.modules.get(MODULE_ID)?.api.getRenderer(graph?.renderer);
+    console.log(RendererClass);
+
+    if (!RendererClass) {
+      console.warn(`Foundry Graph | Unknown renderer '${graph?.renderer}' for graph ${graph.id}`);
+      continue;
+    }
+
+    // STATIC CALL: Ask the renderer logic
+    if (RendererClass.hasEntity(graph, docUuid)) {
+      affectedGraphs.push(graph);
+    }
+  }
+
+  // Case 1: Safe to delete (No graphs affected)
+  if (affectedGraphs.length === 0) {
+    // Re-trigger the delete, but add our flag so we don't block it again
+    return document.delete({ ...options, graphModuleChecked: true });
+  }
+
+  // 3. PROMPT USER
+  return new Promise((resolve) => {
+    const listHtml = affectedGraphs.map(item => `<li>${item.name}</li>`).join("");
+
+    new Dialog({
+      title: `Deletion Warning: ${document.name}`,
+      content: `
+                <p><strong>${document.name}</strong> is used in these graphs:</p>
+                <ul>${listHtml}</ul>
+                <p>Deleting it will remove it from these diagrams. Proceed?</p>
+            `,
+      buttons: {
+        delete: {
+          icon: '<i class="fas fa-trash"></i>',
+          label: "Delete & Cleanup",
+          callback: async () => {
+            // CLEANUP
+            await performCleanup(affectedGraphs, docUuid);
+
+            // RE-TRIGGER DELETE
+            document.delete({ ...options, graphModuleChecked: true });
+          }
+        },
+        cancel: {
+          icon: '<i class="fas fa-times"></i>',
+          label: "Cancel",
+          callback: () => {
+            // Do nothing. The original delete was already blocked (return false).
+            // The user stays on the screen.
+          }
+        }
+      },
+      default: "cancel",
+      close: () => resolve(false)
+    }).render(true);
+  });
+}
+
+/**
+ * Synchronous interceptor.
+ * Returns false to BLOCK the delete, then starts the async check.
+ */
+function interceptDeletion(document, options, id) {
+  // 1. BYPASS: If we already checked this delete, let it pass
+  if (options.graphModuleChecked) return true;
+
+  // 2. PERMISSION: Only GM checks (or rely on API permissions)
+  if (!game.user.isGM) return true;
+
+  // 3. INTERCEPT: Stop the deletion immediately!
+  // We trigger the async logic separately, but we MUST return false now.
+  performAsyncCheck(document, options);
+
+  return false;
+}
+
+Hooks.on("preDeleteActor", (doc, options, id) => interceptDeletion(doc, options, id));
+Hooks.on("preDeleteItem", (doc, options, id) => interceptDeletion(doc, options, id));
+Hooks.on("preDeleteScene", (doc, options, id) => interceptDeletion(doc, options, id));
