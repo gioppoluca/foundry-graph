@@ -52,6 +52,7 @@ export class ForceRenderer extends BaseRenderer {
         label: l.label,
         color: l.color,
         style: l.style,
+        noArrow: l.noArrow === true || l.noArrow === "true",
         strokeWidth: l.strokeWidth
       }))
     };
