@@ -135,7 +135,8 @@ export class GraphApi {
     }
 
     async updateGraphPermissions(graphId, newPerms) {
-        const g = this.getGraph(graphId);
+        const g = await this.getGraph(graphId);
+        console.log("updateGraphPermissions", graphId, newPerms, g);    
         if (!g) throw new Error(`Graph ${graphId} not found`);
 
         g.permissions = newPerms;
@@ -228,8 +229,10 @@ export class GraphApi {
             revision: revision
         };
 
-        this._indexMap.set(graph.id, graph);
-        this._graphMap.set(graph.id, entry);
+//        this._indexMap.set(graph.id, graph);
+//        this._graphMap.set(graph.id, entry);
+        this._indexMap.set(graph.id, entry);
+        this._graphMap.set(graph.id, graph);
 
         await this._saveIndex();
         return graph;
