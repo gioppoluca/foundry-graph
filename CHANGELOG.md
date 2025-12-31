@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2025-12-31
+### :sparkles: New Features
+- [`243b885`](https://github.com/gioppoluca/foundry-graph/commit/243b88554267506735a8557a8132569908a838ce) - implemented the check on the deletion of an entity: if deleted ask to remove from affected graphs *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`a9136bc`](https://github.com/gioppoluca/foundry-graph/commit/a9136bc22c1f3a70f2751e9fefefa57a1eec0f8c) - added allowed entities for the graph *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`8a0a247`](https://github.com/gioppoluca/foundry-graph/commit/8a0a2470e0a51f5d82f1815f099c7884cf9086b1) - managing graph version *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`42ecd8a`](https://github.com/gioppoluca/foundry-graph/commit/42ecd8ab682a33b6a51c07f4f9dc0843304c2384) - version on api *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+### :bug: Bug Fixes
+- [`6b274af`](https://github.com/gioppoluca/foundry-graph/commit/6b274af815bd86a96ffcbcaa3d9f06c5d0788848) - not saving no-arrow #closes 1 *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`f465832`](https://github.com/gioppoluca/foundry-graph/commit/f465832957b6e3a80f1201751f450aa8b39530c7) - version is number *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`a999ad6`](https://github.com/gioppoluca/foundry-graph/commit/a999ad686db2c2409b8e59193ac3755d4adc8f1d) - #closes 2 *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.2.2] - 2025-12-21
 ### :sparkles: New Features
 - [`9188786`](https://github.com/gioppoluca/foundry-graph/commit/91887865f4f788a475e413a58f07e30650e30bda) - added management of deletion of entity *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -65,3 +78,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.2.0]: https://github.com/gioppoluca/foundry-graph/compare/0.1.0...0.2.0
 [0.2.1]: https://github.com/gioppoluca/foundry-graph/compare/0.2.0...0.2.1
 [0.2.2]: https://github.com/gioppoluca/foundry-graph/compare/0.2.1...0.2.2
+[0.2.3]: https://github.com/gioppoluca/foundry-graph/compare/0.2.2...0.2.3
