@@ -3,6 +3,7 @@ import { log, MODULE_ID, JSON_graph_types } from './constants.js';
 import { ForceRenderer } from "./renderers/force-renderer.js";
 //import { TreeRenderer } from "./renderers/tree-renderer.js";
 import { GenealogyRenderer } from "./renderers/genealogy-renderer.js";
+import { migrateGraph } from "./model/graph_migrations.js";
 
 
 const LEVELS = foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS; // { NONE:0, LIMITED:1, OBSERVER:2, OWNER:3 }
@@ -51,12 +52,6 @@ export class GraphApi {
     }
 
 
-    /**
-     * Async factory that returns a fully‑initialised API instance.
-     * @param {string} moduleId  – your module id ("foundry-graph")
-     */
-
-
     // ---------------------------------------------------------------------------
     // Construction
     // ---------------------------------------------------------------------------
@@ -88,11 +83,6 @@ export class GraphApi {
     // ---------------------------------------------------------------------------
     // Public API surface
     // ---------------------------------------------------------------------------
-
-    /** Return every graph type object that was registered */
-    get_graph_types() {
-        return Array.from(JSON_graph_types.values());
-    }
 
     /**
      * Return the singleton GraphDashboardV2, creating it if needed.
@@ -168,11 +158,9 @@ export class GraphApi {
     // Persistence helpers
     // ---------------------------------------------------------------------------
     async loadGraphs() {
-        //const data = await game.settings.get("foundry-graph", "graphs") || [];
-        //this._graphMap = new Map(data.map(g => [g.id, g]));
         const index = await game.settings.get(MODULE_ID, "graphIndex") || [];
         this._indexMap = new Map(index.map(e => [e.id, e]));
-        this.migrateFromLegacySettingIfNeeded();
+        await this.migrateFromLegacySettingIfNeeded();
         this._graphMap.clear();
     }
 
@@ -187,37 +175,16 @@ export class GraphApi {
         const entry = this.getGraphIndexEntry(id);
         if (!entry) return null;
 
-        const graph = await this._readGraphFile(entry.file);
+        const graphRaw = await this._readGraphFile(entry.file);
+        const graph = migrateGraph(graphRaw, this.graphTypes);
         this._graphMap.set(id, graph);
         return graph;
     }
 
-    /*
-    getGraph(id) {
-        return this._graphMap.get(id) ?? null;
-    }
-        */
 
     async _saveIndex() {
         await game.settings.set(MODULE_ID, "graphIndex", Array.from(this._indexMap.values()));
     }
-    /*
-        async upsertGraph(graph) {
-            // here we must initialize data attribure is the graph is just created, thus empty
-            log("GraphApi.upsertGraph", graph)
-            if (!graph.data) {
-                log("GraphApi.upsertGraph initializing data for graph", graph.id, graph.graphType)
-                // must ask the proper renderer to initialize the data, so we get the type of the graph and get the renderer of the type
-                const renderer = this.getRenderer(this.graphTypes[graph.graphType].renderer);
-                log("GraphApi.upsertGraph got renderer", renderer)
-                if (renderer) {
-                    graph.data = renderer.initializeGraphData();
-                }
-            }
-            this._graphMap.set(graph.id, graph);
-            await this.saveGraphs();
-        }
-    */
     async upsertGraph(graph) {
         // Ensure graph has data
         if (!graph.data) {
@@ -252,6 +219,8 @@ export class GraphApi {
             permissions: graph.permissions ?? {},
             relations: graph.relations ?? {},
             allowedEntities: graph.allowedEntities ?? [],
+            schemaVersion: graph.schemaVersion,
+            graphTypeVersion: graph.graphTypeVersion,
             data: graph.data,
             file: filePath,
             createdAt: createdAt,
@@ -265,12 +234,6 @@ export class GraphApi {
         await this._saveIndex();
         return graph;
     }
-    /*
-        async deleteGraph(id) {
-            this._graphMap.delete(id);
-            await this.saveGraphs();
-        }
-    */
     async deleteGraph(id) {
         this._graphMap.delete(id);
         this._indexMap.delete(id);
@@ -279,17 +242,6 @@ export class GraphApi {
         // NOTE: file remains on disk; Foundry does not provide a supported file delete API. :contentReference[oaicite:7]{index=7}
     }
 
-    /*
-    async saveGraphs() {
-        await game.settings.set("foundry-graph", "graphs", Array.from(this._graphMap.values()));
-    }
-        */
-    /*
-        getAllGraphs() {
-            console.log(this._graphMap.values())
-            return Array.from(this._graphMap.values());
-        }
-    */
     getAllGraphs() {
         return Array.from(this._indexMap.values());
     }
@@ -311,22 +263,12 @@ export class GraphApi {
         return this.graphTypes[id] || null;
     }
 
-    /*
-    registerRenderer(RendererClass) {
-        registry.set(RendererClass.ID, RendererClass);
-    }
-*/
     getRenderer(id) {
         log("getRenderer", id, this.registryRenderers)
         log("getRenderer", this.registryRenderers.get(id))
         log("getRenderer", this.registryRenderers[id])
         return this.registryRenderers.get(id);
     }
-    /*
-        listRenderers() {
-            return [...registry.keys()];
-        }
-    */
     // ---------------------------------------------------------------------------
     // Miscellaneous
     // ---------------------------------------------------------------------------
@@ -402,4 +344,3 @@ export class GraphApi {
         return await res.json();
     }
 }
-//}
