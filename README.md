@@ -5,7 +5,7 @@
 
 # Foundry Graph - Visual Relationship Mapping
 
-# !!! WARNING !!! - this module is still in alpha mode until this comment is removed.  Use it to test its features and give feedback, but do not manage real data, the development is at early stage: metadata will change and there will be no migration path for graphs created.
+# !!! WARNING !!! - this module is still in beta mode until this comment is removed.  Use it to test its features and give feedback, but do not manage real data, the development is at early stage: metadata will change and there will be no migration path for graphs created.
 
 Draw the threads that connect your world. Turn relationships into stories you can see.
 Visualize lineage, alliances, and secrets in living diagrams with ease.
@@ -14,13 +14,13 @@ Visualize lineage, alliances, and secrets in living diagrams with ease.
 Foundry Graph is a powerful and intuitive module that lets you visually map relationships between actors, scenes, items, or any other entity in your world. Whether you're managing political intrigue, faction conflicts, character connections, or ancient bloodlines, this tool gives you a dynamic canvas to build, edit, and explore complex networks.
 You can choose between a set of graph types and create your **relation map**
 
-| Graph type | Renderer    | System    | Description                                                                          |
-| ---------- | ------- | ------------ | ------------------------------------------------------------------------------ |
-| Enemy Map | Free Diagram| any | A diagram to represent better relationship with enemies |
-| World of Darkness Relationship Map | Free Diagram    | WoD   | The relationship map for a coterie or a single character, with dedicated relations for the World of Darkness system   |
-| Faction Power Structure | Free Diagram | any | A diagram with relations useful for mapping the internal hierarchy of a faction |
-| Characters Map   | Free Diagram  | any   | The classical map between generic Actors  |
-| Genealogy Tree  | Genealogy | any | Genealogical tree for Actors only |
+| Graph type | Renderer    | System    | Object Allowed | Description                                                                          |
+| ---------- | ------- | ------------ | ---- | -------------------------------------------------------------------------- |
+| Enemy Map | Free Diagram| any | Actors | A diagram to represent better relationship with enemies |
+| World of Darkness Relationship Map | Free Diagram    | WoD   | Actors | The relationship map for a coterie or a single character, with dedicated relations for the World of Darkness system   |
+| Faction Power Structure | Free Diagram | any | Actors | A diagram with relations useful for mapping the internal hierarchy of a faction |
+| Characters Map   | Free Diagram  | any   | Actors | The classical map between generic Actors  |
+| Genealogy Tree  | Genealogy | any | Actors | Genealogical tree for Actors only |
 
 New graph types are cooking, add an issue if you would like to have a specific graph type.
 
