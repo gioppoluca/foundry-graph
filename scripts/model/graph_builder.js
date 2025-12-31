@@ -1,4 +1,4 @@
-import { MODULE_ID, JSON_graph_types } from "../constants.js";
+import { MODULE_ID, JSON_graph_types, GRAPH_SCHEMA_VERSION} from "../constants.js";
 
 export class GraphBuilder {
     constructor({
@@ -37,6 +37,8 @@ export class GraphBuilder {
                 [userId]: foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
             },
             relations: JSON_graph_types[graphType]?.relations || [],
+            schemaVersion: GRAPH_SCHEMA_VERSION,
+            graphTypeVersion: JSON_graph_types[graphType]?.version,
         };
     }
 

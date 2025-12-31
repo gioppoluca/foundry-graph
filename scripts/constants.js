@@ -5,6 +5,7 @@ export const MODULE_ID = "foundry-graph";
 export const MODULE_NAME = "Foundry Graph";
 export let isDebug = false;
 export function setDebugFlag(value) { isDebug = value === true; }
+export const GRAPH_SCHEMA_VERSION = 1;
 
 /**
  * Extract caller info (file + function) from stack trace.
