@@ -88,8 +88,8 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
 
   async _prepareContext(options) {
-    console.log("PREPARE CONTEXT", options);
-    console.log(this._mode)
+    log("PREPARE CONTEXT", options);
+    log(this._mode)
 
     if ((this._mode === "edit") || (this._mode === "view")) {
       this._graphName = this.graph.name;
@@ -127,7 +127,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // 1) Grab the SVG element
     const svgElement = document.querySelector("#d3-graph");
     if (!svgElement) {
-      console.error("SVG element not found");
+      error("SVG element not found");
       return;
     }
     //await this.renderer.render(svgElement, this.graph)
@@ -138,7 +138,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     ui?.notifications?.info?.("Preparing high-resolution export… this may take a few seconds for large graphs.");
     try {
       // 2) Clone so we don’t mutate the on-screen SVG
-      console.log("phase 2")
+      log("phase 2")
       const svgClone = svgElement.cloneNode(true);
 
       // 3) Ensure namespaces (helps some renderers)
@@ -192,7 +192,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
                 imgElem.setAttribute("height", String(probe.naturalHeight || 1));
               }
             } catch (err) {
-              console.error("Error inlining image:", err);
+              error("Error inlining image:", err);
             }
           })
         );
@@ -244,7 +244,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       // 4) Inline images + styles
       await inlineImages();
       inlineComputedStyles();
-      console.log("end phase 4")
+      log("end phase 4")
       // 5) Use the background image dimensions to export the WHOLE graph
       let exportX = 0, exportY = 0, exportW, exportH;
       const bgImg =
@@ -254,7 +254,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         svgClone.querySelector("image.bg") ||
         svgClone.querySelector("image");
 
-      console.log("BG:", bgImg)
+      log("BG:", bgImg)
       if (bgImg) {
         //        exportX = parseFloat(bgImg.getAttribute("x") ?? "0") || 0;
         //        exportY = parseFloat(bgImg.getAttribute("y") ?? "0") || 0;
@@ -278,7 +278,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
         exportW = Math.max(1, Math.floor(wAttr || 0));
         exportH = Math.max(1, Math.floor(hAttr || 0));
-        console.log("bgImg export dimensions", exportX, exportY, exportW, exportH, bgImg)
+        log("bgImg export dimensions", exportX, exportY, exportW, exportH, bgImg)
         // Make the cloned SVG render exactly the whole background area
         svgClone.setAttribute("viewBox", `${exportX} ${exportY} ${exportW} ${exportH}`);
         svgClone.setAttribute("width", exportW);
@@ -290,12 +290,12 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         //        exportY = bbox.y;
         exportW = Math.max(1, Math.floor(bbox.width || 1024));
         exportH = Math.max(1, Math.floor(bbox.height || 768));
-        console.log("bbox export dimensions", exportX, exportY, exportW, exportH, bgImg)
+        log("bbox export dimensions", exportX, exportY, exportW, exportH, bgImg)
         svgClone.setAttribute("viewBox", `${exportX} ${exportY} ${exportW} ${exportH}`);
         svgClone.setAttribute("width", exportW);
         svgClone.setAttribute("height", exportH);
       }
-      console.log("end phase 5", svgClone)
+      log("end phase 5", svgClone)
       // 6) Serialize prepared SVG
       const serializer = new XMLSerializer();
       const svgStr = serializer.serializeToString(svgClone);
@@ -319,7 +319,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         const canvas = document.createElement("canvas");
         canvas.width = Math.round(exportW * pixelRatio);
         canvas.height = Math.round(exportH * pixelRatio);
-        console.log("drawimage export dimensions", exportX, exportY, exportW, exportH, canvas.width, canvas.height)
+        log("drawimage export dimensions", exportX, exportY, exportW, exportH, canvas.width, canvas.height)
 
         const ctx = canvas.getContext("2d");
         ctx.imageSmoothingEnabled = true;
@@ -337,7 +337,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         URL.revokeObjectURL(url);
       }
     } catch (err) {
-      console.error(game.i18n.localize("foundry-graph.Errors.ExportFailed"), err);
+      log(game.i18n.localize("foundry-graph.Errors.ExportFailed"), err);
       ui?.notifications?.error?.(game.i18n.localize("foundry-graph.Errors.ExportFailed"));
     } finally {
       // --- Always restore cursor, even on error
@@ -346,15 +346,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
   }
 
-  /*
-  _onDrop(event){
-    log("ondrop of the d3-app", this, event)
-    console.log("**************************************")
-    this.renderer._onDrop(event)
-  }
-*/
-
-  static async _saveGraph() {
+    static async _saveGraph() {
     const api = game.modules.get("foundry-graph").api;
 
     const data = this.renderer.getGraphData()
@@ -363,7 +355,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     await api.upsertGraph(this.graph);
     this.renderer.teardown();
     ui.notifications.info(game.i18n.localize("foundry-graph.Notifications.GraphSaved"));
-    console.log(this)
+    log(this)
     this.close()
   }
 

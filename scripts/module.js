@@ -33,7 +33,7 @@ Hooks.on("getSceneControlButtons", (controls) => {
   }
   log(tokensControl)
   if (tokensControl) {
-    console.log(`${MODULE_ID} | found place`);
+    log(`${MODULE_ID} | found place`);
     if (game.release.generation > 12) {
       tokensControl.tools['graphs'] = {
         name: "graphs",
@@ -57,7 +57,6 @@ Hooks.on("getSceneControlButtons", (controls) => {
 
         button: true,
         onClick: () => {
-          console.log("onClick")
           log("onClick")
           const api = game.modules.get(MODULE_ID)?.api;
           log(api)
@@ -67,23 +66,23 @@ Hooks.on("getSceneControlButtons", (controls) => {
       });
     }
   }
-  console.log(controls);
+  log(controls);
 
 });
 
 async function performCleanup(affectedList, uuid) {
   for (const graph of affectedList) {
     const RendererClass = game.modules.get(MODULE_ID)?.api.getRenderer(graph?.renderer);
-    console.log(RendererClass);
-    console.log(`Foundry Graph | Cleaning up graph ${graph.name} (${graph.id})`,affectedList);
+    log(RendererClass);
+    log(`Foundry Graph | Cleaning up graph ${graph.name} (${graph.id})`,affectedList);
     // 1. Delegate logic to Renderer
     const cleanedData = RendererClass.removeEntity(graph, uuid);
-    console.log(cleanedData);
+    log(cleanedData);
 
     // 2. Save via API
     await game.modules.get(MODULE_ID)?.api.upsertGraph(cleanedData);
 
-    console.log(`Foundry Graph | Removed ${uuid} from ${graph.name}`);
+    log(`Foundry Graph | Removed ${uuid} from ${graph.name}`);
   }
   ui.notifications.info(`Cleaned up graph references.`);
 }
@@ -103,10 +102,10 @@ async function performAsyncCheck(document, options) {
 
   for (const graph of allGraphs) {
     const RendererClass = game.modules.get(MODULE_ID)?.api.getRenderer(graph?.renderer);
-    console.log(RendererClass);
+    log(RendererClass);
 
     if (!RendererClass) {
-      console.warn(`Foundry Graph | Unknown renderer '${graph?.renderer}' for graph ${graph.id}`);
+      warn(`Foundry Graph | Unknown renderer '${graph?.renderer}' for graph ${graph.id}`);
       continue;
     }
 

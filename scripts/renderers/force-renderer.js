@@ -26,8 +26,8 @@ export class ForceRenderer extends BaseRenderer {
   }
 
   getGraphData() {
-    console.log("SIM nodes:", this._simulation.nodes());                     // canonical node objects
-    console.log("SIM links:", this._simulation.force("link").links());
+    log("SIM nodes:", this._simulation.nodes());                     // canonical node objects
+    log("SIM links:", this._simulation.force("link").links());
     const links = this._simulation.force("link").links();
     const nodes = this._simulation.nodes();
     return {
@@ -206,7 +206,7 @@ export class ForceRenderer extends BaseRenderer {
       .attr("stroke-width", d => d.strokeWidth || 2)
       .attr("marker-end", d => {
         const noArrow = d.noArrow === true || d.noArrow === "true";
-        console.log("LINK noArrow:", noArrow, d);
+        log("LINK noArrow:", noArrow, d);
         return noArrow ? null : "url(#fg-arrow)";
       })
       .on("contextmenu", (event, d) => {
@@ -345,20 +345,20 @@ export class ForceRenderer extends BaseRenderer {
     }
 
     function dragstarted(event, d) {
-      console.log("DRAG START", d);
+      log("DRAG START", d);
       simulation.alphaTarget(0.3).restart();
       d.fx = d.x;
       d.fy = d.y;
     }
 
     function dragged(event, d) {
-      console.log("DRAGGING", d);
+      log("DRAGGING", d);
       d.x = d.fx = event.x;
       d.y = d.fy = event.y;
     }
 
     function dragended(event, d) {
-      console.log("DRAG END", d);
+      log("DRAG END", d);
       if (!event.active) simulation.alphaTarget(0);
       // Do NOT nullify fx/fy — keep node fixed after drag
       d.x = d.fx = event.x;
@@ -421,10 +421,10 @@ export class ForceRenderer extends BaseRenderer {
   }
 
   async _onDrop(event) {
-    console.log("_onDrop")
-    console.log(event)
+    log("_onDrop")
+    log(event)
     const data = TextEditor.getDragEventData(event);
-    console.log(data)
+    log(data)
     const allowed = this.graph?.allowedEntities;
     if (Array.isArray(allowed) && allowed.length > 0 && !allowed.includes(data.type)) {
       ui.notifications.warn(`You cannot add a ${data.type} on this graph type.`);
@@ -435,7 +435,7 @@ export class ForceRenderer extends BaseRenderer {
     // 1. Get the <g> element that is being transformed by zoom
     const zoomLayerNode = this._svg.select("g.zoom-layer").node();
     if (!zoomLayerNode) {
-      console.error("Could not find zoom layer!");
+      error("Could not find zoom layer!");
       return;
     }
 
@@ -472,7 +472,7 @@ export class ForceRenderer extends BaseRenderer {
         break;
       case 'JournalEntryPage':
         const page = await fromUuid(data.uuid);
-        console.log(page)
+        log(page)
         if (!page) {
           ui.notifications.warn("Could not find page");
           return;
@@ -491,7 +491,7 @@ export class ForceRenderer extends BaseRenderer {
         break;
       case 'Scene':
         const scene = await fromUuid(data.uuid);
-        console.log(scene)
+        log(scene)
         if (!scene) {
           ui.notifications.warn("Could not find scene");
           return;
@@ -510,7 +510,7 @@ export class ForceRenderer extends BaseRenderer {
         break;
       case 'Item':
         const item = await fromUuid(data.uuid);
-        console.log(item)
+        log(item)
         if (!item) {
           ui.notifications.warn("Could not find item");
           return;
@@ -538,7 +538,7 @@ export class ForceRenderer extends BaseRenderer {
   }
 
   hasEntity(graphData, uuid) {
-    console.log("ForceRenderer.hasEntity", graphData, uuid);
+    log("ForceRenderer.hasEntity", graphData, uuid);
     return graphData.data.nodes.some(n => n.uuid === uuid);
   }
 

@@ -14,7 +14,7 @@ export class GenealogyRenderer extends BaseRenderer {
     this._svg = null;
     this.opts = {
       nodeClickFunction: (node, ft) => {
-        console.log("nodeClickFunction")
+        log("nodeClickFunction")
         if (this._linkingMode) {
           log("Linking mode active");
           //          if (!this._linkSourceNode) {
@@ -230,7 +230,7 @@ export class GenealogyRenderer extends BaseRenderer {
         const nodeData = d || event.target.__data__ || null;
         const nodeId = nodeData?.data?.id ?? event.target.getAttribute('data-id') ?? null;
 
-        console.log('Right-clicked circle:', nodeId, nodeData);
+        log('Right-clicked circle:', nodeId, nodeData);
 
         this._onNodeRightClick(nodeId, nodeData, event);
       });
@@ -399,12 +399,12 @@ export class GenealogyRenderer extends BaseRenderer {
   }
 
   async _onDrop(event) {
-    console.log("_onDrop")
-    console.log(event)
+    log("_onDrop")
+    log(event)
     event.preventDefault();
     event.stopPropagation();
     const data = TextEditor.getDragEventData(event);
-    console.log(data)
+    log(data)
     const allowed = this.graph?.allowedEntities;
     if (Array.isArray(allowed) && allowed.length > 0 && !allowed.includes(data.type)) {
       ui.notifications.warn(`You cannot add a ${data.type} on this graph type.`);
@@ -476,7 +476,7 @@ export class GenealogyRenderer extends BaseRenderer {
   }
 
   hasEntity(graphData, uuid) {
-    console.log("GenealogyRenderer.hasEntity", graphData, uuid);
+    log("GenealogyRenderer.hasEntity", graphData, uuid);
     if (!graphData.data.persons) {
       return false;
     }

@@ -1,5 +1,6 @@
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const LEVELS = foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS; // { NONE:0, LIMITED:1, OBSERVER:2, OWNER:3 }
+import { log } from "./constants.js";
 
 export class GraphPermissionsDialog extends HandlebarsApplicationMixin(ApplicationV2) {
 
@@ -53,9 +54,9 @@ export class GraphPermissionsDialog extends HandlebarsApplicationMixin(Applicati
   /* ---------- actions ------------ */
 
   static async _onSave(event) {
-    console.log("GraphPermissionsDialog._onSave", event);
-    console.log(event);
-    console.log(this);
+    log("GraphPermissionsDialog._onSave", event);
+    log(event);
+    log(this);
     const app  = this;                        // ApplicationV2 instance
     const selects = this.element.querySelectorAll("select.user-perm");
 

@@ -136,7 +136,7 @@ export class GraphApi {
 
     async updateGraphPermissions(graphId, newPerms) {
         const g = await this.getGraph(graphId);
-        console.log("updateGraphPermissions", graphId, newPerms, g);    
+        log("updateGraphPermissions", graphId, newPerms, g);    
         if (!g) throw new Error(`Graph ${graphId} not found`);
 
         g.permissions = newPerms;

@@ -127,7 +127,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   _prepareContext() {
     const graphs = this.api.getAccessibleGraphs();
     this._graphTypes = this.api.getGraphTypesArray();
-    console.log(graphs)
+    log(graphs)
     log(this._graphTypes)
     if (this.editingGraph) {
       log("editingGraph", this.editingGraph)
@@ -168,9 +168,9 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   static async onCreateGraph(event, target) {
     const type = this.element.querySelector("#graph-type-select").value?.trim();
     const metadata = this._graphTypes?.find(g => g.id === type);
-    console.log(metadata)
+    log(metadata)
     if (!metadata) return ui.notifications.warn("Invalid graph type selected.");
-    console.log("in oncreategraph")
+    log("in oncreategraph")
     const name = this.element.querySelector("#graph-name").value?.trim();
     const id = this.element.querySelector("#graph-id").value?.trim();
     const desc = this.element.querySelector("#graph-desc").value?.trim();
@@ -222,12 +222,12 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   }
 
   static async onOpenGraph(event, target) {
-    console.log(event)
-    console.log(target)
-    console.log(event.target.dataset.id)
+    log(event)
+    log(target)
+    log(event.target.dataset.id)
     const graph = await this.api.getGraph(event.target.dataset.id);
     const mode = this.api.canEditById(event.target.dataset.id) ? "edit" : "view";
-    console.log("mode", mode)
+    log("mode", mode)
     const appData = {
       graph: graph,
       mode: mode,
@@ -239,8 +239,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
 
 
   static async graphDelete(event, target) {
-    console.log(event)
-    console.log(event.target.dataset.id)
+    log(event)
+    log(event.target.dataset.id)
     await this.api.deleteGraph(event.target.dataset.id);
     ui.notifications.info(`Graph ${event.target.dataset.id} deleted.`);
     // Optionally, refresh the dashboard or list view
@@ -249,7 +249,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   }
 
   static async graphPerms(event, target) {
-    console.log(event)
+    log(event)
     const graphId = event.target.dataset.id;
     if (!graphId) return ui.notifications.warn("No graph selected for export");
     const g = await this.api.getGraph(graphId);
@@ -293,16 +293,16 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   }
 
   updateButtonState() {
-    console.log("updateButtonState")
+    log("updateButtonState")
     const name = this.element.querySelector("#graph-name").value?.trim();
     const id = this.element.querySelector("#graph-id").value?.trim();
     const type = this.element.querySelector("#graph-type-select").value?.trim();
-    console.log(this.element.querySelector("#graph-type-select"))
-    console.log(name)
-    console.log(id)
-    console.log(type)
+    log(this.element.querySelector("#graph-type-select"))
+    log(name)
+    log(id)
+    log(type)
     const allFilled = name && id && type;
-    console.log(this.element.querySelector("#create-graph-btn"))
+    log(this.element.querySelector("#create-graph-btn"))
     this.element.querySelector("#create-graph-btn").disabled = !allFilled;
   }
 
@@ -336,16 +336,16 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   /** Called after the HTML is rendered */
   _onRender() {
     const graphName = this.element.querySelector('#graph-name')
-    console.log(graphName)
+    log(graphName)
     graphName.addEventListener("change", (e) => {
       e.preventDefault();
       e.stopImmediatePropagation();
-      console.log("event change del nome")
-      console.log(e)
+      log("event change del nome")
+      log(e)
       let newVal = e.target.value
-      console.log(newVal)
+      log(newVal)
       let new_id = newVal.slugify()
-      console.log(new_id)
+      log(new_id)
       this.element.querySelector('#graph-id').value = new_id
       this.updateButtonState();
     })
