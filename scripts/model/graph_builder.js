@@ -1,9 +1,9 @@
-import { MODULE_ID, JSON_graph_types, GRAPH_SCHEMA_VERSION} from "../constants.js";
+import { MODULE_ID, JSON_graph_types, GRAPH_SCHEMA_VERSION, t} from "../constants.js";
 
 export class GraphBuilder {
     constructor({
         id = foundry.utils.randomID(),
-        name = "Untitled",
+        name = t("Defaults.UntitledGraph"),
         desc = "",
         graphType = "character-map",
         width = 800,

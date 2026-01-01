@@ -1,5 +1,5 @@
 import GraphDashboardV2 from "./graph_dashboard_v2.js"
-import { log, MODULE_ID, JSON_graph_types } from './constants.js';
+import { log, MODULE_ID, JSON_graph_types, t } from './constants.js';
 import { ForceRenderer } from "./renderers/force-renderer.js";
 //import { TreeRenderer } from "./renderers/tree-renderer.js";
 import { GenealogyRenderer } from "./renderers/genealogy-renderer.js";
@@ -28,8 +28,8 @@ export class GraphApi {
             config: true,
             type: Boolean,
             default: false,
-            name: "Enable debug logs",
-            hint: "Writes verbose logs to the console for troubleshooting."
+            name: t("Settings.DebugName"),
+            hint: t("Settings.DebugHint")
         });
 
         // Avoid double registration if hot‑reloaded

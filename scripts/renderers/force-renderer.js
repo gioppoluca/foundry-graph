@@ -435,7 +435,7 @@ export class ForceRenderer extends BaseRenderer {
     // 1. Get the <g> element that is being transformed by zoom
     const zoomLayerNode = this._svg.select("g.zoom-layer").node();
     if (!zoomLayerNode) {
-      error("Could not find zoom layer!");
+      log("Could not find zoom layer!");
       return;
     }
 

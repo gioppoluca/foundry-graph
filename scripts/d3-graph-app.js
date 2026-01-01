@@ -1,4 +1,4 @@
-import { log, MODULE_ID } from './constants.js';
+import { log, MODULE_ID, t } from './constants.js';
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -16,7 +16,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     },
     classes: ["fgraph", "fgraph-form"],
     window: {
-      title: "",//this.windowTitle,
+      title: "",
       resizable: true,
     },
     dragDrop: [{
@@ -67,6 +67,10 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     //    this._rendererHandlersRegistered = false;
   }
 
+  get title() {
+    return t("Window.GraphTitle")  + " : " + this.graph.name;
+  }
+
   async _onRender(context, options) {
     let el = this.element.querySelector("#d3-graph")
     this._disposers ??= [];
@@ -109,11 +113,11 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this._linkingMode = !this._linkingMode;
     this._linkSourceNode = null;
     e.target.classList.toggle("active", this._linkingMode);
-    const tCancel = game.i18n.localize("foundry-graph.Buttons.CancelLinking");
-    const tLink = game.i18n.localize("foundry-graph.Buttons.LinkNodes");
+    const tCancel = t("Buttons.CancelLinking");
+    const tLink = t("Buttons.LinkNodes");
     e.target.innerText = this._linkingMode ? tCancel : tLink;
-    const tOn = game.i18n.localize("foundry-graph.Notifications.LinkingOn");
-    const tOff = game.i18n.localize("foundry-graph.Notifications.LinkingOff");
+    const tOn = t("Notifications.LinkingOn");
+    const tOff = t("Notifications.LinkingOff");
     ui.notifications.info(this._linkingMode ? tOn : tOff);
     const relationId = this.element.querySelector("#relation-type")?.value || "";
     const relation = this.graph.relations.find(r => r.id === relationId);
@@ -127,7 +131,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // 1) Grab the SVG element
     const svgElement = document.querySelector("#d3-graph");
     if (!svgElement) {
-      error("SVG element not found");
+      log("SVG element not found");
       return;
     }
     //await this.renderer.render(svgElement, this.graph)
@@ -135,7 +139,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const _root = document.body;
     const _prevCursor = _root.style.cursor;
     _root.style.cursor = "progress"; // or "wait"
-    ui?.notifications?.info?.("Preparing high-resolution export… this may take a few seconds for large graphs.");
+    ui?.notifications?.info?.(t("Notifications.ExportPrepare"));
     try {
       // 2) Clone so we don’t mutate the on-screen SVG
       log("phase 2")
@@ -192,7 +196,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
                 imgElem.setAttribute("height", String(probe.naturalHeight || 1));
               }
             } catch (err) {
-              error("Error inlining image:", err);
+              log("Error inlining image:", err);
             }
           })
         );
@@ -337,16 +341,16 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         URL.revokeObjectURL(url);
       }
     } catch (err) {
-      log(game.i18n.localize("foundry-graph.Errors.ExportFailed"), err);
-      ui?.notifications?.error?.(game.i18n.localize("foundry-graph.Errors.ExportFailed"));
+      log(t("Errors.ExportFailed"), err);
+      ui?.notifications?.error?.(t("Errors.ExportFailed"));
     } finally {
       // --- Always restore cursor, even on error
       _root.style.cursor = _prevCursor || "";
-      ui?.notifications?.info?.(game.i18n.localize("foundry-graph.Notifications.ExportFinished"));
+      ui?.notifications?.info?.(t("Notifications.ExportFinished"));
     }
   }
 
-    static async _saveGraph() {
+  static async _saveGraph() {
     const api = game.modules.get("foundry-graph").api;
 
     const data = this.renderer.getGraphData()
@@ -354,7 +358,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.graph.data = data;
     await api.upsertGraph(this.graph);
     this.renderer.teardown();
-    ui.notifications.info(game.i18n.localize("foundry-graph.Notifications.GraphSaved"));
+    ui.notifications.info(t("Notifications.GraphSaved"));
     log(this)
     this.close()
   }

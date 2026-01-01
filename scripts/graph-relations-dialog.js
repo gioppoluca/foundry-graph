@@ -1,4 +1,4 @@
-import { log } from "./constants.js";
+import { log, t } from "./constants.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -35,10 +35,14 @@ export class GraphRelationsDialog extends HandlebarsApplicationMixin(Application
     constructor(opts) {
         super(opts);
         this.graphId = opts.graphId;
+        this.gName = opts.gName || "Unnamed Graph";
         this.relations = opts.relations; // This should be a deepClone
         this.onSave = opts.onSave;
     }
 
+    get title() {
+        return t("Window.RelationsTitle") + " : " + this.gName;
+    }
     /* -------------------------------------------- */
 
     async _prepareContext(options) {

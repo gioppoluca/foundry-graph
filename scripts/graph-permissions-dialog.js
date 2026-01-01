@@ -1,25 +1,25 @@
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const LEVELS = foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS; // { NONE:0, LIMITED:1, OBSERVER:2, OWNER:3 }
-import { log } from "./constants.js";
+import { log, t } from "./constants.js";
 
 export class GraphPermissionsDialog extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static DEFAULT_OPTIONS = {
-    id       : "graph-permissions",
-    classes  : ["fgraph", "graph-perms"],
-    width    : 420,
-    height   : "auto",
-    window   : { title: "Graph Permissions" },
-    submitOnChange : false,
-    actions  : {
-      save   : GraphPermissionsDialog._onSave,
-      cancel : GraphPermissionsDialog._onCancel
+    id: "graph-permissions",
+    classes: ["fgraph", "graph-perms"],
+    width: 420,
+    height: "auto",
+    window: { title: "Graph Permissions" },
+    submitOnChange: false,
+    actions: {
+      save: GraphPermissionsDialog._onSave,
+      cancel: GraphPermissionsDialog._onCancel
     }
   };
 
   static PARTS = {
-    body   : { template: "modules/foundry-graph/templates/graph-perms-body.html" },
-    footer : { template: "modules/foundry-graph/templates/graph-perms-footer.html" }
+    body: { template: "modules/foundry-graph/templates/graph-perms-body.html" },
+    footer: { template: "modules/foundry-graph/templates/graph-perms-footer.html" }
   };
 
   /**
@@ -29,23 +29,29 @@ export class GraphPermissionsDialog extends HandlebarsApplicationMixin(Applicati
    */
   constructor(opts) {
     super(opts);
-    this.graphId     = opts.graphId;
+    this.graphId = opts.graphId;
+    this.gName = opts.gName || "Unnamed Graph";
     this.permissions = opts.permissions ?? {};
   }
+
+  get title() {
+    return t("Window.PermTitle") + " : " + this.gName;
+  }
+
 
   /* -------------------------------------------- */
 
   async _prepareContext(options) {
-    const users = game.users.contents.sort((a,b)=>a.name.localeCompare(b.name));
+    const users = game.users.contents.sort((a, b) => a.name.localeCompare(b.name));
 
     return {
       users: users.map(u => ({
-        id   : u.id,
-        name : u.name,
+        id: u.id,
+        name: u.name,
         level: this.permissions[u.id] ?? 0  // 0 = NONE
       })),
-      defaultLevel : this.permissions.default ?? 0,
-      LEVELS       : LEVELS                // expose mapping for template
+      defaultLevel: this.permissions.default ?? 0,
+      LEVELS: LEVELS                // expose mapping for template
     };
   }
 
@@ -57,7 +63,6 @@ export class GraphPermissionsDialog extends HandlebarsApplicationMixin(Applicati
     log("GraphPermissionsDialog._onSave", event);
     log(event);
     log(this);
-    const app  = this;                        // ApplicationV2 instance
     const selects = this.element.querySelectorAll("select.user-perm");
 
     const perms = {};                                           // collect result
@@ -72,10 +77,10 @@ export class GraphPermissionsDialog extends HandlebarsApplicationMixin(Applicati
 
     // Hand off to API
     const api = game.modules.get("foundry-graph").api;
-    await api.updateGraphPermissions(app.graphId, perms);
+    await api.updateGraphPermissions(this.graphId, perms);
 
     ui.notifications.info("Graph permissions updated");
-    app.close();
+    this.close();
   }
 
   static _onCancel() {

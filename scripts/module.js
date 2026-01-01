@@ -1,4 +1,4 @@
-import { MODULE_ID, setDebugFlag, log } from './constants.js';
+import { MODULE_ID, setDebugFlag, log, t } from './constants.js';
 import { GraphApi } from "./graph_api.js";
 
 
@@ -37,7 +37,7 @@ Hooks.on("getSceneControlButtons", (controls) => {
     if (game.release.generation > 12) {
       tokensControl.tools['graphs'] = {
         name: "graphs",
-        title: game.i18n.localize(`${MODULE_ID}.Manager.ControlManage`),
+        title: t(`Manager.ControlManage`),
         icon: "fa-solid fa-project-diagram",
 
         button: true,
@@ -52,7 +52,7 @@ Hooks.on("getSceneControlButtons", (controls) => {
     } else if (!tokensControl.tools.find(t => t.name === "graphs")) {
       tokensControl.tools.push({
         name: "graphs",
-        title: game.i18n.localize(`${MODULE_ID}.Manager.ControlManage`),
+        title: t(`Manager.ControlManage`),
         icon: "fa-solid fa-project-diagram",
 
         button: true,
@@ -84,7 +84,7 @@ async function performCleanup(affectedList, uuid) {
 
     log(`Foundry Graph | Removed ${uuid} from ${graph.name}`);
   }
-  ui.notifications.info(`Cleaned up graph references.`);
+  ui.notifications.info(t("Notifications.GraphCleanupDone"));
 }
 
 async function performAsyncCheck(document, options) {
@@ -105,7 +105,7 @@ async function performAsyncCheck(document, options) {
     log(RendererClass);
 
     if (!RendererClass) {
-      warn(`Foundry Graph | Unknown renderer '${graph?.renderer}' for graph ${graph.id}`);
+      log(`Foundry Graph | Unknown renderer '${graph?.renderer}' for graph ${graph.id}`);
       continue;
     }
 
@@ -126,16 +126,16 @@ async function performAsyncCheck(document, options) {
     const listHtml = affectedGraphs.map(item => `<li>${item.name}</li>`).join("");
 
     new Dialog({
-      title: `Deletion Warning: ${document.name}`,
+      title: `${t("DeletionDialog.Title")}: ${document.name}`,
       content: `
-                <p><strong>${document.name}</strong> is used in these graphs:</p>
+                <p><strong>${document.name}</strong> ${t("DeletionDialog.UsedInGraphs")}</p>
                 <ul>${listHtml}</ul>
-                <p>Deleting it will remove it from these diagrams. Proceed?</p>
+                <p>${t("DeletionDialog.WarningRemoveFromDiagrams")}</p>
             `,
       buttons: {
         delete: {
           icon: '<i class="fas fa-trash"></i>',
-          label: "Delete & Cleanup",
+          label: t("Buttons.DeleteClean"),
           callback: async () => {
             // CLEANUP
             await performCleanup(affectedGraphs, docUuid);
@@ -146,7 +146,7 @@ async function performAsyncCheck(document, options) {
         },
         cancel: {
           icon: '<i class="fas fa-times"></i>',
-          label: "Cancel",
+          label: t("Buttons.Cancel"),
           callback: () => {
             // Do nothing. The original delete was already blocked (return false).
             // The user stays on the screen.

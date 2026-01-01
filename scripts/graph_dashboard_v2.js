@@ -4,7 +4,7 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 import { D3GraphApp } from "./d3-graph-app.js";
 import { GraphPermissionsDialog } from "./graph-permissions-dialog.js";
-import { log } from "./constants.js";
+import { log, t, tf } from "./constants.js";
 
 export default class GraphDashboardV2 extends HandlebarsApplicationMixin(ApplicationV2) {
 
@@ -55,7 +55,6 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   static DEFAULT_OPTIONS = {
     id: "fgraph-dashboard",
     window: {
-      title: "Graphs",
       resizable: true,
     },
     resizable: true,
@@ -76,6 +75,11 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       onCancelCreate: GraphDashboardV2.onCancelCreate
     }
   };
+
+  get title() {
+    return t("Window.DashboardTitle");
+  }
+
 
   /* ------------------------------------------------------------------------ */
   /*  Context / Data                                                          */
@@ -169,7 +173,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     const type = this.element.querySelector("#graph-type-select").value?.trim();
     const metadata = this._graphTypes?.find(g => g.id === type);
     log(metadata)
-    if (!metadata) return ui.notifications.warn("Invalid graph type selected.");
+    if (!metadata) return ui.notifications.warn(t("Notifications.InvalidGraphType"));
     log("in oncreategraph")
     const name = this.element.querySelector("#graph-name").value?.trim();
     const id = this.element.querySelector("#graph-id").value?.trim();
@@ -251,9 +255,9 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   static async graphPerms(event, target) {
     log(event)
     const graphId = event.target.dataset.id;
-    if (!graphId) return ui.notifications.warn("No graph selected for export");
+    if (!graphId) return ui.notifications.warn(t("Errors.NoGraphSelectedForExport"));
     const g = await this.api.getGraph(graphId);
-    new GraphPermissionsDialog({ graphId, permissions: g.permissions }).render(true);
+    new GraphPermissionsDialog({ graphId: graphId, gName: g.name, permissions: g.permissions }).render(true);
   }
 
   _onPrintGraph() {
@@ -287,6 +291,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     // We pass a deepClone of relations so canceling doesn't modify the original
     new GraphRelationsDialog({
       graphId: graphId,
+      gName: graph.name,
       relations: foundry.utils.deepClone(graph.relations),
       onSave: onSaveCallback
     }).render(true);
