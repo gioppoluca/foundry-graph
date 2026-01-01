@@ -56,3 +56,11 @@ export function warn(...args) {
 export function err(...args) {
   formatMessage("error", args);
 }
+
+export function t(key) {
+  return game.i18n.localize(`${MODULE_ID}.${key}`);
+}
+
+export function tf(key, data) {
+  return game.i18n.format(`${MODULE_ID}.${key}`, data);
+}
