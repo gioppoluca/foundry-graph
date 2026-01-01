@@ -20,7 +20,13 @@
         "Window": {
             "DashboardTitle": "Graphs",
             "GraphTitle": "Graph",
+            "PermTitle": "Graph Permissions",
+            "RelationsTitle": "Manage Graph's Relations: ",
             "ViewOnlyMode": "View-only mode"
+        },
+        "Settings": {
+            "DebugName": "Enable debug logs",
+            "DebugHint": "Writes verbose logs to the console for troubleshooting."
         },
         "List": {
             "SavedGraphs": "Saved Graphs",
@@ -31,7 +37,9 @@
         "Buttons": {
             "ExportSvg": "Export Graph",
             "LinkNodes": "Link Nodes",
+            "DeleteClean": "Delete & Cleanup",
             "Save": "Save",
+            "Cancel": "Cancel",
             "CancelLinking": "Cancel Linking",
             "CreateGraph": "Create Graph"
         },
@@ -48,13 +56,26 @@
         },
         "Errors": {
             "SaveError": "Error while saving the graph.",
-            "ExportFailed": "Export failed. See console for details."
+            "ExportFailed": "Export failed. See console for details.",
+            "NoGraphSelectedForExport": "No graph selected for export."
+        },
+        "Defaults": {
+            "UntitledGraph": "New Graph",
+            "GraphDescription": "Description of the graph."
         },
         "Notifications": {
             "LinkingOn": "Linking mode ON",
             "LinkingOff": "Linking mode OFF",
+            "ExportPrepare": "Preparing high-resolution export… this may take a few seconds for large graphs.",
             "ExportFinished": "Export finished.",
-            "GraphSaved": "Graph saved."
+            "InvalidGraphType": "Invalid graph type selected.",
+            "GraphSaved": "Graph saved.",
+            "GraphCleanupDone": "Cleaned up graph references."
+        },
+        "DeletionDialog": {
+            "Title": "Deletion Warning",
+            "UsedInGraphs": "is used in these graphs:",
+            "WarningRemoveFromDiagrams": "Deleting it will remove it from these diagrams. Proceed?"
         }
     }
 }
