@@ -17,7 +17,7 @@ You can choose between a set of graph types and create your **relation map**
 | Graph type | Renderer    | System    | Object Allowed | Description                                                                          |
 | ---------- | ------- | ------------ | ---- | -------------------------------------------------------------------------- |
 | Enemy Map | Free Diagram| any | Actors | A diagram to represent better relationship with enemies |
-| World of Darkness Relationship Map | Free Diagram    | WoD   | Actors | The relationship map for a coterie or a single character, with dedicated relations for the World of Darkness system   |
+| World of Darkness Relationship Map | Free Diagram    | WoD5e, Vtm5e, worldofdarkness   | Actors | The relationship map for a coterie or a single character, with dedicated relations for the World of Darkness system   |
 | Faction Power Structure | Free Diagram | any | Actors | A diagram with relations useful for mapping the internal hierarchy of a faction |
 | Characters Map   | Free Diagram  | any   | Actors | The classical map between generic Actors  |
 | Genealogy Tree  | Genealogy | any | Actors | Genealogical tree for Actors only |
