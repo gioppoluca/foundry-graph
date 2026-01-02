@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.4] - 2026-01-02
+### :sparkles: New Features
+- [`803b07e`](https://github.com/gioppoluca/foundry-graph/commit/803b07e818ef3f9065645f9296aa5cbc6c0cef1c) - localization helpers *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+### :bug: Bug Fixes
+- [`04f4cf3`](https://github.com/gioppoluca/foundry-graph/commit/04f4cf3536d2816fdcbfa52b4a1136064e9f09d7) - cleanup logs *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`323b3b0`](https://github.com/gioppoluca/foundry-graph/commit/323b3b0691d0f9bdcd91a7fb0552cfd6fc1c944f) - more localization *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`25d7f55`](https://github.com/gioppoluca/foundry-graph/commit/25d7f5529e9f4679099919ab22a9fbbcea61201e) - localization and clean log and titles *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`2e87749`](https://github.com/gioppoluca/foundry-graph/commit/2e87749cf8f26ab0240bbc53a08d3f9e2844269f) - missing wod system on the Vampire dedicated graph type *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`fd7e568`](https://github.com/gioppoluca/foundry-graph/commit/fd7e568e8c3573372a2b69a7b4f4f3dc23c993ec) - potential missing crypto *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.2.3] - 2025-12-31
 ### :sparkles: New Features
 - [`243b885`](https://github.com/gioppoluca/foundry-graph/commit/243b88554267506735a8557a8132569908a838ce) - implemented the check on the deletion of an entity: if deleted ask to remove from affected graphs *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -79,3 +91,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.2.1]: https://github.com/gioppoluca/foundry-graph/compare/0.2.0...0.2.1
 [0.2.2]: https://github.com/gioppoluca/foundry-graph/compare/0.2.1...0.2.2
 [0.2.3]: https://github.com/gioppoluca/foundry-graph/compare/0.2.2...0.2.3
+[0.2.4]: https://github.com/gioppoluca/foundry-graph/compare/0.2.3...0.2.4
