@@ -1,4 +1,4 @@
-import { log } from "../constants.js";
+import { log, safeUUID } from "../constants.js";
 import { BaseRenderer } from "./base-renderer.js";
 const { DialogV2 } = foundry.applications.api;
 
@@ -446,7 +446,7 @@ export class ForceRenderer extends BaseRenderer {
 
     log("Drop position (transformed):", x, y);
     // Add new node
-    const newId = crypto.randomUUID();
+    const newId = safeUUID();
 
     // Handle different data types
     switch (data.type) {

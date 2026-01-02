@@ -64,3 +64,16 @@ export function t(key) {
 export function tf(key, data) {
   return game.i18n.format(`${MODULE_ID}.${key}`, data);
 }
+
+export function safeUUID() {
+  if (crypto?.randomUUID) return crypto.randomUUID();
+
+  // fallback: RFC4122 version-4 compliant
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = crypto?.getRandomValues
+      ? crypto.getRandomValues(new Uint8Array(1))[0] & 15
+      : Math.random() * 16;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}

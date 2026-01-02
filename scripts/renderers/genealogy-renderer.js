@@ -1,4 +1,4 @@
-import { log } from "../constants.js";
+import { log, safeUUID } from "../constants.js";
 import { BaseRenderer } from "./base-renderer.js";
 const { DialogV2 } = foundry.applications.api;
 
@@ -297,7 +297,7 @@ export class GenealogyRenderer extends BaseRenderer {
         log("Source node has family:", familyId);
       } else {
         log("Source node has no family.");
-        familyId = crypto.randomUUID();
+        familyId = safeUUID();
         // now we must update the parent node to have this family
         this.familytree.addPerson({
           id: this._linkSourceNode.data.id,
@@ -331,7 +331,7 @@ export class GenealogyRenderer extends BaseRenderer {
             parentFamilyId = this._linkSourceNode.data.parentFamily;
             log("Source node has parent family:", parentFamilyId);
           } else {
-            parentFamilyId = crypto.randomUUID();
+            parentFamilyId = safeUUID();
             // now we must update the child node to have this parentFamily
             this.familytree.addPerson({
               id: this._linkSourceNode.data.id,
@@ -434,7 +434,7 @@ export class GenealogyRenderer extends BaseRenderer {
     log("Drop position:", x, y);
 
     // Add new node
-    const newId = crypto.randomUUID();
+    const newId = safeUUID();
 
     // Handle different data types
     switch (data.type) {
