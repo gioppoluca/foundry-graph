@@ -150,6 +150,7 @@ export const GRAPH_TYPES = {
         "label": "Allies",
         "color": "#8c564b",
         "style": "solid",
+        "noArrow": true,
         "strokeWidth": 2
       },
       {
@@ -157,6 +158,7 @@ export const GRAPH_TYPES = {
         "label": "Friends",
         "color": "#e377c2",
         "style": "dotted",
+        "noArrow": true,
         "strokeWidth": 1
       },
       {
@@ -199,6 +201,7 @@ export const GRAPH_TYPES = {
         "label": "Dating/Lovers",
         "color": "#ff69b4",
         "style": "dotted",
+        "noArrow": true,
         "strokeWidth": 2
       },
       {
@@ -206,6 +209,7 @@ export const GRAPH_TYPES = {
         "label": "Associates with",
         "color": "#808000",
         "style": "solid",
+        "noArrow": true,
         "strokeWidth": 2
       },
       {
@@ -255,6 +259,7 @@ export const GRAPH_TYPES = {
         "label": "Unclassified Connection",
         "color": "#999999",
         "style": "solid",
+        "noArrow": true,
         "strokeWidth": 1
       }
     ]
@@ -340,6 +345,7 @@ export const GRAPH_TYPES = {
         "label": "Unknown or Rumored Link",
         "color": "#aaaaaa",
         "style": "dashed",
+        "noArrow": true,
         "strokeWidth": 1.5
       }
     ]
@@ -369,6 +375,7 @@ export const GRAPH_TYPES = {
         "label": "Party Member",
         "color": "#1f77b4",
         "style": "solid",
+        "noArrow": true,
         "strokeWidth": 2
       },
       {
@@ -432,6 +439,7 @@ export const GRAPH_TYPES = {
         "label": "Unclassified Connection",
         "color": "#aaaaaa",
         "style": "solid",
+        "noArrow": true,
         "strokeWidth": 1
       }
     ]
