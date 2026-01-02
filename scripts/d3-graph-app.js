@@ -68,7 +68,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   get title() {
-    return t("Window.GraphTitle")  + " : " + this.graph.name;
+    return t("Window.GraphTitle") + " : " + this.graph.name;
   }
 
   async _onRender(context, options) {
@@ -106,6 +106,8 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       ...super._prepareContext(options),
       relations: this.graph?.relations || [],
       isEdit: this._mode === "edit" || this._mode === "new",
+      instructions: this.renderer?.instructions || "No instructions available",
+      isLinkNodesVisible: this.renderer?.isLinkNodesVisible ?? true
     };
   }
 
@@ -367,6 +369,9 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   async _drawGraph(data = null) {
     let svg = d3.select("#d3-graph");
     log("D3GraphApp._drawGraph", this.renderer, this.graph, svg)
+    const relationId = this.element.querySelector("#relation-type")?.value || "";
+    const relation = this.graph.relations.find(r => r.id === relationId);
+    this.renderer.setRelationData(relation);
     this.renderer.render(svg, this.graph)
   }
 

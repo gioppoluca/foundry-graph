@@ -39,6 +39,18 @@ export class GenealogyRenderer extends BaseRenderer {
     this.selectedNode = null;
   }
 
+  get instructions() {
+    return `
+    <b>'Link Nodes' button</b>: To Activate Link Mode<br>
+    <b>Click on Node</b>: Select Parent Node<br>
+    <b>Drop</b>: Link Dropped Actor as Child<br>
+    <b>Scroll</b>: Zoom<br>
+    <b>DblClick</b>: Open Sheet<br>
+    <b>Left Click</b>: Delete Node with all descendants
+  `;
+  }
+
+
   initializeGraphData() {
     return {
       "start": "",

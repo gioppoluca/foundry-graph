@@ -1,6 +1,10 @@
 <div class="graph-controls">
+  <i class="fas fa-info-circle help-icon" data-tooltip="{{instructions}}" data-tooltip-direction="UP">
+  </i>
   <div class="flexrow">
+    {{#if isLinkNodesVisible}}
     <button type="button" data-action="linkNodes" class="graph-btn">Link Nodes</button>
+    {{/if}}
     <label for="relation-type">Relation Type:</label>
     <select id="relation-type">
       {{#each relations}}

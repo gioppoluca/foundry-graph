@@ -18,6 +18,22 @@ export class ForceRenderer extends BaseRenderer {
     this._currentTransform = null; // Stores the last zoom/pan transform
   }
 
+  get instructions() {
+    return `
+    <b>Shift + Drag</b>: Link Nodes<br>
+    <b>Drag</b>: Move/Position Nodes<br>
+    <b>Scroll</b>: Zoom<br>
+    <b>DblClick</b>: Open Sheet<br>
+    <b>Left Click</b>: Delete Node or Link
+  `;
+  }
+
+  get isLinkNodesVisible() {
+    // Return false to hide the button because we now use Shift+Drag
+    // Return true if you want to keep the button as an alternative
+    return false;
+  }
+
   initializeGraphData() {
     return {
       nodes: [],
@@ -85,6 +101,7 @@ export class ForceRenderer extends BaseRenderer {
   }
 
   render(svg, graph, ctx) {
+    const self = this;
     if (!this.graph) this.graph = graph;
     const renderGraph = this.graph;
     log("ForceRenderer.render", svg, this.graph, ctx);
@@ -345,6 +362,28 @@ export class ForceRenderer extends BaseRenderer {
     }
 
     function dragstarted(event, d) {
+      // 1. Check for Shift key to start "Linking Mode"
+      if (event.sourceEvent.shiftKey) {
+        self._isDraggingLink = true;
+        self._linkSourceNode = d;
+
+        // Get style from current relation or default
+        const rel = self.relation || { color: "#000000", strokeWidth: 2, style: "solid" };
+
+        // Create the temporary line
+        self._dragLine = zoomLayer.append("line")
+          .attr("class", "drag-line")
+          .attr("x1", d.x)
+          .attr("y1", d.y)
+          .attr("x2", d.x)
+          .attr("y2", d.y)
+          .attr("stroke", rel.color)
+          .attr("stroke-width", rel.strokeWidth)
+          .style("stroke-dasharray", rel.style === "dashed" ? "4 4" : (rel.style === "dotted" ? "2 4" : "0"))
+          .attr("pointer-events", "none"); // Ignore mouse events so we can detect target node below
+
+        return; // Stop here, do not move the node
+      }
       log("DRAG START", d);
       simulation.alphaTarget(0.3).restart();
       d.fx = d.x;
@@ -352,12 +391,63 @@ export class ForceRenderer extends BaseRenderer {
     }
 
     function dragged(event, d) {
+      // 2. Update the visual line
+      if (self._isDraggingLink && self._dragLine) {
+        self._dragLine
+          .attr("x2", event.x)
+          .attr("y2", event.y);
+        return;
+      }
       log("DRAGGING", d);
       d.x = d.fx = event.x;
       d.y = d.fy = event.y;
     }
 
     function dragended(event, d) {
+      // 3. Finish Link Drag
+      if (self._isDraggingLink) {
+        if (self._dragLine) {
+          self._dragLine.remove();
+          self._dragLine = null;
+        }
+        self._isDraggingLink = false;
+
+        // Find the node under the mouse cursor
+        // simulation.find uses the same coordinate system as nodes
+        const target = simulation.find(event.x, event.y, 30); // 30px hit radius
+
+        if (target && target !== d) {
+          const source = d;
+
+          // Check for existing links
+          const alreadyLinked = renderGraph.data.links.some(l =>
+            (l.source.id === source.id && l.target.id === target.id) ||
+            (l.source.id === target.id && l.target.id === source.id)
+          );
+
+          if (!alreadyLinked) {
+            const relation = self.relation;
+            if (!relation) {
+              ui.notifications.warn("Please select a valid relation type before creating the link.");
+            } else {
+              renderGraph.data.links.push({
+                source: source.id,
+                target: target.id,
+                relationId: relation.id,
+                label: relation.label,
+                color: relation.color,
+                style: relation.style,
+                noArrow: relation?.noArrow || false,
+                strokeWidth: relation.strokeWidth
+              });
+              self.render(); // Redraw graph
+              ui.notifications.info(`Linked ${source.label} → ${target.label} (${relation.label})`);
+            }
+          }
+        }
+        self._linkSourceNode = null;
+        return;
+      }
       log("DRAG END", d);
       if (!event.active) simulation.alphaTarget(0);
       // Do NOT nullify fx/fy — keep node fixed after drag

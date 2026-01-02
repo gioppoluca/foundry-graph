@@ -165,3 +165,32 @@ svg image {
   width: 24px;
   height: 24px;
 }
+
+.help-icon {
+    position: absolute;
+    bottom: 15px;
+    left: 15px;
+    
+    font-size: 24px; /* Big enough to click/hover easily */
+    color: var(--color-text-light-2); /* Foundry generic light gray */
+    background: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+    border-radius: 50%; /* Make the background a circle */
+    box-shadow: 0 0 5px rgba(0,0,0,0.5);
+    
+    /* Center the 'i' visually if it has a background */
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    cursor: help;
+    z-index: 100;
+    transition: color 0.2s, background 0.2s;
+}
+
+.help-icon:hover {
+    color: var(--color-text-light-1); /* Brighter white on hover */
+    background: rgba(0, 0, 0, 0.8);
+    text-shadow: 0 0 8px var(--color-shadow-primary);
+}
