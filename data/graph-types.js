@@ -104,7 +104,9 @@ export const GRAPH_TYPES = {
     "version": 1,
     "allowedEntities": ["Actor"],
     "systems": [
-      "vtm5e"
+      "vtm5e",
+      "worldofdarkness",
+      "vod5e",
     ],
     "relations": [
       {
