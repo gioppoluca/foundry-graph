@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-01-03
+### :sparkles: New Features
+- [`244e642`](https://github.com/gioppoluca/foundry-graph/commit/244e642d51bd928c69977acd7222c1ed8fc25bc3) - new renderer type: image slot renderer *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`5634796`](https://github.com/gioppoluca/foundry-graph/commit/56347969dfc651feca7e48c078ea776e173ed48a) - added the image slot renderer and the  graph type for the heaven for WoD *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.3.0] - 2026-01-03
 ### :sparkles: New Features
 - [`d596bac`](https://github.com/gioppoluca/foundry-graph/commit/d596bacf5f63491e7da3330296103c0795278331) - linking by shift-drag in force renderer *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -101,3 +107,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.2.3]: https://github.com/gioppoluca/foundry-graph/compare/0.2.2...0.2.3
 [0.2.4]: https://github.com/gioppoluca/foundry-graph/compare/0.2.3...0.2.4
 [0.3.0]: https://github.com/gioppoluca/foundry-graph/compare/0.2.4...0.3.0
+[0.4.0]: https://github.com/gioppoluca/foundry-graph/compare/0.3.0...0.4.0
