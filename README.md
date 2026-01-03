@@ -21,6 +21,7 @@ You can choose between a set of graph types and create your **relation map**
 | Faction Power Structure | Free Diagram | any | Actors | A diagram with relations useful for mapping the internal hierarchy of a faction |
 | Characters Map   | Free Diagram  | any   | Actors | The classical map between generic Actors  |
 | Genealogy Tree  | Genealogy | any | Actors | Genealogical tree for Actors only |
+| Heaven Layout  | Slot Layout | WoD5e, Vtm5e, worldofdarkness | Items | A layout for displaying a vampire heaven. |
 
 New graph types are cooking, add an issue if you would like to have a specific graph type.
 
@@ -64,13 +65,18 @@ The way of building a graph diagram differs slightly between graph types:
 - Visualize quest dependencies and how NPCs are tied to objectives.
 - Map out interconnected factions in a sandbox world.
 
+# Renderers
+This module offers 3 type of renderer that are the engine behind each graph type:
+- Static Force Diagram Renderer: it is used for drawing diagrams of nodes connected with lines; the placement of the nodes is manual by the user to allow precise and fixed positioning
+- Genealogy Renderer: it shows a genealogy of nodes.
+- Slot Layout Renderer: allows to define slots positioned on an image that can allow to accept specific entities within
+
 ## Changelog
 
 [Changelog](CHANGELOG.md)
 
 ## Planned features
 - Custom background overloading the one proposed
-- customization of the relations on a per graph base
 - better link drawing: allow for splines of segmented links
 
 ## Support
