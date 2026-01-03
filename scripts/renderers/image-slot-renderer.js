@@ -72,6 +72,18 @@ export class ImageSlotsRenderer extends BaseRenderer {
   `;
     }
 
+    get isLinkNodesVisible() {
+        // Return false to hide the button because we now use Shift+Drag
+        // Return true if you want to keep the button as an alternative
+        return false;
+    }
+
+    get isRelationSelectVisible() {
+        // Return false to hide the button because we now use Shift+Drag
+        // Return true if you want to keep the button as an alternative
+        return false;
+    }
+
     initializeGraphData() {
         return {
             nodes: [],
@@ -97,6 +109,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
                 type: n.type,
                 img: n.img,
                 slotId: n.slotId,
+                description: n.description,
                 x: n.x,
                 y: n.y
             })),
@@ -255,13 +268,11 @@ export class ImageSlotsRenderer extends BaseRenderer {
 
         // --- Slot overlays ---
         const slotLayer = zoomLayer.append("g").attr("class", "slots");
+
         this._slotRectSelection = slotLayer.selectAll("rect")
             .data(this._slots, z => z.id)
             .join("rect")
             .attr("class", "fg-slot-rect")
-            .attr("fill", "rgba(0,0,0,0.15)")
-            .attr("stroke", "rgba(255,255,255,0.5)")
-            .attr("stroke-dasharray", "4 4")
             .attr("rx", 4)
             .attr("ry", 4);
 
@@ -271,8 +282,6 @@ export class ImageSlotsRenderer extends BaseRenderer {
             .attr("class", "fg-slot-label")
             .attr("text-anchor", "middle")
             .attr("alignment-baseline", "middle")
-            .attr("fill", "rgba(255,255,255,0.8)")
-            .attr("font-size", 10)
             .text(z => z.label ?? z.id);
 
         // --- Links + link labels ---
@@ -416,6 +425,12 @@ export class ImageSlotsRenderer extends BaseRenderer {
                 }
             });
 
+        // Tooltips: show description (or label) on hover
+        this._nodeSelection.select("title").remove(); // ensure no duplicates
+        this._nodeSelection
+            .append("title")
+            .text(d => this._getNodeTooltip(d));
+
         this._nodeLabelSelection = nodeLabelLayer.selectAll("text")
             .data(nodes, d => d.id)
             .join("text")
@@ -431,6 +446,15 @@ export class ImageSlotsRenderer extends BaseRenderer {
         log("ImageSlotsRenderer.render complete");
     }
 
+    _getNodeTooltip(node) {
+        const desc = (node.description || "").trim();
+        if (desc) {
+            // Optional: truncate very long descriptions
+            return desc.length > 300 ? desc.slice(0, 297) + "..." : desc;
+        }
+        return node.label || node.id || "";
+    }
+
     /**
      * Given current image size, convert normalized slot coords to pixels.
      */
@@ -438,20 +462,53 @@ export class ImageSlotsRenderer extends BaseRenderer {
         const W = this._imageWidth || 1;
         const H = this._imageHeight || 1;
 
+        // Helper to map border style -> stroke-dasharray
+        const dashForStyle = (style) => {
+            switch ((style || "").toLowerCase()) {
+                case "dashed":
+                    return "4 4";
+                case "dotted":
+                    return "2 4";
+                case "solid":
+                default:
+                    return "0";
+            }
+        };
+
         if (this._slotRectSelection) {
             this._slotRectSelection
                 .attr("x", z => z.x * W)
                 .attr("y", z => z.y * H)
                 .attr("width", z => z.w * W)
-                .attr("height", z => z.h * H);
+                .attr("height", z => z.h * H)
+                // fill/background
+                .attr("fill", z => z.slotFillColor ?? "rgba(0,0,0,0.15)")
+                // optional explicit opacity
+                .attr("fill-opacity", z =>
+                    typeof z.slotFillOpacity === "number" ? z.slotFillOpacity : null
+                )
+                // border color & width
+                .attr("stroke", z => z.slotBorderColor ?? "rgba(255,255,255,0.5)")
+                .attr("stroke-width", z =>
+                    typeof z.slotBorderWidth === "number" ? z.slotBorderWidth : 1
+                )
+                // border style
+                .style("stroke-dasharray", z =>
+                    dashForStyle(z.slotBorderStyle ?? "dashed")
+                );
         }
 
         if (this._slotLabelSelection) {
             this._slotLabelSelection
                 .attr("x", z => (z.x + z.w / 2) * W)
-                .attr("y", z => (z.y + z.h / 2) * H);
+                .attr("y", z => (z.y + z.h / 2) * H)
+                .attr("fill", z => z.slotLabelColor ?? "rgba(255,255,255,0.8)")
+                .attr("font-size", z =>
+                    typeof z.slotLabelFontSize === "number" ? z.slotLabelFontSize : 10
+                );
         }
     }
+
 
     /**
      * Resolve the "visual" position of a node:
@@ -490,6 +547,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
     }
 
     _canDropInSlot(node, slot) {
+        // 1. High-level allowed node types (Actor, Item, Scene, ...)
         const allowedTypes = slot.allowedNodeTypes;
         if (Array.isArray(allowedTypes) && allowedTypes.length > 0) {
             const nodeType = node.type || node.data?.type;
@@ -498,9 +556,28 @@ export class ImageSlotsRenderer extends BaseRenderer {
             }
         }
 
+        // 2. Sub-entity types (actor.type, item.type, etc.)
+        const allowedSub = slot.allowedSubEntityTypes;
+        if (Array.isArray(allowedSub) && allowedSub.length > 0) {
+            // If it’s just ["*"], we allow anything and skip the check
+            const isWildcardOnly = allowedSub.length === 1 && allowedSub[0] === "*";
+            if (!isWildcardOnly) {
+                const subType =
+                    node.subType ||
+                    node.documentType ||
+                    node.systemType ||
+                    node.type; // last fallback
+
+                if (!allowedSub.includes(subType)) {
+                    return false;
+                }
+            }
+        }
+
+        // 3. Capacity (maxNodes)
         if (typeof slot.maxNodes === "number") {
             const count = (this.graph?.data?.nodes ?? []).filter(n => n.slotId === slot.id).length;
-            // allow node to stay if it's already in this slot
+            // allow staying if the node was already in this slot
             if (count >= slot.maxNodes && node.slotId !== slot.id) {
                 return false;
             }
@@ -509,22 +586,99 @@ export class ImageSlotsRenderer extends BaseRenderer {
         return true;
     }
 
+
     _updateNodeAndLinkPositions() {
         if (!this.graph) return;
+
         const nodes = this.graph.data.nodes ?? [];
         const W = this._imageWidth || 1;
         const H = this._imageHeight || 1;
 
-        // Normalize node positions based on slots where needed
+        // --- 1. Group nodes by slotId ---
+        const slotGroups = new Map(); // slotId -> node[]
+        const freeNodes = [];
+
         for (const n of nodes) {
-            const [x, y] = this._getNodePosition(n);
+            if (n.slotId) {
+                if (!slotGroups.has(n.slotId)) slotGroups.set(n.slotId, []);
+                slotGroups.get(n.slotId).push(n);
+            } else {
+                freeNodes.push(n);
+            }
+        }
+
+        // Helper: find slot by id
+        const findSlot = (slotId) => {
+            if (!this._slots) return null;
+            return this._slots.find(z => z.id === slotId) || null;
+        };
+
+        // --- 2. Position nodes that are inside slots ---
+        const padding = 8; // px padding inside each slot rect
+
+        for (const [slotId, group] of slotGroups.entries()) {
+            const slot = findSlot(slotId);
+            if (!slot) {
+                // No matching slot, treat as free nodes
+                for (const n of group) {
+                    freeNodes.push(n);
+                }
+                continue;
+            }
+
+            // Slot rect in pixels
+            const sx = slot.x * W;
+            const sy = slot.y * H;
+            const sw = slot.w * W;
+            const sh = slot.h * H;
+
+            const innerX = sx + padding;
+            const innerY = sy + padding;
+            const innerW = Math.max(sw - 2 * padding, 1);
+            const innerH = Math.max(sh - 2 * padding, 1);
+
+            const count = group.length;
+
+            if (count === 1) {
+                // Single node: center in the slot (old behavior)
+                const n = group[0];
+                n.x = sx + sw / 2;
+                n.y = sy + sh / 2;
+                continue;
+            }
+
+            // More than one node: arrange in a grid
+            const cols = Math.ceil(Math.sqrt(count));
+            const rows = Math.ceil(count / cols);
+
+            const cellW = innerW / cols;
+            const cellH = innerH / rows;
+
+            group.forEach((n, index) => {
+                const col = index % cols;
+                const row = Math.floor(index / cols);
+
+                const cx = innerX + (col + 0.5) * cellW;
+                const cy = innerY + (row + 0.5) * cellH;
+
+                n.x = cx;
+                n.y = cy;
+            });
+        }
+
+        // --- 3. Position free nodes (no slot) as before ---
+        for (const n of freeNodes) {
+            // If they already have coordinates, keep them; otherwise default to center
+            const x = (typeof n.x === "number") ? n.x : W / 2;
+            const y = (typeof n.y === "number") ? n.y : H / 2;
             n.x = x;
             n.y = y;
         }
 
+        // --- 4. Apply to SVG images + labels ---
         if (this._nodeSelection) {
             this._nodeSelection
-                .attr("x", d => d.x - 32)
+                .attr("x", d => d.x - 32) // 64x64 icon => center at d.x/d.y
                 .attr("y", d => d.y - 32);
         }
 
@@ -534,7 +688,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
                 .attr("y", d => d.y + 40);
         }
 
-        const links = this.graph.data.links ?? [];
+        // --- 5. Update links based on node positions ---
         const nodeMap = new Map(nodes.map(n => [n.id, n]));
 
         if (this._linkSelection) {
@@ -576,12 +730,17 @@ export class ImageSlotsRenderer extends BaseRenderer {
 
     _onDragStart(event, d) {
         event.sourceEvent.stopPropagation();
+
+        // Remember original position & slot so we can revert if needed
+        d._dragStartX = d.x;
+        d._dragStartY = d.y;
+        d._dragStartSlotId = d.slotId;
     }
 
     _onDrag(event, d) {
+        // Move freely while dragging; detach from slot temporarily
         d.x = event.x;
         d.y = event.y;
-        // While dragging, "detach" from slot (will re-evaluate on drop)
         d.slotId = null;
         this._updateNodeAndLinkPositions();
     }
@@ -589,17 +748,29 @@ export class ImageSlotsRenderer extends BaseRenderer {
     _onDragEnd(event, d) {
         const [x, y] = [event.x, event.y];
         const slot = this._findSlotAt(x, y);
+
         if (slot && this._canDropInSlot(d, slot)) {
+            // Allowed: assign slot and let the grid layout place it
             d.slotId = slot.id;
-            const [sx, sy] = this._getNodePosition(d);
-            d.x = sx;
-            d.y = sy;
+            // x/y will be recomputed by _updateNodeAndLinkPositions
+        } else {
+            // Not allowed (full slot or no slot): revert to original state
+            if (typeof d._dragStartX === "number") d.x = d._dragStartX;
+            if (typeof d._dragStartY === "number") d.y = d._dragStartY;
+            d.slotId = d._dragStartSlotId;
         }
+
+        // Clean up temp drag fields
+        delete d._dragStartX;
+        delete d._dragStartY;
+        delete d._dragStartSlotId;
+
         this._updateNodeAndLinkPositions();
     }
 
-    addNode(graph, { id, label, type, img, uuid, x, y }) {
-        log("ImageSlotsRenderer.addNode", graph, id, label, type, img, uuid, x, y);
+
+    addNode(graph, { id, label, type, img, uuid, x, y, subType, description }) {
+        log("ImageSlotsRenderer.addNode", graph, id, label, type, img, uuid, x, y, subType);
         if (!this.graph) this.graph = graph;
         if (!this.graph.data) this.graph.data = { nodes: [], links: [] };
 
@@ -611,7 +782,9 @@ export class ImageSlotsRenderer extends BaseRenderer {
             img,
             x,
             y,
-            slotId: null
+            slotId: null,
+            subType,
+            description   // <— NEW
         });
     }
 
@@ -676,6 +849,13 @@ export class ImageSlotsRenderer extends BaseRenderer {
         const [x, y] = d3.pointer(event, zoomLayerNode);
         log("Drop position (transformed):", x, y);
 
+        // Must be inside a slot
+        const slot = this._findSlotAt(x, y);
+        if (!slot) {
+            ui.notifications.warn("You can only drop entities on slots.");
+            return;
+        }
+
         const newId = safeUUID();
 
         switch (data.type) {
@@ -685,6 +865,24 @@ export class ImageSlotsRenderer extends BaseRenderer {
                     ui.notifications.warn("Could not find actor");
                     return;
                 }
+
+                // Sub-entity type is typically actor.type
+                const dummyNode = {
+                    slotId: null,
+                    type: "Actor",
+                    subType: actor.type
+                };
+                if (!this._canDropInSlot(dummyNode, slot)) {
+                    ui.notifications.warn(`Slot "${slot.label ?? slot.id}" cannot accept this Actor type.`);
+                    return;
+                }
+                // Try to extract a reasonable text description
+                const rawDesc =
+                    foundry.utils.getProperty(actor, "system.description.value") ??
+                    foundry.utils.getProperty(actor, "system.details.biography.value") ??
+                    "";
+                const description = TextEditor.decodeHTML(rawDesc ?? "").trim();
+
                 this.addNode(this.graph, {
                     id: newId,
                     uuid: data.uuid,
@@ -692,17 +890,37 @@ export class ImageSlotsRenderer extends BaseRenderer {
                     type: "Actor",
                     img: actor.img,
                     x,
-                    y
+                    y,
+                    description,
+                    subType: actor.type
                 });
                 ui.notifications.info(`Added node for actor: ${actor.name}`);
                 break;
             }
+
             case "JournalEntryPage": {
                 const page = await fromUuid(data.uuid);
                 if (!page) {
                     ui.notifications.warn("Could not find page");
                     return;
                 }
+
+                const dummyNode = {
+                    slotId: null,
+                    type: "JournalEntryPage",
+                    subType: page.type // usually "text", "image", etc.
+                };
+                if (!this._canDropInSlot(dummyNode, slot)) {
+                    ui.notifications.warn(`Slot "${slot.label ?? slot.id}" cannot accept this Page type.`);
+                    return;
+                }
+
+                const rawDesc =
+                    foundry.utils.getProperty(page, "text.content") ??
+                    foundry.utils.getProperty(page, "system.text.content") ??
+                    "";
+                const description = TextEditor.decodeHTML(rawDesc ?? "").trim();
+
                 this.addNode(this.graph, {
                     id: newId,
                     uuid: data.uuid,
@@ -710,17 +928,37 @@ export class ImageSlotsRenderer extends BaseRenderer {
                     type: "JournalEntryPage",
                     img: "modules/foundry-graph/img/journal.png",
                     x,
-                    y
+                    y,
+                    description,
+                    subType: page.type
                 });
                 ui.notifications.info(`Added node for page: ${page.name}`);
                 break;
             }
+
             case "Scene": {
                 const scene = await fromUuid(data.uuid);
                 if (!scene) {
                     ui.notifications.warn("Could not find scene");
                     return;
                 }
+
+                const dummyNode = {
+                    slotId: null,
+                    type: "Scene",
+                    subType: scene.type // if present; otherwise undefined is fine
+                };
+                if (!this._canDropInSlot(dummyNode, slot)) {
+                    ui.notifications.warn(`Slot "${slot.label ?? slot.id}" cannot accept this Scene type.`);
+                    return;
+                }
+
+                const rawDesc =
+                    foundry.utils.getProperty(scene, "description") ??
+                    foundry.utils.getProperty(scene, "system.description") ??
+                    "";
+                const description = TextEditor.decodeHTML(rawDesc ?? "").trim();
+
                 this.addNode(this.graph, {
                     id: newId,
                     uuid: data.uuid,
@@ -728,17 +966,37 @@ export class ImageSlotsRenderer extends BaseRenderer {
                     type: "Scene",
                     img: "modules/foundry-graph/img/mappin.png",
                     x,
-                    y
+                    y,
+                    description,
+                    subType: scene.type
                 });
                 ui.notifications.info(`Added node for scene: ${scene.name}`);
                 break;
             }
+
             case "Item": {
                 const item = await fromUuid(data.uuid);
                 if (!item) {
                     ui.notifications.warn("Could not find item");
                     return;
                 }
+
+                const dummyNode = {
+                    slotId: null,
+                    type: "Item",
+                    subType: item.type
+                };
+                if (!this._canDropInSlot(dummyNode, slot)) {
+                    ui.notifications.warn(`Slot "${slot.label ?? slot.id}" cannot accept this Item type.`);
+                    return;
+                }
+
+                const rawDesc =
+                    foundry.utils.getProperty(item, "system.description.value") ??
+                    foundry.utils.getProperty(item, "system.description") ??
+                    "";
+                const description = TextEditor.decodeHTML(rawDesc ?? "").trim();
+
                 this.addNode(this.graph, {
                     id: newId,
                     uuid: data.uuid,
@@ -746,20 +1004,32 @@ export class ImageSlotsRenderer extends BaseRenderer {
                     type: "Item",
                     img: item.img,
                     x,
-                    y
+                    y,
+                    description,
+                    subType: item.type
                 });
                 ui.notifications.info(`Added node for item: ${item.name}`);
                 break;
             }
+
             default: {
                 ui.notifications.warn(`Dropping ${data.type} on this graph is not yet supported.`);
                 return;
             }
         }
 
-        // After adding a node, re-render to show it
+        // We know we have a valid slot here
+        const newNode = this.graph.data.nodes.find(n => n.id === newId);
+        if (newNode) {
+            newNode.slotId = slot.id;
+        }
+
+        // Re-render to position in slot/grid
         this.render(this._svg, this.graph, {});
     }
+
+
+
 
     hasEntity(graphData, uuid) {
         log("ImageSlotsRenderer.hasEntity", graphData, uuid);

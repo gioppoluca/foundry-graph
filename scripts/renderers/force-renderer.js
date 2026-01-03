@@ -34,6 +34,12 @@ export class ForceRenderer extends BaseRenderer {
     return false;
   }
 
+  get isRelationSelectVisible() {
+    // Return false to hide the button because we now use Shift+Drag
+    // Return true if you want to keep the button as an alternative
+    return true;
+  }
+
   initializeGraphData() {
     return {
       nodes: [],

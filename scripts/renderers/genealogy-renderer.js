@@ -50,6 +50,17 @@ export class GenealogyRenderer extends BaseRenderer {
   `;
   }
 
+  get isLinkNodesVisible() {
+    // Return false to hide the button because we now use Shift+Drag
+    // Return true if you want to keep the button as an alternative
+    return true;
+  }
+
+  get isRelationSelectVisible() {
+    // Return false to hide the button because we now use Shift+Drag
+    // Return true if you want to keep the button as an alternative
+    return true;
+  }
 
   initializeGraphData() {
     return {

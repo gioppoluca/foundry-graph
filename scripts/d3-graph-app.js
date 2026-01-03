@@ -107,7 +107,8 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       relations: this.graph?.relations || [],
       isEdit: this._mode === "edit" || this._mode === "new",
       instructions: this.renderer?.instructions || "No instructions available",
-      isLinkNodesVisible: this.renderer?.isLinkNodesVisible ?? true
+      isLinkNodesVisible: this.renderer?.isLinkNodesVisible ?? true,
+      isRelationSelectVisible: this.renderer?.isRelationSelectVisible ?? true
     };
   }
 
