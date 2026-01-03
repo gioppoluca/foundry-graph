@@ -21,7 +21,7 @@ You can choose between a set of graph types and create your **relation map**
 | Faction Power Structure | Free Diagram | any | Actors | A diagram with relations useful for mapping the internal hierarchy of a faction |
 | Characters Map   | Free Diagram  | any   | Actors | The classical map between generic Actors  |
 | Genealogy Tree  | Genealogy | any | Actors | Genealogical tree for Actors only |
-| Heaven Layout  | Slot Layout | WoD5e, Vtm5e, worldofdarkness | Items | A layout for displaying a vampire heaven. |
+| Heaven Layout  | Slot Layout | WoD5e, Vtm5e, worldofdarkness | Items | A layout for displaying a vampire heaven. In each dedicated slot the user can add heaven's merits or flows. |
 
 New graph types are cooking, add an issue if you would like to have a specific graph type.
 
