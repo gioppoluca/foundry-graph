@@ -37,6 +37,7 @@ export class GraphBuilder {
                 [userId]: foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
             },
             relations: JSON_graph_types[graphType]?.relations || [],
+            slots: JSON_graph_types[graphType]?.slots || [],
             schemaVersion: GRAPH_SCHEMA_VERSION,
             graphTypeVersion: JSON_graph_types[graphType]?.version,
         };

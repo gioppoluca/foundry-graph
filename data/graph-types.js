@@ -486,5 +486,30 @@ export const GRAPH_TYPES = {
         "strokeWidth": 3
       }
     ]
+  },
+  "character-layout": {
+    "id": "character-layout",
+    "name": "Character Layout",
+    "description": "A layout for displaying character information with designated slots for name and portrait.",
+    "background": {
+      "image": "modules/foundry-graph/img/tree.webp",
+      "width": 2500,
+      "height": 1667
+    },
+    "renderer": "imageSlots",
+    "width": 1200,
+    "height": 800,
+    "color": "#226633",
+    "nodeLabelColor": "#000000",
+    "version": 1,
+    "allowedEntities": ["Actor"],
+    "systems": [
+      "*"
+    ],
+    "relations": [],
+    "slots": [
+      { "id": "name", "label": "Name", "x": 0.10, "y": 0.05, "w": 0.30, "h": 0.06, "maxNodes": 1 },
+      { "id": "portrait", "label": "Portrait", "x": 0.05, "y": 0.12, "w": 0.20, "h": 0.25, "maxNodes": 1 }
+    ]
   }
 }

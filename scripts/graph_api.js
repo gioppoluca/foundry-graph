@@ -3,6 +3,7 @@ import { log, MODULE_ID, JSON_graph_types, t } from './constants.js';
 import { ForceRenderer } from "./renderers/force-renderer.js";
 //import { TreeRenderer } from "./renderers/tree-renderer.js";
 import { GenealogyRenderer } from "./renderers/genealogy-renderer.js";
+import { ImageSlotsRenderer } from "./renderers/image-slot-renderer.js";
 import { migrateGraph } from "./model/graph_migrations.js";
 
 
@@ -72,7 +73,8 @@ export class GraphApi {
 
         this.registryRenderers = new Map([
             [ForceRenderer.ID, new ForceRenderer()],
-            [GenealogyRenderer.ID, new GenealogyRenderer()]
+            [GenealogyRenderer.ID, new GenealogyRenderer()],
+            [ImageSlotsRenderer.ID, new ImageSlotsRenderer()],
         ]);
 
         log("GraphApi.constructor", this.graphTypes)
