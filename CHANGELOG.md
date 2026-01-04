@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-01-04
+### :sparkles: New Features
+- [`818b6d5`](https://github.com/gioppoluca/foundry-graph/commit/818b6d59c95d533c4b72ed2ef0a1c29bb5d8b63e) - new themes for haven layout *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`64f3640`](https://github.com/gioppoluca/foundry-graph/commit/64f3640351e43cd20490f829b63238a1bf8809ab) - managing themes *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`69001dd`](https://github.com/gioppoluca/foundry-graph/commit/69001ddf7beeb83bdac3aceaa8d33b0b580bc1c6) - first draft of migration for themes *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+### :bug: Bug Fixes
+- [`60a7e28`](https://github.com/gioppoluca/foundry-graph/commit/60a7e2807e1903c697cdd2f86300d7c37754bcb9) - fix messed up tabs *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.4.1] - 2026-01-04
 ### :bug: Bug Fixes
 - [`a92f268`](https://github.com/gioppoluca/foundry-graph/commit/a92f26802746c73a9c51ea08b3104de493039dd9) - typos *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -114,3 +124,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.3.0]: https://github.com/gioppoluca/foundry-graph/compare/0.2.4...0.3.0
 [0.4.0]: https://github.com/gioppoluca/foundry-graph/compare/0.3.0...0.4.0
 [0.4.1]: https://github.com/gioppoluca/foundry-graph/compare/0.4.0...0.4.1
+[0.5.0]: https://github.com/gioppoluca/foundry-graph/compare/0.4.1...0.5.0
