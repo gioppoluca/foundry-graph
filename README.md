@@ -14,14 +14,14 @@ Visualize lineage, alliances, and secrets in living diagrams with ease.
 Foundry Graph is a powerful and intuitive module that lets you visually map relationships between actors, scenes, items, or any other entity in your world. Whether you're managing political intrigue, faction conflicts, character connections, or ancient bloodlines, this tool gives you a dynamic canvas to build, edit, and explore complex networks.
 You can choose between a set of graph types and create your **relation map**
 
-| Graph type | Renderer    | System    | Object Allowed | Description                                                                          |
+| Graph type | Renderer  | Themes  | System    | Object Allowed | Description                                                                          |
 | ---------- | ------- | ------------ | ---- | -------------------------------------------------------------------------- |
-| Enemy Map | Free Diagram| any | Actors | A diagram to represent better relationship with enemies |
-| World of Darkness Relationship Map | Free Diagram    | WoD5e, Vtm5e, worldofdarkness   | Actors | The relationship map for a coterie or a single character, with dedicated relations for the World of Darkness system   |
-| Faction Power Structure | Free Diagram | any | Actors | A diagram with relations useful for mapping the internal hierarchy of a faction |
-| Characters Map   | Free Diagram  | any   | Actors | The classical map between generic Actors  |
-| Genealogy Tree  | Genealogy | any | Actors | Genealogical tree for Actors only |
-| Heaven Layout  | Slot Layout | WoD5e, Vtm5e, worldofdarkness | Items | A layout for displaying a vampire heaven. In each dedicated slot the user can add heaven's merits or flows. |
+| Enemy Map | Free Diagram| |any | Actors | A diagram to represent better relationship with enemies |
+| World of Darkness Relationship Map | Free Diagram |   | WoD5e, Vtm5e, worldofdarkness   | Actors | The relationship map for a coterie or a single character, with dedicated relations for the World of Darkness system   |
+| Faction Power Structure | Free Diagram | | any | Actors | A diagram with relations useful for mapping the internal hierarchy of a faction |
+| Characters Map   | Free Diagram | | any   | Actors | The classical map between generic Actors  |
+| Genealogy Tree  | Genealogy | | any | Actors | Genealogical tree for Actors only |
+| Heaven Layout  | Slot Layout | Castle, manor, house, modern house, condo, penthouse, slums, medieval village, medieval manor, medieval crypt | WoD5e, Vtm5e, worldofdarkness | Items | A layout for displaying a vampire heaven. In each dedicated slot the user can add heaven's merits or flows. |
 
 New graph types are cooking, add an issue if you would like to have a specific graph type.
 
