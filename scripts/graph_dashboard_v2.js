@@ -19,7 +19,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     super(options);
     this.api = options;
     this.tabGroups ??= {};
-    this.tabGroups.primary ??= options.activeTab ?? GraphDashboardV2.DEFAULT_ACTIVE_TAB;
+    this.tabGroups.primary = options.activeTab ?? GraphDashboardV2.DEFAULT_ACTIVE_TAB;
     this.editingGraph = null;
   }
 
@@ -29,8 +29,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   static TABS = {
     primary: {
       tabs: [
-        { id: 'creationGraph', group: 'graph' },
-        { id: 'listGraph', group: 'graph' }
+        { id: 'creationGraph' },
+        { id: 'listGraph' }
       ],
       initial: 'listGraph',
       labelPrefix: "foundry-graph.Tabs",
@@ -85,49 +85,6 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   /*  Context / Data                                                          */
   /* ------------------------------------------------------------------------ */
 
-  /**
-   * Prepare application tab data for a single tab group.
-   * @param {string} group The ID of the tab group to prepare
-   * @returns {Record<string, ApplicationTab>}
-   * @protected
-   */
-  _prepareTabs(group) {
-    const { tabs, labelPrefix, initial = null } = this._getTabsConfig(group) ?? { tabs: [] };
-    this.tabGroups[group] ??= initial;
-    const activeId = this.tabGroups[group];
-    return tabs.reduce((prepared, { id, cssClass, ...tabConfig }) => {
-      const active = id === activeId;
-      if (active) cssClass = [cssClass, "active"].filterJoin(" ");
-      const tab = { group, id, active, cssClass, ...tabConfig };
-      if (labelPrefix) tab.label ??= `${labelPrefix}.${id}`;
-      prepared[id] = tab;
-      return prepared;
-    }, {});
-  }
-
-  /** Programmatically switch tabs (optionally re-render). */
-  setActiveTab(tabId, { group = "primary", render = true } = {}) {
-
-    log("GraphDashboardV2.setActiveTab", tabId, render)
-    if (!GraphDashboardV2.ALLOWED_TABS.includes(tabId)) return;
-    this.tabGroups[group] = tabId;
-    if (render && this.rendered) this.render(false);
-  }
-
-  /* -------------------------------------------- */
-
-  /**
-   * Get the configuration for a tabs group.
-   * @param {string} group The ID of a tabs group
-   * @returns {ApplicationTabsConfiguration|null}
-   * @protected
-   */
-  _getTabsConfig(group) {
-    log("GraphDashboardV2._getTabsConfig", group)
-    log(this.constructor.TABS)
-    return this.constructor.TABS[group] ?? null;
-  }
-
   _prepareContext() {
     const graphs = this.api.getAccessibleGraphs();
     this._graphTypes = this.api.getGraphTypesArray();
@@ -137,6 +94,26 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       log("editingGraph", this.editingGraph)
     }
     log(this.editingGraph?.graphType)
+    const graph = this.editingGraph ?? GraphDashboardV2.blankGraph();
+
+    // --- Determine which graph type is currently selected ---
+    // In edit mode: the graph's own type. In create mode: none by default.
+    const selectedGraphType = this.editingGraph?.graphType ?? "";
+
+    // --- Build theme list and selected theme for that type ---
+    let selectedGraphThemes = null;
+    let selectedTheme = this.editingGraph?.theme ?? "";
+    if (selectedGraphType) {
+      const metadata = this._graphTypes?.find(g => g.id === selectedGraphType);
+      if (metadata && Array.isArray(metadata.themes) && metadata.themes.length > 0) {
+        selectedGraphThemes = metadata.themes;
+
+        // If the graph has no theme yet (legacy graphs), default to the first theme
+        if (!selectedTheme) {
+          selectedTheme = metadata.themes[0].id;
+        }
+      }
+    }
 
     return {
       title: this.title,
@@ -144,10 +121,24 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       is_gm: game.user.isGM,
       graphTypes: this._graphTypes,
       tabs: this._prepareTabs("primary"),
-      graph: this.editingGraph,
+      tab: this.activeTab,
+      graph,
       selectedGraphType: this.editingGraph?.graphType,
+      selectedGraphThemes,
+      selectedTheme,
       graphs
     };
+  }
+
+  async _preparePartContext(partId, context) {
+    switch (partId) {
+      case 'creationGraph':
+      case 'listGraph':
+        context.tab = context.tabs[partId];
+        break;
+      default:
+    }
+    return context;
   }
 
 
@@ -165,8 +156,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   static onCancelCreate(event, target) {
     // Clear any edit mode and reset inputs defensively
     this.editingGraph = null;
-    //this._clearCreateForm();
-    this.setActiveTab("listGraph");
+    this.changeTab("listGraph", "primary");
+    this.render(true);
   }
 
   static async onCreateGraph(event, target) {
@@ -181,8 +172,15 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     const width = this.element.querySelector("#graph-width").value?.trim();
     const height = this.element.querySelector("#graph-height").value?.trim();
     const backgroundImagePath = this.element.querySelector("#graph-background").value?.trim();
+    const themeSelect = this.element.querySelector("#graph-theme-select");
+    const selectedThemeId = themeSelect?.value?.trim() || null;
 
-    const metadataBg = metadata.background;
+    // Determine base background from selected theme or fallback to metadata.background
+    let metadataBg = metadata.background || {};
+    if (selectedThemeId && Array.isArray(metadata.themes)) {
+      const theme = metadata.themes.find(t => t.id === selectedThemeId);
+      if (theme) metadataBg = theme;
+    }
     let finalBgImg = backgroundImagePath || metadataBg?.image;
     let finalBgWidth, finalBgHeight;
 
@@ -202,6 +200,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       name: name,
       desc: desc,
       graphType: type,
+      theme: selectedThemeId,
       background: {
         image: finalBgImg,
         width: Number(finalBgWidth) || Number(width) || 800,
@@ -215,14 +214,16 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     ui.notifications.info(`Graph ${name} created.`);
     // Optionally, refresh the dashboard or list view
     this.editingGraph = null;
-    this.setActiveTab("listGraph");
+    this.changeTab("listGraph", "primary");
+    this.render(true);
   }
 
   static async graphEdit(event, target) {
     log("graphEdit", event, target)
     const graph = await this.api.getGraph(event.target.dataset.id);
     this.editingGraph = graph;
-    this.setActiveTab("creationGraph");
+    this.changeTab("creationGraph", "primary");
+    this.render(true);
   }
 
   static async onOpenGraph(event, target) {
@@ -247,9 +248,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     log(event.target.dataset.id)
     await this.api.deleteGraph(event.target.dataset.id);
     ui.notifications.info(`Graph ${event.target.dataset.id} deleted.`);
-    // Optionally, refresh the dashboard or list view
     this.render(true);
-    // Or you can trigger a re-render of the entire dashboard
   }
 
   static async graphPerms(event, target) {
@@ -269,9 +268,9 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   }
 
 
-/**
-   * Open the dialog to manage relations for a specific graph.
-   */
+  /**
+     * Open the dialog to manage relations for a specific graph.
+     */
   static async onGraphRelations(event, target) {
     log("onGraphRelations", event, target);
     const graphId = event.target.dataset.id;
@@ -283,7 +282,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       log(`Saving ${newRelations.length} relations for graph ${graphId}`);
       graph.relations = newRelations;
       await this.api.upsertGraph(graph);
-      this.render(true); // Refresh the dashboard
+      //this.render(true); // Refresh the dashboard
       ui.notifications.info(`Relations for "${graph.name}" updated.`);
     };
 
@@ -311,32 +310,105 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     this.element.querySelector("#create-graph-btn").disabled = !allFilled;
   }
 
-  /* ------------------------------------------------------------------------ */
-  /*  Rendering                                                               */
-  /* ------------------------------------------------------------------------ */
-
   /** Added to auto-fill form on graph type selection */
   _onGraphTypeChange(event) {
     // Only autofill if we are in "new graph" mode (no editingGraph)
     if (this.editingGraph) return;
 
     const typeId = event.target.value;
-    const metadata = this._graphTypes?.find(g => g.id === typeId);
-    if (!metadata || !metadata.background) return;
+    const metadata = this._graphTypes?.find(g => g.id === typeId) ?? null;
 
     const widthInput = this.element.querySelector("#graph-width");
     const heightInput = this.element.querySelector("#graph-height");
-    const bgInput = this.element.querySelector("#graph-background"); // FilePicker
+    const bgInput = this.element.querySelector("#graph-background");
+    const themeSelect = this.element.querySelector("#graph-theme-select");
 
-    if (metadata.background.width && widthInput) widthInput.value = metadata.background.width;
-    if (metadata.background.height && heightInput) heightInput.value = metadata.background.height;
-    if (metadata.background.image && bgInput) {
-      bgInput.value = metadata.background.image;
-      const valueDisplay = bgInput.querySelector(".file-picker-value");
-      if (valueDisplay) valueDisplay.textContent = metadata.background.image;
+    // Reset theme select options whenever the graph type changes
+    if (themeSelect) {
+      themeSelect.innerHTML = "";
     }
+
+    // If no type selected, clear fields and exit
+    if (!metadata) {
+      if (widthInput) widthInput.value = "";
+      if (heightInput) heightInput.value = "";
+      if (bgInput) {
+        bgInput.value = "";
+        const valueDisplay = bgInput.querySelector(".file-picker-value");
+        if (valueDisplay) valueDisplay.textContent = "";
+      }
+      this.updateButtonState();
+      return;
+    }
+
+    const themes = Array.isArray(metadata.themes) ? metadata.themes : [];
+    let themeBg = metadata.background || {};
+    let defaultThemeId = "";
+
+    if (themes.length > 0) {
+      const t0 = themes[0];
+      themeBg = t0;
+      defaultThemeId = t0.id;
+    }
+
+    // Populate theme select with the themes belonging to this graph type
+    if (themeSelect) {
+      if (themes.length === 0) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = game.i18n?.localize?.("foundry-graph.themes.none") ?? "Default";
+        themeSelect.appendChild(opt);
+        themeSelect.value = "";
+      } else {
+        for (const theme of themes) {
+          const opt = document.createElement("option");
+          opt.value = theme.id;
+          opt.textContent = theme.label || theme.id;
+          themeSelect.appendChild(opt);
+        }
+        themeSelect.value = defaultThemeId;
+      }
+    }
+
+    // Autofill width/height/background from the chosen theme (or fallback background)
+    if (themeBg.width && widthInput) widthInput.value = themeBg.width;
+    if (themeBg.height && heightInput) heightInput.value = themeBg.height;
+    if (themeBg.image && bgInput) {
+      bgInput.value = themeBg.image;
+      const valueDisplay = bgInput.querySelector(".file-picker-value");
+      if (valueDisplay) valueDisplay.textContent = themeBg.image;
+    }
+
     this.updateButtonState(); // Make sure save button updates
   }
+
+  static onThemeChange(event) {
+    //  if (this.editingGraph) return; // only for new graphs
+
+    const typeId = this.element.querySelector("#graph-type-select")?.value;
+    if (!typeId) return;
+    const metadata = this._graphTypes?.find(g => g.id === typeId);
+    if (!metadata || !Array.isArray(metadata.themes)) return;
+
+    const selectedThemeId = event.target.value;
+    const theme = metadata.themes.find(t => t.id === selectedThemeId);
+    if (!theme) return;
+
+    const widthInput = this.element.querySelector("#graph-width");
+    const heightInput = this.element.querySelector("#graph-height");
+    const bgInput = this.element.querySelector("#graph-background");
+
+    if (theme.width && widthInput) widthInput.value = theme.width;
+    if (theme.height && heightInput) heightInput.value = theme.height;
+    if (theme.image && bgInput) {
+      bgInput.value = theme.image;
+      const valueDisplay = bgInput.querySelector(".file-picker-value");
+      if (valueDisplay) valueDisplay.textContent = theme.image;
+    }
+
+    this.updateButtonState();
+  }
+
 
   /** Called after the HTML is rendered */
   _onRender() {
@@ -356,15 +428,29 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     })
     // Add listener for graph type dropdown
     const graphTypeSelect = this.element.querySelector('#graph-type-select');
+    const themeSelect = this.element.querySelector('#graph-theme-select');
+
     if (graphTypeSelect) {
       graphTypeSelect.addEventListener("change", (e) => this._onGraphTypeChange(e));
     }
+
+    // Add listener for theme dropdown (call static handler with this bound to the app instance)
+    if (themeSelect) {
+      themeSelect.addEventListener("change", (e) => {
+        this.constructor.onThemeChange.call(this, e);
+      });
+    }
+
     this.updateButtonState();
   }
 
+
   async _onClose(options) {
+    log("GraphDashboardV2._onClose")
     this.editingGraph = null;
-    this.activeTab = GraphDashboardV2.DEFAULT_ACTIVE_TAB;
+    this.changeTab("listGraph", "primary");
+
+    log(this.activeTab, this.editingGraph, options)
     await super._onClose(options);
   }
 }

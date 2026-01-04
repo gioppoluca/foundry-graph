@@ -1,6 +1,5 @@
 {{!-- Individual Tab Template --}}
-<section class="tab {{tabs.creationGraph.id}} {{tabs.creationGraph.cssClass}}" data-tab="{{tabs.creationGraph.id}}"
-  data-group="{{tabs.creationGraph.group}}">
+<section class="tab creationGraph {{tab.cssClass}}" data-tab="creationGraph" data-group="primary">
   {{!-- Tab content here --}}
   <div class="creationGraph-details">
     <!-- form fields, etc. -->
@@ -13,7 +12,7 @@
     <div class="form-fields">
       <label for="graph-id" hidden="true">{{ localize 'foundry-graph.Labels.graphId' }}</label>
       <input type="text" id="graph-id" value="{{ graph.id }}" data-id="{{ graph.id }}" data-dtype="String"
-        readonly="true" hidden="true"/>
+        readonly="true" hidden="true" />
     </div>
     <div class="form-fields">
       <label for="graph-desc">{{ localize 'foundry-graph.Labels.graphDesc' }}</label>
@@ -22,7 +21,8 @@
     </div>
     <div class="graph-select-wrapper">
       <label for="graph-type-select">Select Graph Type:</label>
-      <select id="graph-type-select" name="graphId" {{#if graph.id}} disabled {{/if}} data-tooltip="foundry-graph.tooltip.selectGraphType">
+      <select id="graph-type-select" name="graphId" {{#if graph.id}} disabled {{/if}}
+        data-tooltip="foundry-graph.tooltip.selectGraphType">
         <option value="">--Please choose an option--</option>
         {{selectOptions graphTypes selected=selectedGraphType valueAttr="id" labelAttr="name"}}
         <!--
@@ -31,6 +31,16 @@
         </option>
         {{/each}}
         -->
+      </select>
+    </div>
+    <div class="graph-select-wrapper">
+      <label for="graph-theme-select">Theme:</label>
+      <select id="graph-theme-select" name="graphTheme" data-action="onThemeChange">
+        {{#if selectedGraphThemes}}
+        {{selectOptions selectedGraphThemes selected=selectedTheme valueAttr="id" labelAttr="label"}}
+        {{else}}
+        <option value="">Default</option>
+        {{/if}}
       </select>
     </div>
     <div class="flexrow">
