@@ -106,7 +106,7 @@ export const GRAPH_TYPES = {
     "systems": [
       "vtm5e",
       "worldofdarkness",
-      "vod5e",
+      "wod5e",
     ],
     "relations": [
       {
@@ -487,12 +487,12 @@ export const GRAPH_TYPES = {
       }
     ]
   },
-  "wod-heaven": {
-    "id": "wod-heaven",
-    "name": "Heaven Layout",
-    "description": "A layout for displaying a vampire heaven.",
+  "wod-haven": {
+    "id": "wod-haven",
+    "name": "Haven Layout",
+    "description": "A layout for displaying a vampire haven.",
     "background": {
-      "image": "modules/foundry-graph/img/heaven.webp",
+      "image": "modules/foundry-graph/img/haven.webp",
       "width": 1728,
       "height": 2464
     },
@@ -506,7 +506,7 @@ export const GRAPH_TYPES = {
     "systems": [
       "vtm5e",
       "worldofdarkness",
-      "vod5e",
+      "wod5e",
     ],
     "relations": [],
     "slots": [
