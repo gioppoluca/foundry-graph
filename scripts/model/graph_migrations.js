@@ -15,6 +15,18 @@ export function migrateGraph(graph, graphTypes = {}) {
       //      if (!Array.isArray(g.nodes)) g.nodes = g.nodes ?? [];     // if you use nodes
       //      if (!Array.isArray(g.links)) g.links = g.links ?? [];     // if you use links
       // geneaology graphs likely store inside g.data.{persons,unions,links}
+
+      // Ensure theme exists for graphs that predate "themes"
+      if (!g.theme) {
+        const typeCfg = graphTypes[g.graphType] ?? {};
+        const themes = Array.isArray(typeCfg.themes) ? typeCfg.themes : null;
+        if (themes && themes.length > 0) {
+          g.theme = themes[0].id;
+        } else {
+          g.theme = null; // unknown / legacy
+        }
+      }
+
       g.schemaVersion = 1;
       continue;
     }
