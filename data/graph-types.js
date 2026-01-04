@@ -8,6 +8,7 @@ export const GRAPH_TYPES = {
       "width": 2500,
       "height": 1667
     },
+    "themes": [],
     "renderer": "force",
     "color": "#550044",
     "nodeLabelColor": "#000000",
@@ -98,6 +99,7 @@ export const GRAPH_TYPES = {
       "width": 2500,
       "height": 1667
     },
+    "themes": [],
     "renderer": "force",
     "color": "#ff0000",
     "nodeLabelColor": "#ffffff",
@@ -273,6 +275,7 @@ export const GRAPH_TYPES = {
       "width": 2500,
       "height": 1667
     },
+    "themes": [],
     "renderer": "force",
     "color": "#0000aa",
     "nodeLabelColor": "#000000",
@@ -359,6 +362,7 @@ export const GRAPH_TYPES = {
       "width": 2500,
       "height": 1667
     },
+    "themes": [],
     "renderer": "force",
     "color": "#ffffff",
     "nodeLabelColor": "#000000",
@@ -453,6 +457,7 @@ export const GRAPH_TYPES = {
       "width": 2500,
       "height": 1667
     },
+    "themes": [],
     "renderer": "genealogy",
     "width": 1200,
     "height": 800,
@@ -496,6 +501,78 @@ export const GRAPH_TYPES = {
       "width": 1728,
       "height": 2464
     },
+    "themes": [
+      {
+        "id": "penthouse",
+        "label": "Penthouse",
+        "image": "modules/foundry-graph/img/themes/haven/penthouse.webp",
+        "width": 1728,
+        "height": 2464
+      },
+      {
+        "id": "condo",
+        "label": "Condo",
+        "image": "modules/foundry-graph/img/themes/haven/condo.webp",
+        "width": 1728,
+        "height": 2464
+      },
+      {
+        "id": "slums",
+        "label": "Slums",
+        "image": "modules/foundry-graph/img/themes/haven/slums.webp",
+        "width": 1728,
+        "height": 2464
+      },
+      {
+        "id": "house",
+        "label": "House",
+        "image": "modules/foundry-graph/img/themes/haven/house.webp",
+        "width": 1728,
+        "height": 2464
+      },
+      {
+        "id": "modern-house",
+        "label": "Modern House",
+        "image": "modules/foundry-graph/img/themes/haven/modern-house.webp",
+        "width": 1728,
+        "height": 2464
+      },
+      {
+        "id": "manor",
+        "label": "Manor",
+        "image": "modules/foundry-graph/img/themes/haven/manor.webp",
+        "width": 1728,
+        "height": 2464
+      },
+      {
+        "id": "castle",
+        "label": "Castle",
+        "image": "modules/foundry-graph/img/themes/haven/castle.webp",
+        "width": 1728,
+        "height": 2464
+      },
+      {
+        "id": "medieval-manor",
+        "label": "Medieval Manor",
+        "image": "modules/foundry-graph/img/themes/haven/medieval-manor.webp",
+        "width": 1728,
+        "height": 2464
+      },
+      {
+        "id": "medieval-village",
+        "label": "Medieval Village",
+        "image": "modules/foundry-graph/img/themes/haven/medieval-village.webp",
+        "width": 1728,
+        "height": 2464
+      },
+      {
+        "id": "medieval-crypt",
+        "label": "Medieval Crypt",
+        "image": "modules/foundry-graph/img/themes/haven/medieval-crypt.webp",
+        "width": 1728,
+        "height": 2464
+      }
+    ],
     "renderer": "imageSlots",
     "width": 1200,
     "height": 800,
@@ -544,7 +621,7 @@ export const GRAPH_TYPES = {
         "slotLabelColor": "#001805ff",
         "slotLabelFontSize": 18,
         "allowedEntityTypes": ["Item"],
-        "allowedSubEntityTypes": ["feature", ]
+        "allowedSubEntityTypes": ["feature",]
       },
       {
         "id": "cell",
@@ -562,7 +639,7 @@ export const GRAPH_TYPES = {
         "slotLabelColor": "#001805ff",
         "slotLabelFontSize": 18,
         "allowedEntityTypes": ["Item"],
-        "allowedSubEntityTypes": ["feature", ]
+        "allowedSubEntityTypes": ["feature",]
       },
       {
         "id": "laboratory",
@@ -580,7 +657,7 @@ export const GRAPH_TYPES = {
         "slotLabelColor": "#001805ff",
         "slotLabelFontSize": 18,
         "allowedEntityTypes": ["Item"],
-        "allowedSubEntityTypes": ["feature", ]
+        "allowedSubEntityTypes": ["feature",]
       },
       {
         "id": "library",
@@ -598,7 +675,7 @@ export const GRAPH_TYPES = {
         "slotLabelColor": "#001805ff",
         "slotLabelFontSize": 18,
         "allowedEntityTypes": ["Item"],
-        "allowedSubEntityTypes": ["feature", ]
+        "allowedSubEntityTypes": ["feature",]
       },
       {
         "id": "location",
@@ -616,7 +693,7 @@ export const GRAPH_TYPES = {
         "slotLabelColor": "#001805ff",
         "slotLabelFontSize": 18,
         "allowedEntityTypes": ["Item"],
-        "allowedSubEntityTypes": ["feature", ]
+        "allowedSubEntityTypes": ["feature",]
       },
       {
         "id": "luxury",
@@ -634,7 +711,7 @@ export const GRAPH_TYPES = {
         "slotLabelColor": "#001805ff",
         "slotLabelFontSize": 18,
         "allowedEntityTypes": ["Item"],
-        "allowedSubEntityTypes": ["feature", ]
+        "allowedSubEntityTypes": ["feature",]
       },
       {
         "id": "postern",
@@ -652,7 +729,7 @@ export const GRAPH_TYPES = {
         "slotLabelColor": "#001805ff",
         "slotLabelFontSize": 18,
         "allowedEntityTypes": ["Item"],
-        "allowedSubEntityTypes": ["feature", ]
+        "allowedSubEntityTypes": ["feature",]
       },
       {
         "id": "security-system",
@@ -670,7 +747,7 @@ export const GRAPH_TYPES = {
         "slotLabelColor": "#001805ff",
         "slotLabelFontSize": 18,
         "allowedEntityTypes": ["Item"],
-        "allowedSubEntityTypes": ["feature", ]
+        "allowedSubEntityTypes": ["feature",]
       },
       {
         "id": "surgery",
@@ -688,7 +765,7 @@ export const GRAPH_TYPES = {
         "slotLabelColor": "#001805ff",
         "slotLabelFontSize": 18,
         "allowedEntityTypes": ["Item"],
-        "allowedSubEntityTypes": ["feature", ]
+        "allowedSubEntityTypes": ["feature",]
       },
       {
         "id": "warding",
@@ -706,7 +783,7 @@ export const GRAPH_TYPES = {
         "slotLabelColor": "#001805ff",
         "slotLabelFontSize": 18,
         "allowedEntityTypes": ["Item"],
-        "allowedSubEntityTypes": ["feature", ]
+        "allowedSubEntityTypes": ["feature",]
       },
       {
         "id": "compromised",
@@ -724,7 +801,7 @@ export const GRAPH_TYPES = {
         "slotLabelColor": "#f30b0bff",
         "slotLabelFontSize": 18,
         "allowedEntityTypes": ["Item"],
-        "allowedSubEntityTypes": ["feature", ]
+        "allowedSubEntityTypes": ["feature",]
       },
       {
         "id": "creepy",
@@ -742,7 +819,7 @@ export const GRAPH_TYPES = {
         "slotLabelColor": "#f30b0bff",
         "slotLabelFontSize": 18,
         "allowedEntityTypes": ["Item"],
-        "allowedSubEntityTypes": ["feature", ]
+        "allowedSubEntityTypes": ["feature",]
       },
       {
         "id": "haunted",
@@ -760,7 +837,7 @@ export const GRAPH_TYPES = {
         "slotLabelColor": "#f30b0bff",
         "slotLabelFontSize": 18,
         "allowedEntityTypes": ["Item"],
-        "allowedSubEntityTypes": ["feature", ]
+        "allowedSubEntityTypes": ["feature",]
       },
     ]
   }
