@@ -1,4 +1,4 @@
-import { MODULE_ID, JSON_graph_types, GRAPH_SCHEMA_VERSION, t} from "../constants.js";
+import { MODULE_ID, JSON_graph_types, GRAPH_SCHEMA_VERSION, t } from "../constants.js";
 
 export class GraphBuilder {
     constructor({
@@ -10,10 +10,26 @@ export class GraphBuilder {
         height = 600,
         color = "#ffffff",
         nodeLabelColor = "#000000",
-        background = { },
+        background = {},
+        theme = null,
         relations = [],
         userId = game.userId,
     } = {}) {
+
+        const typeCfg = JSON_graph_types[graphType] ?? {};
+
+        // --- Resolve theme + base background from graph-type metadata
+        const themes = Array.isArray(typeCfg.themes) ? typeCfg.themes : null;
+        let chosenThemeId = theme;
+        let themeBackground = typeCfg.background || {};
+
+        if (themes && themes.length > 0) {
+            const fallbackTheme = themes[0];
+            const selectedTheme = themes.find(t => t.id === theme) || fallbackTheme;
+            chosenThemeId = selectedTheme.id;
+            // theme element is "like background": it can be used directly
+            themeBackground = selectedTheme;
+        }
 
         this._g = {
             id, name, desc,
@@ -23,14 +39,18 @@ export class GraphBuilder {
             color: JSON_graph_types[graphType]?.color || color,
             nodeLabelColor: JSON_graph_types[graphType]?.nodeLabelColor || nodeLabelColor,
             background: {
-                image: JSON_graph_types[graphType]?.background,
-                width: JSON_graph_types[graphType]?.background?.width || width,
-                height: JSON_graph_types[graphType]?.background?.height || height,
+                //                image: JSON_graph_types[graphType]?.background,
+                //                width: JSON_graph_types[graphType]?.background?.width || width,
+                //                height: JSON_graph_types[graphType]?.background?.height || height,
+                image: themeBackground.image,
+                width: themeBackground.width || width,
+                height: themeBackground.height || height,
                 color: "#000000",
-                opacity: 1.0, 
-                fit: "contain", 
+                opacity: 1.0,
+                fit: "contain",
                 ...background
             },
+            theme: chosenThemeId ?? null,
             allowedEntities: JSON_graph_types[graphType]?.allowedEntities || [],
             permissions: {
                 default: foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE,
@@ -48,10 +68,11 @@ export class GraphBuilder {
     setPermissions(perms) { this._g.permissions = { ...this._g.permissions, ...(perms || {}) }; return this; }
     setRelations(relations) { this._g.relations = Array.isArray(relations) ? [...relations] : []; return this; }
     setSize({ width, height }) { if (width) this._g.width = +width; if (height) this._g.height = +height; return this; }
-    setGraphType(graphType) { 
-        this._g.graphType = graphType; 
-        this._g.renderer = JSON_graph_types[graphType]?.renderer; 
-        return this; }
+    setGraphType(graphType) {
+        this._g.graphType = graphType;
+        this._g.renderer = JSON_graph_types[graphType]?.renderer;
+        return this;
+    }
 
     /** Validate minimal structure; return { ok, errors[] } */
     validate() {
