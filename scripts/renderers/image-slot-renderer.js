@@ -181,6 +181,8 @@ export class ImageSlotsRenderer extends BaseRenderer {
         // from the graph-type at creation time, and they are persisted in JSON).
         this._slots = Array.isArray(renderGraph.slots) ? renderGraph.slots : [];
 
+
+
         // Initial zoom setup (same pattern as ForceRenderer)
         if (!this._zoomBehavior) {
             log("ImageSlotsRenderer: First render, setting up zoom.");
@@ -231,6 +233,18 @@ export class ImageSlotsRenderer extends BaseRenderer {
             .append("path")
             .attr("d", "M0,-5L10,0L0,5")
             .attr("fill", "context-stroke");
+
+        if (defs.select("#fg-blur").empty()) {
+            const f = defs.append("filter")
+                .attr("id", "fg-blur")
+                .attr("x", "-30%")
+                .attr("y", "-30%")
+                .attr("width", "160%")
+                .attr("height", "160%");
+            f.append("feGaussianBlur")
+                .attr("in", "SourceGraphic")
+                .attr("stdDeviation", "4");
+        }
 
         const shadow = defs.append("filter")
             .attr("id", "link-label-shadow")
@@ -332,6 +346,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
             .on("contextmenu", (event, d) => {
                 event.preventDefault();
                 //this._onRightClickLink(d);
+                event.stopPropagation?.();
                 this._onRightClickNode(event, d);
             });
 
@@ -361,6 +376,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
             .attr("xlink:href", d => d.img)
             .attr("width", 64)
             .attr("height", 64)
+            .attr("filter", d => this._isHidden(d) ? "url(#fg-blur)" : null)
             .attr("clip-path", "circle(32px at center)")
             .call(drag)
             .on("click", async (event, d) => {
@@ -419,7 +435,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
             })
             .on("contextmenu", (event, d) => {
                 event.preventDefault();
-                this._onRightClickNode(d);
+                this._onRightClickNode(event, d);
             })
             .on("dblclick", (event, d) => {
                 event.preventDefault();
@@ -480,6 +496,11 @@ export class ImageSlotsRenderer extends BaseRenderer {
             return desc.length > 300 ? desc.slice(0, 297) + "..." : desc;
         }
         return node.label || node.id || "";
+    }
+
+    _isHidden(node) {
+        const st = Array.isArray(node?.status) ? node.status : (node?.status == null ? [] : [node.status]);
+        return st.includes("hidden");
     }
 
     /**
@@ -767,6 +788,9 @@ export class ImageSlotsRenderer extends BaseRenderer {
                 .attr("opacity", d => (this._getOverlaySymbol(d) ? 1 : 0))
                 .text(d => this._getOverlaySymbol(d));
         }
+
+        this._nodeSelection.attr("filter", d => this._isHidden(d) ? "url(#fg-blur)" : null);
+
     }
 
     _onDragStart(event, d) {
