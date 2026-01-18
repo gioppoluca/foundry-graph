@@ -1,5 +1,4 @@
-import { GRAPH_SCHEMA_VERSION } from "../constants.js"; // adjust path
-
+import { GRAPH_SCHEMA_VERSION, safeUUID } from "../constants.js";
 export function migrateGraph(graph, graphTypes = {}) {
   // Defensive copy if you prefer immutability
   const g = graph;
@@ -72,6 +71,13 @@ export function migrateGraph(graph, graphTypes = {}) {
     }
   }
 
+  // Ensure every link has a stable UUID id
+  // (required for D3 keyed joins, deletion, rewiring, etc.)
+  if (g?.data?.links && Array.isArray(g.data.links)) {
+    for (const link of g.data.links) {
+      if (!link.id) link.id = safeUUID();
+    }
+  }
 
   return g;
 }

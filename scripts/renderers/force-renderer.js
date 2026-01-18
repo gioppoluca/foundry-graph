@@ -16,6 +16,10 @@ export class ForceRenderer extends BaseRenderer {
     this._zoomBehavior = null;       // Stores the d3.zoom() instance
     this._zoomLayer = null;          // Stores the <g> element
     this._currentTransform = null; // Stores the last zoom/pan transform
+
+    // Link endpoint rewiring state
+    this._isRewiringLink = false;
+    this._rewireGhostLine = null;
   }
 
   get instructions() {
@@ -67,6 +71,7 @@ export class ForceRenderer extends BaseRenderer {
       })),
       links: links.map(l => ({
         // CRITICAL FIX: Store only the ID of the source and target nodes
+        id: l.id,
         source: l.source.id,
         target: l.target.id,
         // --- copy other link properties ---
@@ -154,7 +159,17 @@ export class ForceRenderer extends BaseRenderer {
 
     // All rendering now happens inside this._zoomLayer
     const zoomLayer = this._zoomLayer;
-    // ------------------------------------
+    // Ensure every link has a stable id (older graphs or legacy links may be missing it)
+
+    // Ensure every link has a stable id (older graphs or legacy links may be missing it)
+    if (Array.isArray(renderGraph?.data?.links)) {
+      for (const l of renderGraph.data.links) {
+        if (!l.id) l.id = safeUUID();
+      }
+    }
+    // Utility: links may contain endpoints as node objects (after d3.forceLink)
+    // or as raw node ids (persisted format). Always normalize when comparing.
+    const getEndpointId = (endpoint) => (typeof endpoint === "object" ? endpoint?.id : endpoint);
 
     // --- START: Background Image Update ---
     const bgWidth = renderGraph.background.width || renderGraph.width;
@@ -241,7 +256,7 @@ export class ForceRenderer extends BaseRenderer {
     const linkLabels = zoomLayer.append("g")
       .attr("class", "link-labels")
       .selectAll("text")
-      .data(renderGraph.data.links)
+      .data(renderGraph.data.links, d => d.id)
       .join("text")
       .attr("font-size", 12)
       .attr("fill", d => d.color || "#000")
@@ -286,6 +301,7 @@ export class ForceRenderer extends BaseRenderer {
                 return;
               }
               renderGraph.data.links.push({
+                id: safeUUID(),
                 source: source.id,
                 target: target.id,
                 relationId: relation.id,
@@ -339,6 +355,164 @@ export class ForceRenderer extends BaseRenderer {
     simulation.force("charge", d3.forceManyBody().strength(-400));
     simulation.force("center", d3.forceCenter(400, 300));
     linkForce.links(renderGraph.data.links);
+
+    // NEW CODE ADDED BELOW
+    // ------------------------------
+    // Rewire handles (shown only on link hover)
+    // ------------------------------
+    const resolveEndpointNode = (endpoint) => {
+      if (!endpoint) return null;
+      if (typeof endpoint === "object") return endpoint;
+      return renderGraph.data.nodes.find(n => n.id === endpoint) ?? null;
+    };
+
+    // Handles should be placed where the arrow marker appears, not at node center.
+    // Marker uses refX=30 in defs, so we match that offset here.
+    const END_OFFSET = 30;
+    const endpointHandlePos = (linkObj, end) => {
+      const s = resolveEndpointNode(linkObj.source);
+      const t = resolveEndpointNode(linkObj.target);
+      if (!s || !t) return { x: 0, y: 0 };
+      const dx = t.x - s.x;
+      const dy = t.y - s.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const ux = dx / len;
+      const uy = dy / len;
+      if (end === "target") return { x: t.x - ux * END_OFFSET, y: t.y - uy * END_OFFSET };
+      return { x: s.x + ux * END_OFFSET, y: s.y + uy * END_OFFSET };
+    };
+
+    const handleData = renderGraph.data.links.flatMap(l => ([
+      { link: l, end: "source", _hid: `${l.id}:source` },
+      { link: l, end: "target", _hid: `${l.id}:target` },
+    ]));
+
+    const showHandlesFor = (linkId) => {
+      linkHandles
+        .attr("opacity", h => (h.link.id === linkId ? 1 : 0))
+        .style("pointer-events", h => (h.link.id === linkId ? "all" : "none"));
+    };
+    const hideHandles = () => {
+      // If we are actively dragging a handle, do not hide until drag end
+      if (self._isRewiringLink) return;
+      linkHandles.attr("opacity", 0).style("pointer-events", "none");
+    };
+
+    const rewireDrag = d3.drag()
+      .on("start", (event, h) => {
+        event.sourceEvent?.stopPropagation?.();
+        event.sourceEvent?.preventDefault?.();
+
+        self._isRewiringLink = true;
+        showHandlesFor(h.link.id);
+
+        //        const otherEndpoint = h.end === "source" ? h.link.target : h.link.source;
+        //        const otherNode = resolveEndpointNode(otherEndpoint);
+        //        if (!otherNode) return;
+        const otherEnd = h.end === "source" ? "target" : "source";
+        const otherPos = endpointHandlePos(h.link, otherEnd);
+
+        self._rewireGhostLine = zoomLayer.append("line")
+          .attr("class", "rewire-ghost")
+          //          .attr("x1", otherNode.x)
+          //         .attr("y1", otherNode.y)
+          //        .attr("x2", otherNode.x)
+          //       .attr("y2", otherNode.y)
+          .attr("x1", otherPos.x)
+          .attr("y1", otherPos.y)
+          .attr("x2", otherPos.x)
+          .attr("y2", otherPos.y)
+          .attr("stroke", h.link.color || "#000")
+          .attr("stroke-width", (h.link.strokeWidth || 2))
+          .style("stroke-dasharray", "4 4")
+          .attr("pointer-events", "none");
+      })
+      .on("drag", (event) => {
+        if (!self._rewireGhostLine) return;
+        self._rewireGhostLine.attr("x2", event.x).attr("y2", event.y);
+      })
+      .on("end", (event, h) => {
+        if (self._rewireGhostLine) {
+          self._rewireGhostLine.remove();
+          self._rewireGhostLine = null;
+        }
+        self._isRewiringLink = false;
+
+        const otherEndpoint = h.end === "source" ? h.link.target : h.link.source;
+        const otherNode = resolveEndpointNode(otherEndpoint);
+        if (!otherNode) { hideHandles(); return; }
+
+        const droppedOn = simulation.find(event.x, event.y, 30);
+        if (!droppedOn) { hideHandles(); return; }
+
+        if (droppedOn.id === otherNode.id) {
+          ui.notifications.warn("Cannot link a node to itself.");
+          hideHandles();
+          return;
+        }
+
+        // Prevent duplicate links (undirected)
+        const newSourceId = h.end === "source" ? droppedOn.id : otherNode.id;
+        const newTargetId = h.end === "target" ? droppedOn.id : otherNode.id;
+        const duplicate = renderGraph.data.links.some(l => {
+          if (l === h.link) return false;
+          const s = getEndpointId(l.source);
+          const t = getEndpointId(l.target);
+          return (s === newSourceId && t === newTargetId) || (s === newTargetId && t === newSourceId);
+        });
+        if (duplicate) {
+          ui.notifications.warn("That link already exists.");
+          hideHandles();
+          return;
+        }
+
+        if (h.end === "source") h.link.source = droppedOn.id;
+        else h.link.target = droppedOn.id;
+
+        self.render();
+      });
+
+    const linkHandles = zoomLayer.append("g")
+      .attr("class", "link-handles")
+      .selectAll("circle")
+      .data(handleData, d => d._hid)
+      .join("circle")
+      .attr("r", 7)
+      .attr("fill", d => d.link.color || "#000")
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 2)
+      // Hidden by default so exports don't include them
+      .attr("opacity", 0)
+      .style("pointer-events", "none")
+      .style("cursor", "grab")
+      .call(rewireDrag);
+
+    // Show handles only while hovering the link (or while rewiring)
+    link
+      .on("mouseenter", (event, d) => {
+        if (self._isDraggingLink) return;
+        showHandlesFor(d.id);
+      })
+      .on("mouseleave", (event) => {
+        const rt = event.relatedTarget;
+        if (rt && rt.closest && rt.closest(".link-handles")) return;
+        hideHandles();
+      });
+
+    // Also keep handles visible while hovering the handles themselves
+    linkHandles
+      .on("mouseenter", (event, h) => {
+        event.stopPropagation?.();
+        showHandlesFor(h.link.id);
+      })
+      .on("mouseleave", (event) => {
+        const rt = event.relatedTarget;
+        if (rt && rt.closest && rt.closest("line")) return;
+        hideHandles();
+      });
+
+    // ------------------------------
+
     simulation.on("tick", ticked)
       .on("end", () => {
         simulation.stop(); // 🔴 stop simulation once nodes settle
@@ -365,6 +539,22 @@ export class ForceRenderer extends BaseRenderer {
       nodeLabels
         .attr("x", d => d.x)
         .attr("y", d => d.y + 42); // 32 (half icon) + 10 spacing
+
+      // Position rewire handles at link endpoints (even though hidden by default)
+      /*
+      linkHandles
+        .attr("cx", h => {
+          const n = resolveEndpointNode(h.end === "source" ? h.link.source : h.link.target);
+          return n?.x ?? 0;
+        })
+        .attr("cy", h => {
+          const n = resolveEndpointNode(h.end === "source" ? h.link.source : h.link.target);
+          return n?.y ?? 0;
+        });
+        */
+      linkHandles
+        .attr("cx", h => endpointHandlePos(h.link, h.end).x)
+        .attr("cy", h => endpointHandlePos(h.link, h.end).y);
     }
 
     function dragstarted(event, d) {
@@ -437,6 +627,7 @@ export class ForceRenderer extends BaseRenderer {
               ui.notifications.warn("Please select a valid relation type before creating the link.");
             } else {
               renderGraph.data.links.push({
+                id: safeUUID(),
                 source: source.id,
                 target: target.id,
                 relationId: relation.id,
@@ -500,7 +691,12 @@ export class ForceRenderer extends BaseRenderer {
     if (confirmed) {
       // Remove node and connected links
       this.graph.data.nodes = this.graph.data.nodes.filter(n => n.id !== nodeData.id);
-      this.graph.data.links = this.graph.data.links.filter(l => l.source.id !== nodeData.id && l.target.id !== nodeData.id);
+      //      this.graph.data.links = this.graph.data.links.filter(l => l.source.id !== nodeData.id && l.target.id !== nodeData.id);
+      this.graph.data.links = this.graph.data.links.filter(l => {
+        const sourceId = typeof l.source === "object" ? l.source.id : l.source;
+        const targetId = typeof l.target === "object" ? l.target.id : l.target;
+        return sourceId !== nodeData.id && targetId !== nodeData.id;
+      });
       this.render(); // Redraw
     }
   }
