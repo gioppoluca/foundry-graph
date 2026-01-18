@@ -63,6 +63,7 @@ export class ForceRenderer extends BaseRenderer {
         label: n.label,
         type: n.type,
         img: n.img,
+        status: Array.isArray(n.status) ? n.status : (n.status == null ? [] : [n.status]),
         x: n.x,
         y: n.y,
         // Keep fx/fy to preserve user-dragged positions
@@ -87,6 +88,7 @@ export class ForceRenderer extends BaseRenderer {
 
   teardown() {
     log("ForceRenderer.teardown");
+    this._closeRadialMenu?.();
     if (this._simulation) {
       this._simulation.stop();
       this._simulation = null;
@@ -167,6 +169,25 @@ export class ForceRenderer extends BaseRenderer {
         if (!l.id) l.id = safeUUID();
       }
     }
+
+    // Ensure every node has a defensive status array
+    for (const n of renderGraph.data.nodes) {
+      if (!Array.isArray(n.status)) n.status = n.status == null ? [] : [n.status];
+    }
+
+    const getOverlaySymbol = (node) => {
+      const st = Array.isArray(node?.status) ? node.status : [];
+      if (st.includes("hidden")) return "?";
+      if (st.includes("locked")) return "🔒";
+      if (st.includes("warning")) return "!";
+      return "";
+    };
+
+    const isHidden = (node) => {
+      const st = Array.isArray(node?.status) ? node.status : (node?.status == null ? [] : [node.status]);
+      return st.includes("hidden");
+    };
+
     // Utility: links may contain endpoints as node objects (after d3.forceLink)
     // or as raw node ids (persisted format). Always normalize when comparing.
     const getEndpointId = (endpoint) => (typeof endpoint === "object" ? endpoint?.id : endpoint);
@@ -204,6 +225,18 @@ export class ForceRenderer extends BaseRenderer {
       .append("path")
       .attr("d", "M0,-5L10,0L0,5")
       .attr("fill", "context-stroke");  // ← inherits the line’s stroke color
+
+    if (defs.select("#fg-blur").empty()) {
+      const f = defs.append("filter")
+        .attr("id", "fg-blur")
+        .attr("x", "-30%")
+        .attr("y", "-30%")
+        .attr("width", "160%")
+        .attr("height", "160%");
+      f.append("feGaussianBlur")
+        .attr("in", "SourceGraphic")
+        .attr("stdDeviation", "4"); // tune blur strength
+    }
 
     const shadow = defs.append("filter")
       .attr("id", "link-label-shadow")
@@ -270,6 +303,7 @@ export class ForceRenderer extends BaseRenderer {
       .data(renderGraph.data.nodes, d => d.id)
       .join("image")
       .attr("xlink:href", d => d.img)
+      .attr("filter", d => isHidden(d) ? "url(#fg-blur)" : null)
       .attr("width", 64)
       .attr("height", 64)
       .attr("clip-path", "circle(32px at center)")
@@ -324,7 +358,8 @@ export class ForceRenderer extends BaseRenderer {
       })
       .on("contextmenu", (event, d) => {
         event.preventDefault(); // Prevent default browser context menu
-        this._onRightClickNode(d);
+        //this._onRightClickNode(d);
+        this._onRightClickNode(event, d);
       })
       .on("dblclick", (event, d) => {
         ui.notifications.info(`Double-clicked node: ${d.label}`);
@@ -337,6 +372,29 @@ export class ForceRenderer extends BaseRenderer {
         }
       });
 
+    const nodeOverlayCircle = zoomLayer.append("g")
+      .attr("class", "node-status-overlay")
+      .selectAll("circle")
+      .data(renderGraph.data.nodes, d => d.id)
+      .join("circle")
+      .attr("r", 32)
+      .attr("fill", "#808080")
+      .attr("opacity", d => (getOverlaySymbol(d) ? 0.55 : 0))
+      .attr("pointer-events", "none");
+
+    const nodeOverlayText = zoomLayer.append("g")
+      .attr("class", "node-status-overlay-text")
+      .selectAll("text")
+      .data(renderGraph.data.nodes, d => d.id)
+      .join("text")
+      .attr("text-anchor", "middle")
+      .attr("dominant-baseline", "middle")
+      .attr("font-size", 28)
+      .attr("fill", "#ffffff")
+      .attr("opacity", d => (getOverlaySymbol(d) ? 1 : 0))
+      .attr("pointer-events", "none")
+      .text(d => getOverlaySymbol(d));
+
     const nodeLabels = zoomLayer.append("g")
       .attr("class", "node-labels")
       .selectAll("text")
@@ -345,7 +403,7 @@ export class ForceRenderer extends BaseRenderer {
       .attr("font-size", 12)
       .attr("fill", renderGraph?.nodeLabelColor || "#000")
       .attr("text-anchor", "middle")
-      .text(d => d.label || d.id);
+      .text(d => isHidden(d) ? "?" : (d.label || d.id));
 
     log("added nodes and labels")
 
@@ -540,6 +598,17 @@ export class ForceRenderer extends BaseRenderer {
         .attr("x", d => d.x)
         .attr("y", d => d.y + 42); // 32 (half icon) + 10 spacing
 
+      nodeOverlayCircle
+        .attr("cx", d => d.x)
+        .attr("cy", d => d.y)
+        .attr("opacity", d => (getOverlaySymbol(d) ? 0.55 : 0));
+
+      nodeOverlayText
+        .attr("x", d => d.x)
+        .attr("y", d => d.y)
+        .attr("opacity", d => (getOverlaySymbol(d) ? 1 : 0))
+        .text(d => getOverlaySymbol(d));
+
       // Position rewire handles at link endpoints (even though hidden by default)
       /*
       linkHandles
@@ -683,6 +752,7 @@ export class ForceRenderer extends BaseRenderer {
     this.relation = relation;
   }
 
+  /*
   async _onRightClickNode(nodeData) {
     log("_onRightClickNode", nodeData)
     const confirmed = await DialogV2.confirm({
@@ -699,6 +769,51 @@ export class ForceRenderer extends BaseRenderer {
       });
       this.render(); // Redraw
     }
+  }
+  */
+  async _onRightClickNode(event, nodeData) {
+    log("_onRightClickNode", nodeData);
+    const label = nodeData.label || nodeData.id;
+    if (!Array.isArray(nodeData.status)) {
+      nodeData.status = nodeData.status == null ? [] : [nodeData.status];
+    }
+    const isHidden = nodeData.status.includes("hidden");
+
+    this._showRadialMenu({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      items: [
+        {
+          id: "toggleHidden",
+          label: isHidden ? `Show to players (${label})` : `Hide from players (${label})`,
+          icon: isHidden ? "fa-solid fa-eye" : "fa-solid fa-eye-slash",
+          onClick: async () => {
+            const st = Array.isArray(nodeData.status) ? [...nodeData.status] : [];
+            const idx = st.indexOf("hidden");
+            if (idx >= 0) st.splice(idx, 1); else st.push("hidden");
+            nodeData.status = st;
+            this.render();
+          }
+        },
+        {
+          id: "delete",
+          label: `Delete (${label})`,
+          icon: "fa-solid fa-trash",
+          onClick: async () => {
+            const confirmed = await DialogV2.confirm({ content: `Delete node "${label}"?` });
+            if (!confirmed) return;
+
+            this.graph.data.nodes = this.graph.data.nodes.filter(n => n.id !== nodeData.id);
+            this.graph.data.links = this.graph.data.links.filter(l => {
+              const sourceId = typeof l.source === "object" ? l.source.id : l.source;
+              const targetId = typeof l.target === "object" ? l.target.id : l.target;
+              return sourceId !== nodeData.id && targetId !== nodeData.id;
+            });
+            this.render();
+          }
+        }
+      ]
+    });
   }
 
   async _onRightClickLink(linkData) {

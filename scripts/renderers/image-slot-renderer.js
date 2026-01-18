@@ -108,6 +108,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
                 label: n.label,
                 type: n.type,
                 img: n.img,
+                status: Array.isArray(n.status) ? n.status : (n.status == null ? [] : [n.status]),
                 slotId: n.slotId,
                 description: n.description,
                 x: n.x,
@@ -133,6 +134,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
 
     teardown() {
         log("ImageSlotsRenderer.teardown");
+        this._closeRadialMenu?.();
         if (this._svg) {
             this._detachDropHandlers(this._svg.node());
             this._svg.selectAll("*").interrupt().remove();
@@ -163,6 +165,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
         const renderGraph = this.graph;
         log("ImageSlotsRenderer.render", svg, renderGraph, ctx);
 
+        // Ensure every node has a defensive status array
         if (!this._svg) this._svg = svg;
 
         // Base canvas size
@@ -290,6 +293,9 @@ export class ImageSlotsRenderer extends BaseRenderer {
 
         const nodes = renderGraph.data.nodes ?? [];
         const links = renderGraph.data.links ?? [];
+        for (const n of nodes) {
+            if (!Array.isArray(n.status)) n.status = n.status == null ? [] : [n.status];
+        }
 
         // normalized => pixels
         this._updateSlotPositions();
@@ -325,7 +331,8 @@ export class ImageSlotsRenderer extends BaseRenderer {
             })
             .on("contextmenu", (event, d) => {
                 event.preventDefault();
-                this._onRightClickLink(d);
+                //this._onRightClickLink(d);
+                this._onRightClickNode(event, d);
             });
 
         this._linkLabelSelection = linkLabelLayer.selectAll("text")
@@ -439,6 +446,26 @@ export class ImageSlotsRenderer extends BaseRenderer {
             .attr("fill", renderGraph?.nodeLabelColor || "#000")
             .attr("text-anchor", "middle")
             .text(d => d.label || d.id);
+
+        const overlayLayer = zoomLayer.append("g").attr("class", "node-status-overlay");
+        this._nodeOverlayCircleSelection = overlayLayer.selectAll("circle")
+            .data(nodes, d => d.id)
+            .join("circle")
+            .attr("r", 32)
+            .attr("fill", "#808080")
+            .attr("opacity", d => (this._getOverlaySymbol(d) ? 0.55 : 0))
+            .attr("pointer-events", "none");
+
+        this._nodeOverlayTextSelection = overlayLayer.selectAll("text")
+            .data(nodes, d => d.id)
+            .join("text")
+            .attr("text-anchor", "middle")
+            .attr("dominant-baseline", "middle")
+            .attr("font-size", 28)
+            .attr("fill", "#ffffff")
+            .attr("opacity", d => (this._getOverlaySymbol(d) ? 1 : 0))
+            .attr("pointer-events", "none")
+            .text(d => this._getOverlaySymbol(d));
 
         // Final position update (slots + links + labels)
         this._updateNodeAndLinkPositions();
@@ -726,6 +753,20 @@ export class ImageSlotsRenderer extends BaseRenderer {
                     return (src.y + tgt.y) / 2;
                 });
         }
+        if (this._nodeOverlayCircleSelection) {
+            this._nodeOverlayCircleSelection
+                .attr("cx", d => d.x)
+                .attr("cy", d => d.y)
+                .attr("opacity", d => (this._getOverlaySymbol(d) ? 0.55 : 0));
+        }
+
+        if (this._nodeOverlayTextSelection) {
+            this._nodeOverlayTextSelection
+                .attr("x", d => d.x)
+                .attr("y", d => d.y)
+                .attr("opacity", d => (this._getOverlaySymbol(d) ? 1 : 0))
+                .text(d => this._getOverlaySymbol(d));
+        }
     }
 
     _onDragStart(event, d) {
@@ -780,12 +821,21 @@ export class ImageSlotsRenderer extends BaseRenderer {
             label,
             type,
             img,
+            status: [],
             x,
             y,
             slotId: null,
             subType,
             description   // <— NEW
         });
+    }
+
+    _getOverlaySymbol(node) {
+        const st = Array.isArray(node?.status) ? node.status : (node?.status == null ? [] : [node.status]);
+        if (st.includes("hidden")) return "?";
+        if (st.includes("locked")) return "🔒";
+        if (st.includes("warning")) return "!";
+        return "";
     }
 
     setLinkingMode(enabled) {
@@ -796,6 +846,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
         this.relation = relation;
     }
 
+    /*
     async _onRightClickNode(nodeData) {
         log("ImageSlotsRenderer._onRightClickNode", nodeData);
         const confirmed = await DialogV2.confirm({
@@ -811,6 +862,53 @@ export class ImageSlotsRenderer extends BaseRenderer {
             this.render(this._svg, this.graph, {});
         }
     }
+*/
+
+    async _onRightClickNode(event, nodeData) {
+        log("ImageSlotsRenderer._onRightClickNode", nodeData);
+        const label = nodeData.label || nodeData.id;
+        if (!Array.isArray(nodeData.status)) {
+            nodeData.status = nodeData.status == null ? [] : [nodeData.status];
+        }
+        const isHidden = nodeData.status.includes("hidden");
+
+        this._showRadialMenu({
+            clientX: event.clientX,
+            clientY: event.clientY,
+            items: [
+                {
+                    id: "toggleHidden",
+                    label: isHidden ? `Show to players (${label})` : `Hide from players (${label})`,
+                    icon: isHidden ? "fa-solid fa-eye" : "fa-solid fa-eye-slash",
+                    onClick: async () => {
+                        const st = Array.isArray(nodeData.status) ? [...nodeData.status] : [];
+                        const idx = st.indexOf("hidden");
+                        if (idx >= 0) st.splice(idx, 1); else st.push("hidden");
+                        nodeData.status = st;
+                        this.render(this._svg, this.graph, {});
+                    }
+                },
+                {
+                    id: "delete",
+                    label: `Delete (${label})`,
+                    icon: "fa-solid fa-trash",
+                    onClick: async () => {
+                        const confirmed = await DialogV2.confirm({ content: `Delete node "${label}"?` });
+                        if (!confirmed) return;
+
+                        this.graph.data.nodes = this.graph.data.nodes.filter(n => n.id !== nodeData.id);
+                        this.graph.data.links = (this.graph.data.links ?? []).filter(l => {
+                            const srcId = typeof l.source === "object" ? l.source.id : l.source;
+                            const tgtId = typeof l.target === "object" ? l.target.id : l.target;
+                            return srcId !== nodeData.id && tgtId !== nodeData.id;
+                        });
+                        this.render(this._svg, this.graph, {});
+                    }
+                }
+            ]
+        });
+    }
+
 
     async _onRightClickLink(linkData) {
         log("ImageSlotsRenderer._onRightClickLink", linkData);

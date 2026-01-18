@@ -79,5 +79,16 @@ export function migrateGraph(graph, graphTypes = {}) {
     }
   }
 
+  // Ensure every node has a `status` metadata array.
+  // Defensive: older graphs won't have it.
+  if (g?.data?.nodes && Array.isArray(g.data.nodes)) {
+    for (const node of g.data.nodes) {
+      if (!Array.isArray(node.status)) {
+        if (node.status == null) node.status = [];
+        else node.status = [node.status];
+      }
+    }
+  }
+
   return g;
 }
