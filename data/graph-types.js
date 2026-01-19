@@ -1,4 +1,17 @@
 export const GRAPH_TYPES = {
+  "osm-world-map": {
+    "id": "osm-world-map",
+    "name": "OpenStreetMap (World Map)",
+    "description": "A Leaflet/OpenStreetMap map that stores draggable markers (Actors/Scenes/Items/Journal pages) with real-world coordinates.",
+    "themes": [],
+    "renderer": "map",
+    "color": "#222222",
+    "nodeLabelColor": "#ffffff",
+    "version": 1,
+    "allowedEntities": ["Actor", "Scene", "Item", "JournalEntryPage"],
+    "systems": ["*"],
+    "relations": []
+  },
   "enemy-map": {
     "id": "enemy-map",
     "name": "Enemy Map",

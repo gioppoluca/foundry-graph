@@ -4,6 +4,7 @@ import { ForceRenderer } from "./renderers/force-renderer.js";
 //import { TreeRenderer } from "./renderers/tree-renderer.js";
 import { GenealogyRenderer } from "./renderers/genealogy-renderer.js";
 import { ImageSlotsRenderer } from "./renderers/image-slot-renderer.js";
+import { MapRenderer } from "./renderers/map-renderer.js";
 import { migrateGraph } from "./model/graph_migrations.js";
 
 
@@ -75,6 +76,7 @@ export class GraphApi {
             [ForceRenderer.ID, new ForceRenderer()],
             [GenealogyRenderer.ID, new GenealogyRenderer()],
             [ImageSlotsRenderer.ID, new ImageSlotsRenderer()],
+            [MapRenderer.ID, new MapRenderer()],
         ]);
 
         log("GraphApi.constructor", this.graphTypes)

@@ -11,8 +11,8 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     id: "fgraph-form",
     position: {
-      width: 600,
-      height: 750
+      width: 800,
+      height: 850
     },
     classes: ["fgraph", "fgraph-form"],
     window: {
