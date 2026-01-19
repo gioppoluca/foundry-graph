@@ -15,8 +15,9 @@ Foundry Graph is a powerful and intuitive module that lets you visually map rela
 You can choose between a set of graph types and create your **relation map**
 
 | Graph type | Renderer  | Themes  | System    | Object Allowed | Description                                                                          |
-| ---------- | ------- | ------------ | ---- | -------------------------------------------------------------------------- |
+| ---------- | ------- | ------------ | ---- | --------- | ----------------------------------------------------------------- |
 | Enemy Map | Free Diagram| |any | Actors | A diagram to represent better relationship with enemies |
+| OpenStreetMap (World Map) | Leaflet map | | any | any | A leaflet map to display geographical markers|
 | World of Darkness Relationship Map | Free Diagram |   | WoD5e, Vtm5e, worldofdarkness   | Actors | The relationship map for a coterie or a single character, with dedicated relations for the World of Darkness system   |
 | Faction Power Structure | Free Diagram | | any | Actors | A diagram with relations useful for mapping the internal hierarchy of a faction |
 | Characters Map   | Free Diagram | | any   | Actors | The classical map between generic Actors  |
@@ -40,7 +41,7 @@ In this initial phase of the module the goal is to confront with the users and d
 
 ![Oddfellows Coterie](doc/Oddfellows_Coterie.png)
 ![Vampire genealogy](doc/Camarilla_Map.png)
-
+![Vegas Map](doc/map.png)
 # Usage
 You will find the **Graph Management** button in the Token toolset.
 ![Module Button](doc/moduleButton.png)
