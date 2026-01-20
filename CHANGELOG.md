@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] - 2026-01-20
+### :sparkles: New Features
+- [`a77b426`](https://github.com/gioppoluca/foundry-graph/commit/a77b42625bc82f4ddda50bcf9144889d19abb740) - added theme for vampire relation map *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+### :bug: Bug Fixes
+- [`41604c2`](https://github.com/gioppoluca/foundry-graph/commit/41604c206645e530106b8220288b4e2f52f2d4b2) - missing label *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`e49b642`](https://github.com/gioppoluca/foundry-graph/commit/e49b6428725f9a8c4e249baafd46f4876bab1d9f) - refactor export graph to accomodate the new map renderer that require a different approach *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`7565688`](https://github.com/gioppoluca/foundry-graph/commit/75656887176132362703218fa93a8df1954c21c8) - renderer did not plot the map on scaled window *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.6.1] - 2026-01-20
 ### :bug: Bug Fixes
 - [`92819af`](https://github.com/gioppoluca/foundry-graph/commit/92819afcdb7d32f10ddd38d8b6790f9593567128) - CSS broke CofD char sheet *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -141,3 +151,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.5.0]: https://github.com/gioppoluca/foundry-graph/compare/0.4.1...0.5.0
 [0.6.0]: https://github.com/gioppoluca/foundry-graph/compare/0.5.0...0.6.0
 [0.6.1]: https://github.com/gioppoluca/foundry-graph/compare/0.6.0...0.6.1
+[0.6.2]: https://github.com/gioppoluca/foundry-graph/compare/0.6.1...0.6.2
