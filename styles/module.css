@@ -1,3 +1,7 @@
+#d3-graph-container {
+  height: 85%
+}
+
 .circular-node {
   width: 100px;
   height: 100px;
@@ -77,7 +81,7 @@ svg image {
   stroke-width: 2px;
 }
 
-.tooltip {
+.svg-container .tooltip {
   position: absolute;
   font: 12px sans-serif;
   padding: 12px;

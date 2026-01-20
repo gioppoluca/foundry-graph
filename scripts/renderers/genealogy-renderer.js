@@ -208,7 +208,8 @@ export class GenealogyRenderer extends BaseRenderer {
 
     this._svg
       .attr("width", bgWidth)
-      .attr("height", bgHeight)
+//      .attr("height", bgHeight)
+      .attr("height", "100%")
       .attr("viewBox", `0 0 ${bgWidth} ${bgHeight}`)
       .call(d3.zoom().on("zoom", (event) => {
         this._svg.select("g.zoom-layer").attr("transform", event.transform);
