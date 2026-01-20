@@ -33,6 +33,9 @@ export class MapRenderer extends BaseRenderer {
     this._markersLayer = null;
     this._leafletMarkers = new Map(); // markerId -> Leaflet marker
 
+    this._resizeObserver = null;
+    this._resizeRaf = null;
+    this._onWindowResize = null;
     // UI toggles for the D3GraphApp chrome
     this.isLinkNodesVisible = false;
     this.isRelationSelectVisible = false;
@@ -97,6 +100,7 @@ export class MapRenderer extends BaseRenderer {
 
   teardown() {
     this._closeRadialMenu();
+    this._stopResizeObserver();
 
     // Detach drop handlers
     this._detachDropHandlers(this._mapDiv);
@@ -130,6 +134,68 @@ export class MapRenderer extends BaseRenderer {
       // ignore
     }
     this._svgEl = null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Resize handling
+  // ---------------------------------------------------------------------------
+  _startResizeObserver() {
+    // Leaflet needs an explicit invalidateSize() when its container changes size.
+    if (this._resizeObserver || !this._map || !this._mapDiv) return;
+
+    if (typeof ResizeObserver === "undefined") {
+      // Very old browser... still try to keep things in sync via window resize.
+      const invalidate = () => {
+        try { this._map?.invalidateSize?.({ pan: false }); } catch (_e) { /* ignore */ }
+      };
+      window.addEventListener("resize", invalidate, { passive: true });
+      this._onWindowResize = invalidate;
+      return;
+    }
+
+    const invalidate = () => {
+      if (!this._map) return;
+      try {
+        // Coalesce multiple rapid resize events into a single invalidate.
+        if (this._resizeRaf) cancelAnimationFrame(this._resizeRaf);
+        this._resizeRaf = requestAnimationFrame(() => {
+          this._resizeRaf = null;
+          this._map?.invalidateSize?.({ pan: false });
+        });
+      } catch (_e) {
+        // ignore
+      }
+    };
+
+    // 1) Observe the map div itself (works for CSS/layout changes).
+    // 2) Also listen to window resize (covers Foundry window chrome resizing quirks).
+    this._resizeObserver = new ResizeObserver(invalidate);
+    this._resizeObserver.observe(this._mapDiv);
+    window.addEventListener("resize", invalidate, { passive: true });
+    this._onWindowResize = invalidate;
+  }
+
+  _stopResizeObserver() {
+    try {
+      if (this._resizeObserver) this._resizeObserver.disconnect();
+    } catch (_e) {
+      // ignore
+    }
+    this._resizeObserver = null;
+
+    try {
+      if (this._onWindowResize) window.removeEventListener("resize", this._onWindowResize);
+    } catch (_e) {
+      // ignore
+    }
+    this._onWindowResize = null;
+
+    try {
+      if (this._resizeRaf) cancelAnimationFrame(this._resizeRaf);
+    } catch (_e) {
+      // ignore
+    }
+    this._resizeRaf = null;
   }
 
   // ---------------------------------------------------------------------------
@@ -306,6 +372,9 @@ export class MapRenderer extends BaseRenderer {
 
       // Attach drop handlers to the map div
       this._attachDropHandlers(this._mapDiv);
+
+      // Keep tiles updated when the Foundry window is resized.
+      this._startResizeObserver();
     }
 
     // Sync markers
@@ -313,10 +382,14 @@ export class MapRenderer extends BaseRenderer {
 
     // Fix sizing if rendered in a new window
     try {
-      setTimeout(() => this._map?.invalidateSize?.(), 50);
+      //setTimeout(() => this._map?.invalidateSize?.(), 50);
+      setTimeout(() => this._map?.invalidateSize?.({ pan: false }), 50);
     } catch (_e) {
       // ignore
     }
+
+    // If map already existed (re-render), ensure observer is active.
+    this._startResizeObserver();
   }
 
   // ---------------------------------------------------------------------------
