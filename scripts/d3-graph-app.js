@@ -129,229 +129,236 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.renderer.setRelationData(relation);
   }
 
+  static async svgToCanvas() {
+    log("svgToCanvas called - use renderer method")
+    await this.renderer.exportToPNG();
+  }
 
-  static async svgToCanvas({ scale = 3 } = {}) {
-    // 1) Grab the SVG element
-    const svgElement = document.querySelector("#d3-graph");
-    if (!svgElement) {
-      log("SVG element not found");
-      return;
-    }
-    //await this.renderer.render(svgElement, this.graph)
-    // --- UX: show busy cursor + heads-up message
-    const _root = document.body;
-    const _prevCursor = _root.style.cursor;
-    _root.style.cursor = "progress"; // or "wait"
-    ui?.notifications?.info?.(t("Notifications.ExportPrepare"));
-    try {
-      // 2) Clone so we don’t mutate the on-screen SVG
-      log("phase 2")
-      const svgClone = svgElement.cloneNode(true);
-
-      // 3) Ensure namespaces (helps some renderers)
-      svgClone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-      svgClone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
-
-      // 3.1) IMPORTANT: reset any zoom/pan transform so we export the full diagram
-      // D3 applies transforms to the inner <g class="zoom-layer">; remove it in the clone.
-      const zl = svgClone.querySelector("g.zoom-layer");
-      if (zl) zl.removeAttribute("transform");
-
-      // --- helper: convert any image href -> PNG dataURL (handles webp/png/jpg/blob)
-      const hrefToPngDataURL = async (src) => {
-        const img = new Image();
-        img.decoding = "async";
-        img.src = src;
-        await img.decode();
-
-        const w = Math.max(1, img.naturalWidth || img.width || 1);
-        const h = Math.max(1, img.naturalHeight || img.height || 1);
-        const c = document.createElement("canvas");
-        c.width = w;
-        c.height = h;
-        const g = c.getContext("2d");
-        g.drawImage(img, 0, 0, w, h);
-        return c.toDataURL("image/png");
-      };
-
-      // --- helper: inline all <image> elements in parallel (faster)
-      const inlineImages = async () => {
-        const images = Array.from(svgClone.querySelectorAll("image"));
-        await Promise.all(
-          images.map(async (imgElem) => {
-            try {
-              const href =
-                imgElem.getAttribute("href") ||
-                imgElem.getAttribute("xlink:href") ||
-                imgElem.getAttributeNS("http://www.w3.org/1999/xlink", "href");
-              if (!href || href.startsWith("data:")) return;
-
-              const dataUrl = await hrefToPngDataURL(href);
-              imgElem.setAttribute("href", dataUrl);
-              imgElem.setAttributeNS("http://www.w3.org/1999/xlink", "href", dataUrl);
-
-              // Ensure width/height exist for reliable layout
-              if (!imgElem.getAttribute("width") || !imgElem.getAttribute("height")) {
-                const probe = new Image();
-                probe.src = dataUrl;
-                await probe.decode();
-                imgElem.setAttribute("width", String(probe.naturalWidth || 1));
-                imgElem.setAttribute("height", String(probe.naturalHeight || 1));
+  /*
+    static async svgToCanvas({ scale = 3 } = {}) {
+      // 1) Grab the SVG element
+      const svgElement = document.querySelector("#d3-graph");
+      if (!svgElement) {
+        log("SVG element not found");
+        return;
+      }
+      //await this.renderer.render(svgElement, this.graph)
+      // --- UX: show busy cursor + heads-up message
+      const _root = document.body;
+      const _prevCursor = _root.style.cursor;
+      _root.style.cursor = "progress"; // or "wait"
+      ui?.notifications?.info?.(t("Notifications.ExportPrepare"));
+      try {
+        // 2) Clone so we don’t mutate the on-screen SVG
+        log("phase 2")
+        const svgClone = svgElement.cloneNode(true);
+  
+        // 3) Ensure namespaces (helps some renderers)
+        svgClone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        svgClone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+  
+        // 3.1) IMPORTANT: reset any zoom/pan transform so we export the full diagram
+        // D3 applies transforms to the inner <g class="zoom-layer">; remove it in the clone.
+        const zl = svgClone.querySelector("g.zoom-layer");
+        if (zl) zl.removeAttribute("transform");
+  
+        // --- helper: convert any image href -> PNG dataURL (handles webp/png/jpg/blob)
+        const hrefToPngDataURL = async (src) => {
+          const img = new Image();
+          img.decoding = "async";
+          img.src = src;
+          await img.decode();
+  
+          const w = Math.max(1, img.naturalWidth || img.width || 1);
+          const h = Math.max(1, img.naturalHeight || img.height || 1);
+          const c = document.createElement("canvas");
+          c.width = w;
+          c.height = h;
+          const g = c.getContext("2d");
+          g.drawImage(img, 0, 0, w, h);
+          return c.toDataURL("image/png");
+        };
+  
+        // --- helper: inline all <image> elements in parallel (faster)
+        const inlineImages = async () => {
+          const images = Array.from(svgClone.querySelectorAll("image"));
+          await Promise.all(
+            images.map(async (imgElem) => {
+              try {
+                const href =
+                  imgElem.getAttribute("href") ||
+                  imgElem.getAttribute("xlink:href") ||
+                  imgElem.getAttributeNS("http://www.w3.org/1999/xlink", "href");
+                if (!href || href.startsWith("data:")) return;
+  
+                const dataUrl = await hrefToPngDataURL(href);
+                imgElem.setAttribute("href", dataUrl);
+                imgElem.setAttributeNS("http://www.w3.org/1999/xlink", "href", dataUrl);
+  
+                // Ensure width/height exist for reliable layout
+                if (!imgElem.getAttribute("width") || !imgElem.getAttribute("height")) {
+                  const probe = new Image();
+                  probe.src = dataUrl;
+                  await probe.decode();
+                  imgElem.setAttribute("width", String(probe.naturalWidth || 1));
+                  imgElem.setAttribute("height", String(probe.naturalHeight || 1));
+                }
+              } catch (err) {
+                log("Error inlining image:", err);
               }
-            } catch (err) {
-              log("Error inlining image:", err);
+            })
+          );
+        };
+  
+        // --- helper: inline computed styles from the live DOM into the clone
+        // We walk both trees in parallel and copy a whitelist of important properties.
+        const inlineComputedStyles = () => {
+          const whitelist = [
+            // shape / lines
+            "fill", "fill-opacity", "stroke", "stroke-opacity", "stroke-width",
+            "stroke-linecap", "stroke-linejoin", "stroke-dasharray", "stroke-dashoffset",
+            "paint-order", "opacity", "vector-effect", "shape-rendering", "image-rendering",
+            // text
+            "font-family", "font-size", "font-style", "font-weight", "font-variant",
+            "letter-spacing", "word-spacing", "text-anchor", "dominant-baseline",
+            "text-rendering", "white-space",
+            // misc
+            "color"
+          ];
+  
+          const srcWalker = document.createTreeWalker(svgElement, NodeFilter.SHOW_ELEMENT);
+          const dstWalker = document.createTreeWalker(svgClone, NodeFilter.SHOW_ELEMENT);
+  
+          // include root too
+          const apply = (srcEl, dstEl) => {
+            const cs = getComputedStyle(srcEl);
+            const styleParts = [];
+            for (const prop of whitelist) {
+              const val = cs.getPropertyValue(prop);
+              if (val) styleParts.push(`${prop}:${val}`);
             }
-          })
-        );
-      };
-
-      // --- helper: inline computed styles from the live DOM into the clone
-      // We walk both trees in parallel and copy a whitelist of important properties.
-      const inlineComputedStyles = () => {
-        const whitelist = [
-          // shape / lines
-          "fill", "fill-opacity", "stroke", "stroke-opacity", "stroke-width",
-          "stroke-linecap", "stroke-linejoin", "stroke-dasharray", "stroke-dashoffset",
-          "paint-order", "opacity", "vector-effect", "shape-rendering", "image-rendering",
-          // text
-          "font-family", "font-size", "font-style", "font-weight", "font-variant",
-          "letter-spacing", "word-spacing", "text-anchor", "dominant-baseline",
-          "text-rendering", "white-space",
-          // misc
-          "color"
-        ];
-
-        const srcWalker = document.createTreeWalker(svgElement, NodeFilter.SHOW_ELEMENT);
-        const dstWalker = document.createTreeWalker(svgClone, NodeFilter.SHOW_ELEMENT);
-
-        // include root too
-        const apply = (srcEl, dstEl) => {
-          const cs = getComputedStyle(srcEl);
-          const styleParts = [];
-          for (const prop of whitelist) {
-            const val = cs.getPropertyValue(prop);
-            if (val) styleParts.push(`${prop}:${val}`);
-          }
-          if (styleParts.length) {
-            // Preserve any existing inline style (rare) by appending
-            const existing = dstEl.getAttribute("style");
-            dstEl.setAttribute("style", existing ? `${existing};${styleParts.join(";")}` : styleParts.join(";"));
+            if (styleParts.length) {
+              // Preserve any existing inline style (rare) by appending
+              const existing = dstEl.getAttribute("style");
+              dstEl.setAttribute("style", existing ? `${existing};${styleParts.join(";")}` : styleParts.join(";"));
+            }
+          };
+  
+          apply(svgElement, svgClone);
+          while (true) {
+            const srcNext = srcWalker.nextNode();
+            const dstNext = dstWalker.nextNode();
+            if (!srcNext || !dstNext) break;
+            apply(srcNext, dstNext);
           }
         };
-
-        apply(svgElement, svgClone);
-        while (true) {
-          const srcNext = srcWalker.nextNode();
-          const dstNext = dstWalker.nextNode();
-          if (!srcNext || !dstNext) break;
-          apply(srcNext, dstNext);
-        }
-      };
-
-      // 4) Inline images + styles
-      await inlineImages();
-      inlineComputedStyles();
-      log("end phase 4")
-      // 5) Use the background image dimensions to export the WHOLE graph
-      let exportX = 0, exportY = 0, exportW, exportH;
-      const bgImg =
-        svgClone.querySelector("#background") ||
-        svgClone.querySelector("g.zoom-layer > image") ||
-        svgClone.querySelector('image[data-role="background"]') ||
-        svgClone.querySelector("image.bg") ||
-        svgClone.querySelector("image");
-
-      log("BG:", bgImg)
-      if (bgImg) {
-        //        exportX = parseFloat(bgImg.getAttribute("x") ?? "0") || 0;
-        //        exportY = parseFloat(bgImg.getAttribute("y") ?? "0") || 0;
-
-        let wAttr = parseFloat(bgImg.getAttribute("width") ?? "NaN");
-        let hAttr = parseFloat(bgImg.getAttribute("height") ?? "NaN");
-
-        if (!Number.isFinite(wAttr) || !Number.isFinite(hAttr)) {
-          const href =
-            bgImg.getAttribute("href") ||
-            bgImg.getAttribute("xlink:href") ||
-            bgImg.getAttributeNS("http://www.w3.org/1999/xlink", "href");
-          if (href) {
-            const probe = new Image();
-            probe.src = href;
-            await probe.decode();
-            wAttr = probe.naturalWidth;
-            hAttr = probe.naturalHeight;
+  
+        // 4) Inline images + styles
+        await inlineImages();
+        inlineComputedStyles();
+        log("end phase 4")
+        // 5) Use the background image dimensions to export the WHOLE graph
+        let exportX = 0, exportY = 0, exportW, exportH;
+        const bgImg =
+          svgClone.querySelector("#background") ||
+          svgClone.querySelector("g.zoom-layer > image") ||
+          svgClone.querySelector('image[data-role="background"]') ||
+          svgClone.querySelector("image.bg") ||
+          svgClone.querySelector("image");
+  
+        log("BG:", bgImg)
+        if (bgImg) {
+          //        exportX = parseFloat(bgImg.getAttribute("x") ?? "0") || 0;
+          //        exportY = parseFloat(bgImg.getAttribute("y") ?? "0") || 0;
+  
+          let wAttr = parseFloat(bgImg.getAttribute("width") ?? "NaN");
+          let hAttr = parseFloat(bgImg.getAttribute("height") ?? "NaN");
+  
+          if (!Number.isFinite(wAttr) || !Number.isFinite(hAttr)) {
+            const href =
+              bgImg.getAttribute("href") ||
+              bgImg.getAttribute("xlink:href") ||
+              bgImg.getAttributeNS("http://www.w3.org/1999/xlink", "href");
+            if (href) {
+              const probe = new Image();
+              probe.src = href;
+              await probe.decode();
+              wAttr = probe.naturalWidth;
+              hAttr = probe.naturalHeight;
+            }
           }
+  
+          exportW = Math.max(1, Math.floor(wAttr || 0));
+          exportH = Math.max(1, Math.floor(hAttr || 0));
+          log("bgImg export dimensions", exportX, exportY, exportW, exportH, bgImg)
+          // Make the cloned SVG render exactly the whole background area
+          svgClone.setAttribute("viewBox", `${exportX} ${exportY} ${exportW} ${exportH}`);
+          svgClone.setAttribute("width", exportW);
+          svgClone.setAttribute("height", exportH);
+        } else {
+          // Fallback: union bbox of content
+          const bbox = svgElement.getBBox();
+          //        exportX = bbox.x;
+          //        exportY = bbox.y;
+          exportW = Math.max(1, Math.floor(bbox.width || 1024));
+          exportH = Math.max(1, Math.floor(bbox.height || 768));
+          log("bbox export dimensions", exportX, exportY, exportW, exportH, bgImg)
+          svgClone.setAttribute("viewBox", `${exportX} ${exportY} ${exportW} ${exportH}`);
+          svgClone.setAttribute("width", exportW);
+          svgClone.setAttribute("height", exportH);
         }
-
-        exportW = Math.max(1, Math.floor(wAttr || 0));
-        exportH = Math.max(1, Math.floor(hAttr || 0));
-        log("bgImg export dimensions", exportX, exportY, exportW, exportH, bgImg)
-        // Make the cloned SVG render exactly the whole background area
-        svgClone.setAttribute("viewBox", `${exportX} ${exportY} ${exportW} ${exportH}`);
-        svgClone.setAttribute("width", exportW);
-        svgClone.setAttribute("height", exportH);
-      } else {
-        // Fallback: union bbox of content
-        const bbox = svgElement.getBBox();
-        //        exportX = bbox.x;
-        //        exportY = bbox.y;
-        exportW = Math.max(1, Math.floor(bbox.width || 1024));
-        exportH = Math.max(1, Math.floor(bbox.height || 768));
-        log("bbox export dimensions", exportX, exportY, exportW, exportH, bgImg)
-        svgClone.setAttribute("viewBox", `${exportX} ${exportY} ${exportW} ${exportH}`);
-        svgClone.setAttribute("width", exportW);
-        svgClone.setAttribute("height", exportH);
-      }
-      log("end phase 5", svgClone)
-      // 6) Serialize prepared SVG
-      const serializer = new XMLSerializer();
-      const svgStr = serializer.serializeToString(svgClone);
-
-      // 7) Filename from graph name
-      const rawName = this?.graph?.name || this?._graphName || "graph";
-      const safeName = String(rawName).trim().replace(/[^\w.-]+/g, "_");
-
-      // 8) Rasterize to high-res PNG (scale = DPR by default)
-      const pixelRatio = Number.isFinite(scale) ? Math.max(1, scale) : (window.devicePixelRatio || 1);
-
-      const svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
-      const url = URL.createObjectURL(svgBlob);
-
-      try {
-        const img = new Image();
-        img.decoding = "async";
-        img.src = url;
-        await img.decode();
-
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(exportW * pixelRatio);
-        canvas.height = Math.round(exportH * pixelRatio);
-        log("drawimage export dimensions", exportX, exportY, exportW, exportH, canvas.width, canvas.height)
-
-        const ctx = canvas.getContext("2d");
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        ctx.scale(pixelRatio, pixelRatio);
-        ctx.drawImage(img, 0, 0, exportW, exportH);
-
-        const pngUrl = canvas.toDataURL("image/png");
-        const a = document.createElement("a");
-        a.download = `${safeName}.png`;
-        a.href = pngUrl;
-        a.click();
+        log("end phase 5", svgClone)
+        // 6) Serialize prepared SVG
+        const serializer = new XMLSerializer();
+        const svgStr = serializer.serializeToString(svgClone);
+  
+        // 7) Filename from graph name
+        const rawName = this?.graph?.name || this?._graphName || "graph";
+        const safeName = String(rawName).trim().replace(/[^\w.-]+/g, "_");
+  
+        // 8) Rasterize to high-res PNG (scale = DPR by default)
+        const pixelRatio = Number.isFinite(scale) ? Math.max(1, scale) : (window.devicePixelRatio || 1);
+  
+        const svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(svgBlob);
+  
+        try {
+          const img = new Image();
+          img.decoding = "async";
+          img.src = url;
+          await img.decode();
+  
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(exportW * pixelRatio);
+          canvas.height = Math.round(exportH * pixelRatio);
+          log("drawimage export dimensions", exportX, exportY, exportW, exportH, canvas.width, canvas.height)
+  
+          const ctx = canvas.getContext("2d");
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.scale(pixelRatio, pixelRatio);
+          ctx.drawImage(img, 0, 0, exportW, exportH);
+  
+          const pngUrl = canvas.toDataURL("image/png");
+          const a = document.createElement("a");
+          a.download = `${safeName}.png`;
+          a.href = pngUrl;
+          a.click();
+        } finally {
+          log("error create image")
+          URL.revokeObjectURL(url);
+        }
+      } catch (err) {
+        log(t("Errors.ExportFailed"), err);
+        ui?.notifications?.error?.(t("Errors.ExportFailed"));
       } finally {
-        log("error create image")
-        URL.revokeObjectURL(url);
+        // --- Always restore cursor, even on error
+        _root.style.cursor = _prevCursor || "";
+        ui?.notifications?.info?.(t("Notifications.ExportFinished"));
       }
-    } catch (err) {
-      log(t("Errors.ExportFailed"), err);
-      ui?.notifications?.error?.(t("Errors.ExportFailed"));
-    } finally {
-      // --- Always restore cursor, even on error
-      _root.style.cursor = _prevCursor || "";
-      ui?.notifications?.info?.(t("Notifications.ExportFinished"));
     }
-  }
+  */
+
 
   static async _saveGraph() {
     const api = game.modules.get("foundry-graph").api;

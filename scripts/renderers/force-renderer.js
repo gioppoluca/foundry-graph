@@ -134,8 +134,10 @@ export class ForceRenderer extends BaseRenderer {
 
       // 2. Apply zoom behavior to the main SVG
       this._svg
-        .attr("width", renderGraph.width)
-        .attr("height", renderGraph.height)
+        //        .attr("width", renderGraph.width)
+        //        .attr("height", renderGraph.height)
+        .attr("width", "100%")
+        .attr("height", "100%")
         .attr("viewBox", `0 0 ${renderGraph.width} ${renderGraph.height}`)
         .call(this._zoomBehavior); // Attach the behavior
 
@@ -978,6 +980,10 @@ export class ForceRenderer extends BaseRenderer {
     graph.data.links = cleanLinks;
 
     return graph;
+  }
+
+  async exportToPNG() {
+    return await this.svgToCanvas({ scale: 3 });
   }
 
 }

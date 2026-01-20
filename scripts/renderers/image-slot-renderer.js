@@ -195,8 +195,10 @@ export class ImageSlotsRenderer extends BaseRenderer {
             });
 
             this._svg
-                .attr("width", width)
-                .attr("height", height)
+                //                .attr("width", width)
+                //                .attr("height", height)
+                .attr("width", "100%")
+                .attr("height", "100%")
                 .attr("viewBox", `0 0 ${width} ${height}`)
                 .call(this._zoomBehavior);
 
@@ -1180,4 +1182,9 @@ export class ImageSlotsRenderer extends BaseRenderer {
         graph.data.links = cleanLinks;
         return graph;
     }
+
+    async exportToPNG() {
+        return await this.svgToCanvas({ scale: 3 });
+    }
+
 }

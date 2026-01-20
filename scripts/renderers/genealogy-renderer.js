@@ -208,7 +208,7 @@ export class GenealogyRenderer extends BaseRenderer {
 
     this._svg
       .attr("width", bgWidth)
-//      .attr("height", bgHeight)
+      //      .attr("height", bgHeight)
       .attr("height", "100%")
       .attr("viewBox", `0 0 ${bgWidth} ${bgHeight}`)
       .call(d3.zoom().on("zoom", (event) => {
@@ -608,4 +608,9 @@ export class GenealogyRenderer extends BaseRenderer {
     // Here we leave it empty to avoid unexpected graph "teleporting".
     return graph;
   }
+
+  async exportToPNG() {
+    return await this.svgToCanvas({ scale: 3 });
+  }
+
 }
