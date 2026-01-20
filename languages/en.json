@@ -9,6 +9,9 @@
             "manageRelations": "Manage Relations",
             "permissions": "Manage Graph permissions"
         },
+        "themes":{
+            "none": "No Theme"
+        },
         "Tabs": {
             "creationGraph": "Create Graph",
             "listGraph": "Graph List"
