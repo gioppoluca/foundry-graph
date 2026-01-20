@@ -357,6 +357,7 @@ export class MapRenderer extends BaseRenderer {
       // OSM tiles
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
+        crossOrigin: "anonymous",
         attribution: "&copy; OpenStreetMap contributors"
       }).addTo(this._map);
 
@@ -598,5 +599,167 @@ export class MapRenderer extends BaseRenderer {
 
     ui.notifications.info(`Added marker: ${label}`);
     this._syncMarkers();
+  }
+
+
+  async exportToPNG({ scale = 3 } = {}) {
+    if (!this._map || !this._mapDiv) {
+      ui?.notifications?.warn?.("Map is not ready for export yet");
+      return;
+    }
+
+    // UX: show busy cursor
+    const _root = document.body;
+    const _prevCursor = _root.style.cursor;
+    _root.style.cursor = "progress";
+    ui?.notifications?.info?.("Preparing map export…");
+
+    // We deliberately DO NOT include Leaflet controls (search, zoom, attribution)
+    // by only rasterizing the tile/overlay/marker panes.
+    try {
+      await this._waitForLeafletIdle();
+
+      const pixelRatio = Math.max(1, Number(scale) || 1);
+      const size = this._map.getSize();
+      const w = Math.max(1, Math.round(size.x));
+      const h = Math.max(1, Math.round(size.y));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(w * pixelRatio);
+      canvas.height = Math.round(h * pixelRatio);
+      const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.scale(pixelRatio, pixelRatio);
+
+      const container = this._map.getContainer();
+      const containerRect = container.getBoundingClientRect();
+
+      // 1) Tiles
+      await this._drawTilesToCanvas(ctx, container, containerRect);
+
+      // 2) Vector overlays (Leaflet SVG pane)
+      await this._drawSvgOverlayToCanvas(ctx, container, containerRect);
+
+      // 3) Markers (our SVG divIcons)
+      await this._drawMarkerSvgsToCanvas(ctx, container, containerRect);
+
+      // Download
+      const safeName = String(this.graph?.name ?? "map").replace(/[^a-z0-9_-]+/gi, "_");
+      const a = document.createElement("a");
+      a.download = `${safeName}.png`;
+      a.href = canvas.toDataURL("image/png");
+      a.click();
+
+      ui?.notifications?.info?.("Map export complete");
+    } catch (e) {
+      log("MapRenderer.exportPng failed", e);
+      ui?.notifications?.error?.(
+        "Map export failed (often due to tile CORS restrictions). If you use online tiles, prefer a CORS-enabled tile source or local/offline tiles."
+      );
+    } finally {
+      _root.style.cursor = _prevCursor || "";
+    }
+  }
+
+  async _waitForLeafletIdle() {
+    // Wait for Leaflet to finish any in-flight tile requests/animations.
+    // idle fires after all tiles are loaded (for current view).
+    return new Promise((resolve) => {
+      if (!this._map) return resolve();
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        this._map?.off?.("idle", finish);
+        resolve();
+      };
+      this._map.once("idle", finish);
+      // In case idle doesn't fire within a reasonable time.
+      setTimeout(finish, 1000);
+    });
+  }
+
+  async _drawTilesToCanvas(ctx, container, containerRect) {
+    const tileImages = Array.from(container.querySelectorAll(".leaflet-tile-pane img.leaflet-tile"));
+    // Ensure any pending tiles finish loading
+    await Promise.all(
+      tileImages.map((img) => {
+        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+        return new Promise((resolve) => {
+          const cleanup = () => {
+            img.removeEventListener("load", cleanup);
+            img.removeEventListener("error", cleanup);
+            resolve();
+          };
+          img.addEventListener("load", cleanup, { once: true });
+          img.addEventListener("error", cleanup, { once: true });
+        });
+      })
+    );
+
+    for (const img of tileImages) {
+      if (!img.complete || img.naturalWidth <= 0) continue;
+      const r = img.getBoundingClientRect();
+      const x = r.left - containerRect.left;
+      const y = r.top - containerRect.top;
+      const w = r.width;
+      const h = r.height;
+      ctx.drawImage(img, x, y, w, h);
+    }
+  }
+
+  async _drawSvgOverlayToCanvas(ctx, container, containerRect) {
+    const svg = container.querySelector(".leaflet-overlay-pane svg");
+    if (!svg) return;
+
+    const r = svg.getBoundingClientRect();
+    const x = r.left - containerRect.left;
+    const y = r.top - containerRect.top;
+    const w = Math.max(1, Math.round(r.width));
+    const h = Math.max(1, Math.round(r.height));
+
+    const clone = svg.cloneNode(true);
+    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    const svgText = new XMLSerializer().serializeToString(clone);
+    const blob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = new Image();
+      img.decoding = "async";
+      img.src = url;
+      await img.decode();
+      ctx.drawImage(img, x, y, w, h);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  async _drawMarkerSvgsToCanvas(ctx, container, containerRect) {
+    const markerSvgs = Array.from(container.querySelectorAll(".leaflet-marker-pane .fg-map-marker svg"));
+    if (markerSvgs.length === 0) return;
+
+    for (const svg of markerSvgs) {
+      const r = svg.getBoundingClientRect();
+      const x = r.left - containerRect.left;
+      const y = r.top - containerRect.top;
+      const w = Math.max(1, Math.round(r.width));
+      const h = Math.max(1, Math.round(r.height));
+
+      const clone = svg.cloneNode(true);
+      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      const svgText = new XMLSerializer().serializeToString(clone);
+      const blob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      try {
+        const img = new Image();
+        img.decoding = "async";
+        img.src = url;
+        await img.decode();
+        ctx.drawImage(img, x, y, w, h);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
   }
 }
