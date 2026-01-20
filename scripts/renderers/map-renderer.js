@@ -2,6 +2,7 @@
 // Leaflet + OpenStreetMap renderer
 //  - No nodes/links
 //  - Graph data stores: map viewport + draggable markers georeferenced by lat/lng
+const { DialogV2 } = foundry.applications.api;
 
 import { BaseRenderer } from "./base-renderer.js";
 import { log, safeUUID } from "../constants.js";
@@ -489,12 +490,80 @@ export class MapRenderer extends BaseRenderer {
     if (!layer || layer.__fgGeomanBound) return;
     layer.__fgGeomanBound = true;
 
-    // Any of these imply the persisted geojson must be updated.
+    // Existing persistence triggers
     const bump = () => this._updateGeomanDataFromLayers();
     try { layer.on?.("pm:edit", bump); } catch (_e) { /* ignore */ }
     try { layer.on?.("pm:update", bump); } catch (_e) { /* ignore */ }
     try { layer.on?.("pm:remove", bump); } catch (_e) { /* ignore */ }
     try { layer.on?.("dragend", bump); } catch (_e) { /* ignore */ }
+
+    // NEW: Right-click menu for shapes
+    layer.on("contextmenu", (ev) => {
+      // Prevent the map's default context menu from firing
+      if (ev.originalEvent) {
+        ev.originalEvent.stopPropagation();
+        ev.originalEvent.preventDefault();
+      }
+
+      this._showRadialMenu({
+        clientX: ev.originalEvent?.clientX ?? 0,
+        clientY: ev.originalEvent?.clientY ?? 0,
+        items: [
+          {
+            id: "color",
+            label: "Change Color",
+            icon: "fa-solid fa-palette",
+            onClick: () => this._promptForGeomanColor(layer)
+          },
+          {
+            id: "delete",
+            label: "Delete Shape",
+            icon: "fa-solid fa-trash",
+            onClick: () => {
+              if (this._geomanLayer) {
+                this._geomanLayer.removeLayer(layer);
+                this._updateGeomanDataFromLayers();
+              }
+            }
+          }
+        ]
+      });
+    });
+  }
+
+  /**
+   * Opens a Foundry dialog to pick a new color for a Geoman layer.
+   */
+  async _promptForGeomanColor(layer) {
+    const currentStyle = layer.options?.color || "#3388ff";
+
+    const content = `
+      <div class="form-group">
+        <label>Choose Color</label>
+        <div class="form-fields">
+          <input type="color" name="color" value="${currentStyle}">
+        </div>
+      </div>
+    `;
+
+    const color = await DialogV2.prompt({
+      window: { title: "Shape Style" },
+      content: content,
+      ok: {
+        label: "Apply",
+        callback: (event, button) => button.form.elements.color.value
+      }
+    });
+
+    if (color) {
+      // Apply to the live Leaflet layer
+      layer.setStyle({
+        color: color,
+        fillColor: color
+      });
+      // Trigger a save to the graph data
+      this._updateGeomanDataFromLayers();
+    }
   }
 
   _updateGeomanDataFromLayers() {
