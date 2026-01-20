@@ -112,7 +112,21 @@ export const GRAPH_TYPES = {
       "width": 2500,
       "height": 1667
     },
-    "themes": [],
+    "themes": [      {
+        "id": "modern",
+        "label": "Modern",
+        "image": "modules/foundry-graph/img/themes/vamp-rel-chart/vampire-relation-chart.webp",
+        "width": 2500,
+        "height": 1667
+      },
+      {
+        "id": "old",
+        "label": "Old Style",
+        "image": "modules/foundry-graph/img/themes/vamp-rel-chart/vampire-relation-chart-old.webp",
+        "width": 1728,
+        "height": 2464
+      },
+],
     "renderer": "force",
     "color": "#ff0000",
     "nodeLabelColor": "#ffffff",
