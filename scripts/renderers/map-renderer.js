@@ -32,6 +32,10 @@ export class MapRenderer extends BaseRenderer {
     this._mapDiv = null;
     this._markersLayer = null;
     this._leafletMarkers = new Map(); // markerId -> Leaflet marker
+    this._geomanLayer = null;
+    this._geomanLoaded = false;
+    this._geomanEventsBound = false;
+    this._geomanGraphKey = null;
 
     this._resizeObserver = null;
     this._resizeRaf = null;
@@ -48,7 +52,8 @@ export class MapRenderer extends BaseRenderer {
         center: [0, 0],
         zoom: 2
       },
-      markers: []
+      markers: [],
+      geoman: { type: "FeatureCollection", features: [] }
     };
   }
 
@@ -79,6 +84,10 @@ export class MapRenderer extends BaseRenderer {
     // Ensure shape
     data.map = data.map ?? { center: [0, 0], zoom: 2 };
     data.markers = Array.isArray(data.markers) ? data.markers : [];
+    // Ensure geoman shape
+    if (!data.geoman || data.geoman.type !== "FeatureCollection" || !Array.isArray(data.geoman.features)) {
+      data.geoman = { type: "FeatureCollection", features: [] };
+    }
 
     if (this._map) {
       try {
@@ -88,6 +97,19 @@ export class MapRenderer extends BaseRenderer {
       } catch (_e) {
         // ignore
       }
+    }
+
+    // Persist Leaflet-Geoman layers
+    try {
+      const fc = this._serializeGeoman();
+      if (fc) {
+        data.geoman = fc;
+        log("MapRenderer.getGraphData: saved geoman features =", fc.features?.length ?? 0);
+      } else {
+        log("MapRenderer.getGraphData: geoman serialize returned null (geoman layer not ready?)");
+      }
+    } catch (e) {
+      log("MapRenderer.getGraphData: failed to serialize geoman", e);
     }
 
     return data;
@@ -117,7 +139,13 @@ export class MapRenderer extends BaseRenderer {
 
     this._map = null;
     this._markersLayer = null;
+    this._geomanLayer = null;
     this._leafletMarkers.clear();
+
+    // Reset Geoman lifecycle flags so a new/opened graph can reload its layers
+    this._geomanLoaded = false;
+    this._geomanEventsBound = false;
+    this._geomanGraphKey = null;
 
     // Remove injected container
     try {
@@ -198,53 +226,11 @@ export class MapRenderer extends BaseRenderer {
     this._resizeRaf = null;
   }
 
-  // ---------------------------------------------------------------------------
-  // Leaflet bootstrapping
-  // ---------------------------------------------------------------------------
-  /*
-  async _ensureLeafletLoaded() {
-    if (globalThis.L && globalThis.L.map) return;
-
-    const leafletCssId = "fg-leaflet-css";
-    const leafletJsId = "fg-leaflet-js";
-
-    // CSS
-    if (!document.getElementById(leafletCssId)) {
-      const link = document.createElement("link");
-      link.id = leafletCssId;
-      link.rel = "stylesheet";
-      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-      document.head.appendChild(link);
-    }
-
-    // JS
-    if (!document.getElementById(leafletJsId)) {
-      await new Promise((resolve, reject) => {
-        const s = document.createElement("script");
-        s.id = leafletJsId;
-        s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-        s.async = true;
-        s.onload = () => resolve();
-        s.onerror = (e) => reject(e);
-        document.head.appendChild(s);
-      });
-    } else {
-      // If already in DOM but not yet loaded, wait a tick
-      if (!(globalThis.L && globalThis.L.map)) {
-        await new Promise(r => setTimeout(r, 50));
-      }
-    }
-
-    if (!(globalThis.L && globalThis.L.map)) {
-      throw new Error("Leaflet failed to load. Check CSP / network access.");
-    }
-  }
-*/
   _buildSearchControl(L) {
     const Search = L.Control.extend({
-      options: { position: "topleft" },
+      options: { position: "topright" },
       onAdd: () => {
-        const container = L.DomUtil.create("div", "fg-leaflet-search");
+        const container = L.DomUtil.create("div", "leaflet-control fg-leaflet-search");
         container.innerHTML = `
           <div class="fg-leaflet-search-row">
             <input class="fg-leaflet-search-input" type="text" placeholder="Search (Nominatim)…" />
@@ -338,8 +324,6 @@ export class MapRenderer extends BaseRenderer {
       this._mapDiv = div;
     }
 
-    // Load Leaflet on-demand
-    //await this._ensureLeafletLoaded();
     const L = globalThis.L;
     log("MapRenderer: Leaflet loaded", L);
 
@@ -353,6 +337,31 @@ export class MapRenderer extends BaseRenderer {
         zoomControl: true,
         attributionControl: true
       }).setView(center, zoom);
+
+      // --- Geoman persistence group (must exist BEFORE load/bind) ---
+      try {
+        this._geomanLayer = L.featureGroup().addTo(this._map);
+        log("MapRenderer: geoman featureGroup created");
+      } catch (e) {
+        log("MapRenderer: failed to create geoman featureGroup", e);
+      }
+
+      if (this._map?.pm?.addControls) {
+        // Keep it conservative for now (we can expand later).
+        this._map.pm.addControls({
+          position: "topleft",
+          drawMarker: false,
+          drawCircleMarker: false,
+          drawCircle: false,
+          drawRectangle: true,
+          drawPolyline: true,
+          drawPolygon: true,
+          editMode: true,
+          dragMode: true,
+          cutPolygon: false,
+          removalMode: true,
+        });
+      }
 
       // OSM tiles
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -371,6 +380,15 @@ export class MapRenderer extends BaseRenderer {
         log("MapRenderer: failed to add search control", e);
       }
 
+
+      // Leaflet-Geoman: load persisted layers and bind events so edits are saved.
+      try {
+        this._loadGeomanFromGraphData();
+        this._bindGeomanEvents();
+      } catch (e) {
+        log("MapRenderer: failed to init Geoman persistence", e);
+      }
+
       // Attach drop handlers to the map div
       this._attachDropHandlers(this._mapDiv);
 
@@ -380,6 +398,19 @@ export class MapRenderer extends BaseRenderer {
 
     // Sync markers
     this._syncMarkers();
+
+    // Ensure persisted Geoman data is always in sync (FeatureCollection)
+    try {
+      const fc = this._serializeGeoman();
+      if (fc) {
+        this.graph.data.geoman = fc;
+        log("MapRenderer.render: updated graph.data.geoman features =", fc.features?.length ?? 0);
+      } else {
+        log("MapRenderer.render: geoman serialize returned null (layer not ready?)");
+      }
+    } catch (e) {
+      log("MapRenderer.render: failed to serialize geoman", e);
+    }
 
     // Fix sizing if rendered in a new window
     try {
@@ -392,6 +423,175 @@ export class MapRenderer extends BaseRenderer {
     // If map already existed (re-render), ensure observer is active.
     this._startResizeObserver();
   }
+
+  // ---------------------------------------------------------------------------
+  // Leaflet-Geoman persistence
+  // ---------------------------------------------------------------------------
+
+  _bindGeomanEvents() {
+    if (!this._map) return;
+    // Avoid double-binding on re-render
+    if (this._geomanEventsBound) return;
+    this._geomanEventsBound = true;
+    log("MapRenderer: binding geoman events");
+
+    const onCreate = (e) => {
+      const layer = e?.layer;
+      if (!layer) return;
+      // Ensure layer is in our persistence group
+      try { this._geomanLayer?.addLayer(layer); } catch (_e) { /* ignore */ }
+      // Track the original Geoman shape (polygon, line, rectangle, etc.)
+      try { layer.__fgPmShape = e?.shape || layer.__fgPmShape; } catch (_e) { /* ignore */ }
+      this._attachGeomanLayerListeners(layer);
+      log("MapRenderer: pm:create shape =", e?.shape, " total layers =",
+        this._geomanLayer?.getLayers?.()?.length ?? 0
+      );
+      this._updateGeomanDataFromLayers();
+    };
+
+    const onRemove = (e) => {
+      // IMPORTANT:
+      // Geoman removes the layer from the map, but our persistence FeatureGroup
+      // can still keep a reference unless we also remove it from _geomanLayer.
+      const layer = e?.layer;
+      if (layer && this._geomanLayer) {
+        try {
+          this._geomanLayer.removeLayer(layer);
+          log("MapRenderer: pm:remove removed from geoman group. Remaining layers =",
+            this._geomanLayer.getLayers?.()?.length ?? 0
+          );
+        } catch (err) {
+          log("MapRenderer: pm:remove failed to remove from geoman group", err);
+        }
+      } else {
+        log("MapRenderer: pm:remove fired but missing e.layer or _geomanLayer");
+      }
+      this._updateGeomanDataFromLayers();
+    };
+
+    const onEdit = (_e) => {
+      this._updateGeomanDataFromLayers();
+    };
+
+    const onDrag = (_e) => {
+      this._updateGeomanDataFromLayers();
+    };
+
+    this._map.on("pm:create", onCreate);
+    this._map.on("pm:remove", onRemove);
+    this._map.on("pm:edit", onEdit);
+    // Some layers emit these during interactive moves
+    this._map.on("pm:dragend", onDrag);
+    this._map.on("pm:rotateend", onDrag);
+  }
+
+  _attachGeomanLayerListeners(layer) {
+    if (!layer || layer.__fgGeomanBound) return;
+    layer.__fgGeomanBound = true;
+
+    // Any of these imply the persisted geojson must be updated.
+    const bump = () => this._updateGeomanDataFromLayers();
+    try { layer.on?.("pm:edit", bump); } catch (_e) { /* ignore */ }
+    try { layer.on?.("pm:update", bump); } catch (_e) { /* ignore */ }
+    try { layer.on?.("pm:remove", bump); } catch (_e) { /* ignore */ }
+    try { layer.on?.("dragend", bump); } catch (_e) { /* ignore */ }
+  }
+
+  _updateGeomanDataFromLayers() {
+    if (!this.graph?.data) return;
+    const fc = this._serializeGeoman();
+    if (fc) {
+      this.graph.data.geoman = fc;
+      log("MapRenderer: geoman updated features =", fc.features?.length ?? 0);
+    } else {
+      log("MapRenderer: geoman update skipped (serialize returned null)");
+    }
+  }
+
+  _serializeGeoman() {
+    if (!this._geomanLayer) return null;
+
+    const layers = this._geomanLayer.getLayers?.() ?? [];
+    const features = [];
+
+    for (const layer of layers) {
+      if (!layer) continue;
+
+      // Skip our graph "entity" markers (they live in a different layer and have pmIgnore)
+      if (layer?.options?.pmIgnore) continue;
+
+      // toGeoJSON exists for most vector layers and markers
+      const gj = layer.toGeoJSON?.();
+      if (!gj) continue;
+
+      // Normalize to a single Feature
+      const feature = gj.type === "Feature" ? gj : { type: "Feature", geometry: gj, properties: {} };
+      feature.properties = feature.properties ?? {};
+
+      // Preserve basic style so we can restore visuals on load.
+      // (Geoman uses Leaflet layer options)
+      feature.properties.__fgStyle = {
+        color: layer.options?.color,
+        weight: layer.options?.weight,
+        opacity: layer.options?.opacity,
+        fillColor: layer.options?.fillColor,
+        fillOpacity: layer.options?.fillOpacity,
+        dashArray: layer.options?.dashArray,
+        lineCap: layer.options?.lineCap,
+        lineJoin: layer.options?.lineJoin
+      };
+
+      // Preserve Geoman shape name when available (helps future migrations)
+      if (layer.__fgPmShape) feature.properties.__fgPmShape = layer.__fgPmShape;
+
+      features.push(feature);
+    }
+
+    return { type: "FeatureCollection", features };
+  }
+
+  _loadGeomanFromGraphData() {
+    if (!this._map || !this._geomanLayer) return;
+
+    // Load only once per renderer lifetime unless explicitly cleared.
+    if (this._geomanLoaded) return;
+    this._geomanLoaded = true;
+
+    const L = globalThis.L;
+    const raw = this.graph?.data?.geoman;
+    const fc = (raw && raw.type === "FeatureCollection" && Array.isArray(raw.features))
+      ? raw
+      : null;
+
+    if (!fc || fc.features.length === 0) return;
+
+    const styleFn = (feature) => {
+      const s = feature?.properties?.__fgStyle;
+      return (s && typeof s === "object") ? s : undefined;
+    };
+
+    const pointToLayer = (_feature, latlng) => {
+      // Default marker for geoman point features.
+      // (If later you enable drawMarker in Geoman controls, this will persist those too.)
+      return L.marker(latlng, { draggable: true });
+    };
+
+    const layer = L.geoJSON(fc, {
+      style: styleFn,
+      pointToLayer
+    });
+
+    // Add each child to the geoman group and bind listeners so later edits persist.
+    layer.eachLayer((child) => {
+      try { this._geomanLayer.addLayer(child); } catch (_e) { /* ignore */ }
+      try {
+        const shp = child?.feature?.properties?.__fgPmShape;
+        if (shp) child.__fgPmShape = shp;
+      } catch (_e) { /* ignore */ }
+      this._attachGeomanLayerListeners(child);
+    });
+  }
+
 
   // ---------------------------------------------------------------------------
   // SVG Marker icons (inline SVG -> Leaflet divIcon)
@@ -514,7 +714,7 @@ export class MapRenderer extends BaseRenderer {
         continue;
       }
 
-      const lm = L.marker([lat, lng], { draggable: true, icon });
+      const lm = L.marker([lat, lng], { draggable: true, icon, pmIgnore: true, });
       if (m.label) lm.bindTooltip(m.label, { permanent: false });
 
       lm.on("dragend", () => {
@@ -710,26 +910,60 @@ export class MapRenderer extends BaseRenderer {
   }
 
   async _drawSvgOverlayToCanvas(ctx, container, containerRect) {
-    const svg = container.querySelector(".leaflet-overlay-pane svg");
+    // 1. Identify the hierarchy. Leaflet spreads transforms across these layers.
+    const mapPane = container.querySelector(".leaflet-map-pane");
+    const overlayPane = container.querySelector(".leaflet-overlay-pane");
+    const svg = overlayPane?.querySelector("svg");
+
     if (!svg) return;
 
-    const r = svg.getBoundingClientRect();
-    const x = r.left - containerRect.left;
-    const y = r.top - containerRect.top;
-    const w = Math.max(1, Math.round(r.width));
-    const h = Math.max(1, Math.round(r.height));
+    const readMatrix = (el) => {
+      try {
+        const t = window.getComputedStyle(el)?.transform;
+        if (!t || t === "none") return new DOMMatrix();
+        return new DOMMatrix(t);
+      } catch (_e) {
+        return new DOMMatrix();
+      }
+    };
+
+    // 2. Combine the transforms. 
+    // mapPane usually holds the 'Pan' translation.
+    // overlayPane and svg may hold additional offsets or zoom scaling.
+    const m1 = readMatrix(mapPane);
+    const m2 = readMatrix(overlayPane);
+    const m3 = readMatrix(svg);
+    const combined = m1.multiply(m2).multiply(m3);
 
     const clone = svg.cloneNode(true);
     clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+
+    // 3. Inline the combined transform so the serialized SVG knows where to position paths
+    try {
+      const prev = clone.getAttribute("style") || "";
+      // Ensure transform-origin is 0,0 to match Leaflet's coordinate system
+      clone.setAttribute(
+        "style",
+        `${prev}; transform: ${combined.toString()}; transform-origin: 0 0;`
+      );
+    } catch (e) {
+      log("MapRenderer: export - failed to inline overlay transform", e);
+    }
+
     const svgText = new XMLSerializer().serializeToString(clone);
     const blob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(blob);
+
     try {
       const img = new Image();
       img.decoding = "async";
       img.src = url;
       await img.decode();
-      ctx.drawImage(img, x, y, w, h);
+
+      // 4. Draw to canvas.
+      // We draw at 0,0 without specifying w/h. 
+      // The inlined 'combined' transform handles shifting the content into view.
+      ctx.drawImage(img, 0, 0);
     } finally {
       URL.revokeObjectURL(url);
     }
