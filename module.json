@@ -25,12 +25,14 @@
     "scripts/lib/lib.js",
     "scripts/lib/FileSaver.min.js",
     "scripts/lib/leaflet.js",
+    "scripts/lib/leaflet-geoman.js",
     "scripts/lib/d3.js",
     "scripts/lib/family-chart.min.js",
     "scripts/lib/js_family_tree.umd.js"
   ],
   "styles": [
     "scripts/lib/leaflet.css",
+    "scripts/lib/leaflet-geoman.css",
     "styles/module.css"
   ],
   "languages": [
