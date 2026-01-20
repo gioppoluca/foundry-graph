@@ -107,6 +107,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
                 uuid: n.uuid,
                 label: n.label,
                 type: n.type,
+                subType: n.subType,
                 img: n.img,
                 status: Array.isArray(n.status) ? n.status : (n.status == null ? [] : [n.status]),
                 slotId: n.slotId,
