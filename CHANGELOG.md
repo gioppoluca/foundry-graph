@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-01-20
+### :bug: Bug Fixes
+- [`92819af`](https://github.com/gioppoluca/foundry-graph/commit/92819afcdb7d32f10ddd38d8b6790f9593567128) - CSS broke CofD char sheet *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.6.0] - 2026-01-19
 ### :sparkles: New Features
 - [`3ad7ff5`](https://github.com/gioppoluca/foundry-graph/commit/3ad7ff527147fa7fbe5e83010ca6355a317d9692) - added the possibility to change the link by handles *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -135,3 +140,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.4.1]: https://github.com/gioppoluca/foundry-graph/compare/0.4.0...0.4.1
 [0.5.0]: https://github.com/gioppoluca/foundry-graph/compare/0.4.1...0.5.0
 [0.6.0]: https://github.com/gioppoluca/foundry-graph/compare/0.5.0...0.6.0
+[0.6.1]: https://github.com/gioppoluca/foundry-graph/compare/0.6.0...0.6.1
