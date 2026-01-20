@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] - 2026-01-20
+### :bug: Bug Fixes
+- [`ab684f8`](https://github.com/gioppoluca/foundry-graph/commit/ab684f8fcbda6dccdf2fea22f26fc5eb90ec7792) - added capability to export map diagram *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`186cc70`](https://github.com/gioppoluca/foundry-graph/commit/186cc70a919ab521e7087cd3fec97308454eb77b) - cannot move on image slot renderer after save. *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.6.2] - 2026-01-20
 ### :sparkles: New Features
 - [`a77b426`](https://github.com/gioppoluca/foundry-graph/commit/a77b42625bc82f4ddda50bcf9144889d19abb740) - added theme for vampire relation map *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -152,3 +158,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.6.0]: https://github.com/gioppoluca/foundry-graph/compare/0.5.0...0.6.0
 [0.6.1]: https://github.com/gioppoluca/foundry-graph/compare/0.6.0...0.6.1
 [0.6.2]: https://github.com/gioppoluca/foundry-graph/compare/0.6.1...0.6.2
+[0.6.3]: https://github.com/gioppoluca/foundry-graph/compare/0.6.2...0.6.3
