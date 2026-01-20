@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-01-20
+### :sparkles: New Features
+- [`88d83a5`](https://github.com/gioppoluca/foundry-graph/commit/88d83a5ccdc3e3d52cb6c0a4b6cb8a2c299a517d) - now also adding shapes and polygons *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`040a89b`](https://github.com/gioppoluca/foundry-graph/commit/040a89bbaa6d51e7dccb12eb4c662e0fdd8c63c1) - geoman added *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`c295502`](https://github.com/gioppoluca/foundry-graph/commit/c2955025b96ff131a45f6720b21848f5c31c5756) - added color management *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+### :bug: Bug Fixes
+- [`5359f13`](https://github.com/gioppoluca/foundry-graph/commit/5359f131db534941a14bae8c72d0578d5dbc78fc) - removing image moved on themes *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.6.3] - 2026-01-20
 ### :bug: Bug Fixes
 - [`ab684f8`](https://github.com/gioppoluca/foundry-graph/commit/ab684f8fcbda6dccdf2fea22f26fc5eb90ec7792) - added capability to export map diagram *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -159,3 +169,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.6.1]: https://github.com/gioppoluca/foundry-graph/compare/0.6.0...0.6.1
 [0.6.2]: https://github.com/gioppoluca/foundry-graph/compare/0.6.1...0.6.2
 [0.6.3]: https://github.com/gioppoluca/foundry-graph/compare/0.6.2...0.6.3
+[0.7.0]: https://github.com/gioppoluca/foundry-graph/compare/0.6.3...0.7.0
