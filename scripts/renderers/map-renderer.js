@@ -27,6 +27,16 @@ export class MapRenderer extends BaseRenderer {
     this._markersLayer = null;
     this._leafletMarkers = new Map(); // markerId -> Leaflet marker
     this._geomanLayer = null;
+    // Label scaling config
+    // At/above ref zoom, labels are readable but capped to avoid covering details.
+    // Below hide zoom, labels disappear to avoid clutter when zoomed out.
+    this._labelRefZoom = null;      // set at runtime (initial map zoom) unless you override
+    this._labelRefPx = 12;          // size at ref zoom
+    this._labelMinPx = 9;           // smallest visible label before hiding rule applies
+    this._labelMaxPx = 14;          // cap when zooming in (prevents huge labels)
+    this._labelGrowFactor = 1.12;   // > 1 => labels grow as you zoom in (until max)
+    this._labelHideBelowZoom = null; // computed from ref zoom if null
+    this._onMapZoomEnd = null;
     this._geomanLoaded = false;
     this._geomanEventsBound = false;
     this._geomanGraphKey = null;
@@ -148,6 +158,12 @@ export class MapRenderer extends BaseRenderer {
       // ignore
     }
     this._mapDiv = null;
+
+    // Clean zoom handler
+    try {
+      if (this._map && this._onMapZoomEnd) this._map.off("zoomend", this._onMapZoomEnd);
+    } catch (_e) { /* ignore */ }
+    this._onMapZoomEnd = null;
 
     // Restore SVG if we hid it
     try {
@@ -383,6 +399,23 @@ export class MapRenderer extends BaseRenderer {
         log("MapRenderer: failed to init Geoman persistence", e);
       }
 
+      // Initialize label reference zoom from the starting view (so scaling is relative)
+      if (this._labelRefZoom === null || this._labelRefZoom === undefined) {
+        try { this._labelRefZoom = this._map.getZoom(); } catch (_e) { this._labelRefZoom = zoom; }
+      }
+      // Default: hide labels when zoomed out ~2 levels from the reference
+      if (this._labelHideBelowZoom === null || this._labelHideBelowZoom === undefined) {
+        this._labelHideBelowZoom = Math.max(0, (this._labelRefZoom ?? zoom) - 2);
+      }
+      // Keep labels consistent with zoom level
+      try {
+        this._bindLabelZoomHandler();
+        // apply once at startup
+        this._refreshAllGeomanLabelStyles();
+      } catch (e) {
+        log("MapRenderer: failed to init label zoom handler", e);
+      }
+
       // Attach drop handlers to the map div
       this._attachDropHandlers(this._mapDiv);
 
@@ -421,6 +454,38 @@ export class MapRenderer extends BaseRenderer {
   // ---------------------------------------------------------------------------
   // Leaflet-Geoman persistence
   // ---------------------------------------------------------------------------
+
+  _bindLabelZoomHandler() {
+    if (!this._map) return;
+    if (this._onMapZoomEnd) return;
+    this._onMapZoomEnd = () => this._refreshAllGeomanLabelStyles();
+    this._map.on("zoomend", this._onMapZoomEnd);
+  }
+
+  _refreshAllGeomanLabelStyles() {
+    if (!this._map || !this._geomanLayer) return;
+    const z = this._map.getZoom();
+    const refZ = (this._labelRefZoom === null || this._labelRefZoom === undefined) ? z : this._labelRefZoom;
+    const hide = (this._labelHideBelowZoom !== null && this._labelHideBelowZoom !== undefined)
+      ? (z <= this._labelHideBelowZoom)
+      : false;
+
+    // Zoom in => slightly larger labels, but capped at max (so they don't cover details)
+    // Zoom out => smaller labels (until hidden by rule above)
+    const dz = (z - refZ);
+    const scale = Math.pow(this._labelGrowFactor, dz);
+    const px = Math.max(this._labelMinPx, Math.min(this._labelMaxPx, Math.round(this._labelRefPx * scale)));
+
+
+    for (const layer of this._geomanLayer.getLayers?.() ?? []) {
+      const tt = layer?.getTooltip?.();
+      if (!tt) continue;
+      const el = tt.getElement?.();
+      if (!el) continue;
+      el.style.fontSize = `${px}px`;
+      el.style.display = hide ? "none" : "";
+    }
+  }
 
   /**
    * Bind a permanent tooltip label to a Geoman layer.
