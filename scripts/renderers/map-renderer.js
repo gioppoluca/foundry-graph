@@ -7,13 +7,6 @@ const { DialogV2 } = foundry.applications.api;
 import { BaseRenderer } from "./base-renderer.js";
 import { log, safeUUID } from "../constants.js";
 
-function randomId() {
-  try {
-    return foundry?.utils?.randomID?.() ?? crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-  } catch (_e) {
-    return `${Date.now()}-${Math.random()}`;
-  }
-}
 
 async function fromUuidSafe(uuid) {
   try {
@@ -28,7 +21,7 @@ export class MapRenderer extends BaseRenderer {
 
   constructor() {
     super();
-    this._leaflet = null;
+    // this._leaflet = null;
     this._map = null;
     this._mapDiv = null;
     this._markersLayer = null;
@@ -536,34 +529,40 @@ export class MapRenderer extends BaseRenderer {
    */
   async _promptForGeomanColor(layer) {
     const currentStyle = layer.options?.color || "#3388ff";
+    const color = await this._promptForColor(currentStyle);
 
+    if (color) {
+      layer.setStyle({
+        color: color,
+        fillColor: color
+      });
+      this._updateGeomanDataFromLayers();
+    }
+  }
+
+  /**
+   * Generic helper to prompt for a color.
+   * @param {string} initialColor - The current color hex string.
+   * @returns {Promise<string|null>} - The chosen color or null if cancelled.
+   */
+  async _promptForColor(initialColor = "#3388ff") {
     const content = `
-      <div class="form-group">
-        <label>Choose Color</label>
-        <div class="form-fields">
-          <input type="color" name="color" value="${currentStyle}">
-        </div>
+    <div class="form-group">
+      <label>Choose Color</label>
+      <div class="form-fields">
+        <input type="color" name="color" value="${initialColor}">
       </div>
-    `;
+    </div>
+  `;
 
-    const color = await DialogV2.prompt({
-      window: { title: "Shape Style" },
+    return await DialogV2.prompt({
+      window: { title: "Pick Color" },
       content: content,
       ok: {
         label: "Apply",
         callback: (event, button) => button.form.elements.color.value
       }
     });
-
-    if (color) {
-      // Apply to the live Leaflet layer
-      layer.setStyle({
-        color: color,
-        fillColor: color
-      });
-      // Trigger a save to the graph data
-      this._updateGeomanDataFromLayers();
-    }
   }
 
   _updateGeomanDataFromLayers() {
@@ -748,6 +747,41 @@ export class MapRenderer extends BaseRenderer {
     }
   }
 
+  _updateMarkerColor(markerId, newColor) {
+    // 1. Find the data in the graph
+    const markerData = this.graph.data.markers.find(m => m.id === markerId);
+    if (!markerData) return;
+
+    // 2. Update the data
+    markerData.color = newColor;
+
+    // 3. Update the live Leaflet icon
+    const leafletMarker = this._leafletMarkers.get(markerId);
+    if (leafletMarker) {
+      // Use window.L directly to avoid null property errors
+      // Reuse the existing SVG divIcon factory used by _syncMarkers()
+      const markerType = markerData.markerType ?? this._defaultMarkerTypeForEntity(markerData.type);
+      leafletMarker.setIcon(this._makeSvgDivIcon(markerType, newColor));
+    }
+
+    // 4. Persist changes
+    this._requestSave();
+  }
+
+  /**
+     * Ask the host app to persist graph changes (best-effort).
+     * Some renderers/modules expose different hooks; keep it defensive.
+     */
+  _requestSave() {
+    try {
+      if (typeof this.requestSave === "function") return this.requestSave();
+    } catch (_e) { /* ignore */ }
+    try {
+      if (typeof this.onGraphChanged === "function") return this.onGraphChanged();
+    } catch (_e) { /* ignore */ }
+    // As a fallback, do nothing: the graph data is already mutated in memory and will be saved
+    // when the user hits the normal Save action.
+  }
 
   _syncMarkers() {
     if (!this._map || !this._markersLayer) return;
@@ -809,6 +843,17 @@ export class MapRenderer extends BaseRenderer {
           clientX,
           clientY,
           items: [
+            {
+              id: "color",
+              label: "Change Color",
+              icon: "fa-solid fa-palette",
+              onClick: async () => {
+                const newColor = await this._promptForColor(m.color);
+                if (newColor) {
+                  this._updateMarkerColor(m.id, newColor);
+                }
+              }
+            },
             {
               id: "delete",
               label: "Delete marker",
