@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-01-21
+### :sparkles: New Features
+- [`c92079f`](https://github.com/gioppoluca/foundry-graph/commit/c92079f500343489468b3f3d7d3007d28daf9361) - added the option to change the marker color *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`7b013c3`](https://github.com/gioppoluca/foundry-graph/commit/7b013c3dfb06e2a5af583e685c99554d8b18f933) - added label for geoman features *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`8777976`](https://github.com/gioppoluca/foundry-graph/commit/8777976063cc05b28769db3b16704902b2b59892) - changing label and also manage zoom level and label hide *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.7.0] - 2026-01-20
 ### :sparkles: New Features
 - [`88d83a5`](https://github.com/gioppoluca/foundry-graph/commit/88d83a5ccdc3e3d52cb6c0a4b6cb8a2c299a517d) - now also adding shapes and polygons *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -170,3 +177,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.6.2]: https://github.com/gioppoluca/foundry-graph/compare/0.6.1...0.6.2
 [0.6.3]: https://github.com/gioppoluca/foundry-graph/compare/0.6.2...0.6.3
 [0.7.0]: https://github.com/gioppoluca/foundry-graph/compare/0.6.3...0.7.0
+[0.7.1]: https://github.com/gioppoluca/foundry-graph/compare/0.7.0...0.7.1
