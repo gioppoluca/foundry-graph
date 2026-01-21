@@ -422,6 +422,98 @@ export class MapRenderer extends BaseRenderer {
   // Leaflet-Geoman persistence
   // ---------------------------------------------------------------------------
 
+  /**
+   * Bind a permanent tooltip label to a Geoman layer.
+   * This is Leaflet-native (bindTooltip), not a custom overlay renderer.
+   */
+  _applyGeomanLabel(layer, label) {
+    if (!layer || !label) return;
+    try {
+      // Remove existing tooltip if any
+      if (layer.getTooltip?.()) layer.unbindTooltip?.();
+    } catch (_e) { /* ignore */ }
+
+    try {
+      layer.bindTooltip(String(label), {
+        permanent: true,
+        direction: "center",
+        opacity: 0.9,
+        className: "fg-geoman-label"
+      });
+      // Ensure the tooltip is anchored to the current geometry center
+      this._refreshGeomanLabelPosition(layer);
+    } catch (e) {
+      log("MapRenderer: failed to bind tooltip label", e);
+    }
+  }
+
+  /**
+   * Re-anchor a permanent tooltip to the "center" of the layer geometry.
+   * Needed because Leaflet does not always auto-update tooltip anchor for edited/moved
+   * vector layers (polygons/polylines/rectangles).
+   */
+  _refreshGeomanLabelPosition(layer) {
+    if (!layer) return;
+    const tt = layer.getTooltip?.();
+    if (!tt) return;
+
+    try {
+      let latlng = null;
+
+      // Marker-like layers
+      if (typeof layer.getLatLng === "function") {
+        latlng = layer.getLatLng();
+      }
+      // Vector layers (polygon/polyline/rectangle) usually have bounds
+      else if (typeof layer.getBounds === "function") {
+        const b = layer.getBounds();
+        if (b && typeof b.getCenter === "function") latlng = b.getCenter();
+      }
+      // Some shapes expose getCenter (e.g., circles in some Leaflet versions)
+      else if (typeof layer.getCenter === "function") {
+        latlng = layer.getCenter();
+      }
+
+      if (latlng) {
+        tt.setLatLng(latlng);
+      }
+    } catch (e) {
+      log("MapRenderer: failed to refresh geoman label position", e);
+    }
+  }
+
+
+  /**
+   * Prompt user for a label.
+   * @param {string} initialValue
+   * @returns {Promise<string|null>}
+   */
+  async _promptForLabel(initialValue = "") {
+    try {
+      const safe = String(initialValue ?? "");
+      const content = `
+        <form>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <label>Label</label>
+            <input name="label" type="text" value="${safe.replace(/"/g, "&quot;")}" />
+            <small style="opacity:0.7">Leave empty to skip.</small>
+          </div>
+        </form>
+      `;
+      return await DialogV2.prompt({
+        window: { title: "Set Label" },
+        content,
+        ok: {
+          label: "Apply",
+          callback: (_event, button) => button.form.elements.label.value
+        }
+      });
+    } catch (e) {
+      log("MapRenderer: _promptForLabel failed", e);
+      return null;
+    }
+  }
+
   _bindGeomanEvents() {
     if (!this._map) return;
     // Avoid double-binding on re-render
@@ -440,7 +532,19 @@ export class MapRenderer extends BaseRenderer {
       log("MapRenderer: pm:create shape =", e?.shape, " total layers =",
         this._geomanLayer?.getLayers?.()?.length ?? 0
       );
-      this._updateGeomanDataFromLayers();
+      // Optional: ask for a label and bind it as a permanent tooltip.
+      // (Geoman doesn't have a native per-feature label system; Leaflet tooltips do.)
+      Promise.resolve()
+        .then(async () => {
+          const label = await this._promptForLabel("");
+          if (label && String(label).trim().length > 0) {
+            layer.__fgLabel = String(label).trim();
+            this._applyGeomanLabel(layer, layer.__fgLabel);
+          }
+        })
+        .finally(() => {
+          this._updateGeomanDataFromLayers();
+        });
     };
 
     const onRemove = (e) => {
@@ -484,7 +588,11 @@ export class MapRenderer extends BaseRenderer {
     layer.__fgGeomanBound = true;
 
     // Existing persistence triggers
-    const bump = () => this._updateGeomanDataFromLayers();
+    const bump = () => {
+      // Keep label anchored to geometry center while editing/moving
+      this._refreshGeomanLabelPosition(layer);
+      this._updateGeomanDataFromLayers();
+    };
     try { layer.on?.("pm:edit", bump); } catch (_e) { /* ignore */ }
     try { layer.on?.("pm:update", bump); } catch (_e) { /* ignore */ }
     try { layer.on?.("pm:remove", bump); } catch (_e) { /* ignore */ }
@@ -509,6 +617,12 @@ export class MapRenderer extends BaseRenderer {
             onClick: () => this._promptForGeomanColor(layer)
           },
           {
+            id: "label",
+            label: "Edit Label",
+            icon: "fa-solid fa-tag",
+            onClick: () => this._promptForGeomanLabel(layer)
+          },
+          {
             id: "delete",
             label: "Delete Shape",
             icon: "fa-solid fa-trash",
@@ -522,6 +636,39 @@ export class MapRenderer extends BaseRenderer {
         ]
       });
     });
+  }
+
+  /**
+   * Edit (or remove) the label stored in feature.properties.label.
+   * Reuses the same DialogV2 prompt used for label creation.
+   */
+  async _promptForGeomanLabel(layer) {
+    if (!layer) return;
+
+    const current =
+      layer.__fgLabel ??
+      layer.feature?.properties?.label ??
+      "";
+
+    const label = await this._promptForLabel(String(current ?? ""));
+    // DialogV2.prompt returns null/undefined on cancel -> do nothing
+    if (label === null || label === undefined) return;
+
+    const trimmed = String(label).trim();
+    if (!trimmed) {
+      // Remove label
+      try { layer.__fgLabel = null; } catch (_e) { /* ignore */ }
+      try {
+        if (layer.getTooltip?.()) layer.unbindTooltip?.();
+      } catch (_e) { /* ignore */ }
+    } else {
+      // Set/update label
+      layer.__fgLabel = trimmed;
+      this._applyGeomanLabel(layer, trimmed);
+    }
+
+    // Persist change in graph.data.geoman (GeoJSON)
+    this._updateGeomanDataFromLayers();
   }
 
   /**
@@ -596,6 +743,16 @@ export class MapRenderer extends BaseRenderer {
       const feature = gj.type === "Feature" ? gj : { type: "Feature", geometry: gj, properties: {} };
       feature.properties = feature.properties ?? {};
 
+      // Persist label (Leaflet tooltip content)
+      // - on freshly drawn layers we store it on layer.__fgLabel
+      // - on reloaded layers it may already be in feature.properties.label
+      const lbl = layer.__fgLabel ?? layer.feature?.properties?.label ?? feature.properties.label;
+      if (lbl && String(lbl).trim().length > 0) {
+        feature.properties.label = String(lbl).trim();
+      } else {
+        delete feature.properties.label;
+      }
+
       // Preserve basic style so we can restore visuals on load.
       // (Geoman uses Leaflet layer options)
       feature.properties.__fgStyle = {
@@ -656,6 +813,17 @@ export class MapRenderer extends BaseRenderer {
         const shp = child?.feature?.properties?.__fgPmShape;
         if (shp) child.__fgPmShape = shp;
       } catch (_e) { /* ignore */ }
+
+      // Restore label (if any)
+      try {
+        const lbl = child?.feature?.properties?.label;
+        if (lbl && String(lbl).trim().length > 0) {
+          child.__fgLabel = String(lbl).trim();
+          this._applyGeomanLabel(child, child.__fgLabel);
+          this._refreshGeomanLabelPosition(child);
+        }
+      } catch (_e) { /* ignore */ }
+
       this._attachGeomanLayerListeners(child);
     });
   }
