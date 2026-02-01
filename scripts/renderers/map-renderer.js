@@ -131,6 +131,12 @@ export class MapRenderer extends BaseRenderer {
     // Detach drop handlers
     this._detachDropHandlers(this._mapDiv);
 
+    // Clean zoom handler
+    try {
+      if (this._map && this._onMapZoomEnd) this._map.off("zoomend", this._onMapZoomEnd);
+    } catch (_e) { /* ignore */ }
+    this._onMapZoomEnd = null;
+
     // Leaflet teardown
     try {
       if (this._map) {
@@ -158,12 +164,6 @@ export class MapRenderer extends BaseRenderer {
       // ignore
     }
     this._mapDiv = null;
-
-    // Clean zoom handler
-    try {
-      if (this._map && this._onMapZoomEnd) this._map.off("zoomend", this._onMapZoomEnd);
-    } catch (_e) { /* ignore */ }
-    this._onMapZoomEnd = null;
 
     // Restore SVG if we hid it
     try {
@@ -343,10 +343,53 @@ export class MapRenderer extends BaseRenderer {
       const center = Array.isArray(d?.map?.center) ? d.map.center : [0, 0];
       const zoom = Number.isFinite(d?.map?.zoom) ? d.map.zoom : 2;
 
+      /*
       this._map = L.map(this._mapDiv, {
         zoomControl: true,
         attributionControl: true
       }).setView(center, zoom);
+      */
+      // ------------------------------------------------------------
+      // Base layer selection:
+      // 1) If graph.background.image is empty -> OpenStreetMap tiles
+      // 2) If present:
+      //    a) raster image -> CRS.Simple + imageOverlay
+      //    b) anything else (georeferenced formats, unknown) -> NOT IMPLEMENTED -> fallback to OSM
+      // ------------------------------------------------------------
+      const bgUrl = this._getBackgroundRasterUrl(graph);
+      const hasBg = Boolean(bgUrl);
+      const isRaster = hasBg && this._isRasterImageUrl(bgUrl);
+
+      let useRaster = false;
+      if (!hasBg) {
+        useRaster = false;
+      } else if (isRaster) {
+        useRaster = true;
+      } else {
+        // Not implemented yet (e.g. shp/geotiff/mbtiles/anything else)
+        useRaster = false;
+        try {
+          ui?.notifications?.warn?.("Background map format not supported yet; falling back to OpenStreetMap.");
+        } catch (_e) { /* ignore */ }
+      }
+
+      // Update user instructions depending on mode
+      this.instructions = useRaster
+        ? "Drop Actors/Scenes/Items/Journal pages on the background to create markers. Drag markers to reposition. Right-click a marker to delete. (Background image mode: coordinates are local/pixel-like, not real lat/lng.)"
+        : "Drop Actors/Scenes/Items/Journal pages on the map to create markers. Drag markers to reposition. Right-click a marker to delete.";
+
+      const mapOptions = {
+        zoomControl: true,
+        attributionControl: true,
+        ...(useRaster ? {
+          crs: L.CRS.Simple,
+          // Reasonable defaults for typical battlemaps / diagrams
+          minZoom: -5,
+          maxZoom: 6
+        } : {})
+      };
+
+      this._map = L.map(this._mapDiv, mapOptions);
 
       // --- Geoman persistence group (must exist BEFORE load/bind) ---
       try {
@@ -374,20 +417,71 @@ export class MapRenderer extends BaseRenderer {
       }
 
       // OSM tiles
+      /*
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         crossOrigin: "anonymous",
         attribution: "&copy; OpenStreetMap contributors"
       }).addTo(this._map);
+      */
+      if (useRaster) {
+        // Raster image base (non-georeferenced)
+        try {
+          const size = await this._getBackgroundRasterSize(graph, bgUrl);
+          if (!size?.width || !size?.height) {
+            log("MapRenderer: background image configured but failed to load/measure", bgUrl);
+            // Fallback: still set a view so map is usable
+            this._map.setView(center, zoom);
+          } else {
+            // CRS.Simple uses [y, x] as [lat, lng] in a local coordinate space
+            const bounds = [[0, 0], [size.height, size.width]];
+            L.imageOverlay(bgUrl, bounds, { interactive: false }).addTo(this._map);
+
+            // Constrain panning to image area with a small padding
+            const b = L.latLngBounds(bounds);
+            this._map.setMaxBounds(b.pad(0.15));
+
+            // If there is a stored center/zoom, keep it. Otherwise fit to image.
+            const c0 = Number(center?.[0]);
+            const c1 = Number(center?.[1]);
+            if (Number.isFinite(c0) && Number.isFinite(c1)) {
+              this._map.setView(center, zoom);
+            } else {
+              this._map.fitBounds(b);
+            }
+          }
+        } catch (e) {
+          log("MapRenderer: failed to init raster background; falling back to view only", e);
+          this._map.setView(center, zoom);
+        }
+      } else {
+        // OpenStreetMap tiles (default)
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          crossOrigin: "anonymous",
+          attribution: "&copy; OpenStreetMap contributors"
+        }).addTo(this._map);
+        this._map.setView(center, zoom);
+      }
 
       // Markers group
       this._markersLayer = L.layerGroup().addTo(this._map);
 
       // Search control
+      /*
       try {
         this._buildSearchControl(L).addTo(this._map);
       } catch (e) {
         log("MapRenderer: failed to add search control", e);
+      }
+        */
+      // Search control only makes sense for georeferenced maps
+      if (!useRaster) {
+        try {
+          this._buildSearchControl(L).addTo(this._map);
+        } catch (e) {
+          log("MapRenderer: failed to add search control", e);
+        }
       }
 
 
@@ -459,6 +553,7 @@ export class MapRenderer extends BaseRenderer {
     if (!this._map) return;
     if (this._onMapZoomEnd) return;
     this._onMapZoomEnd = () => this._refreshAllGeomanLabelStyles();
+    this._map.on("zoom", this._onMapZoomEnd);
     this._map.on("zoomend", this._onMapZoomEnd);
   }
 
@@ -480,7 +575,14 @@ export class MapRenderer extends BaseRenderer {
     for (const layer of this._geomanLayer.getLayers?.() ?? []) {
       const tt = layer?.getTooltip?.();
       if (!tt) continue;
-      const el = tt.getElement?.();
+      //const el = tt.getElement?.();
+      //if (!el) continue;
+      let el = tt.getElement?.();
+      // Tooltip DOM may not exist yet; force an update so Leaflet creates it.
+      if (!el) {
+        try { tt.update?.(); } catch (_e) { /* ignore */ }
+        el = tt.getElement?.();
+      }
       if (!el) continue;
       el.style.fontSize = `${px}px`;
       el.style.display = hide ? "none" : "";
@@ -1228,7 +1330,13 @@ export class MapRenderer extends BaseRenderer {
   }
 
   async _drawTilesToCanvas(ctx, container, containerRect) {
-    const tileImages = Array.from(container.querySelectorAll(".leaflet-tile-pane img.leaflet-tile"));
+    //    const tileImages = Array.from(container.querySelectorAll(".leaflet-tile-pane img.leaflet-tile"));
+    // Include both OSM tiles and image overlays (raster background mode)
+    const tileImages = Array.from(
+      container.querySelectorAll(
+        ".leaflet-tile-pane img.leaflet-tile, .leaflet-overlay-pane img.leaflet-image-layer"
+      )
+    );
     // Ensure any pending tiles finish loading
     await Promise.all(
       tileImages.map((img) => {
@@ -1342,5 +1450,57 @@ export class MapRenderer extends BaseRenderer {
         URL.revokeObjectURL(url);
       }
     }
+  }
+
+  _isRasterImageUrl(url) {
+    if (!url) return false;
+    const u = url.toLowerCase().split("?")[0].split("#")[0];
+
+    // data URL (common when users embed)
+    if (u.startsWith("data:image/")) return true;
+
+    // typical raster formats you want to support now
+    return (
+      u.endsWith(".png") ||
+      u.endsWith(".webp") ||
+      u.endsWith(".jpg") ||
+      u.endsWith(".jpeg") ||
+      u.endsWith(".gif") ||
+      u.endsWith(".bmp") ||
+      u.endsWith(".avif") ||
+      u.endsWith(".svg")  // optional: if you want to treat svg as an "image background"
+    );
+  }
+
+  /**
+ * Return the background raster URL if configured on the graph.
+ * Graph config uses the same background model as the SVG renderers.
+ */
+  _getBackgroundRasterUrl(graph) {
+    const bg = graph?.background;
+    const img = (typeof bg?.image === "string") ? bg.image.trim() : "";
+    return img ? img : null;
+  }
+
+  /**
+   * Best-effort: obtain raster pixel dimensions.
+   * 1) Prefer graph.background.width/height if both are valid numbers.
+   * 2) Otherwise, load the image to read naturalWidth/naturalHeight.
+   */
+  async _getBackgroundRasterSize(graph, url) {
+    const bg = graph?.background;
+    const w = Number(bg?.width);
+    const h = Number(bg?.height);
+    if (Number.isFinite(w) && w > 0 && Number.isFinite(h) && h > 0) {
+      return { width: w, height: h };
+    }
+
+    // Load to measure
+    return await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ width: img.naturalWidth || img.width, height: img.naturalHeight || img.height });
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
   }
 }
