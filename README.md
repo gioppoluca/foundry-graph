@@ -5,80 +5,221 @@
 
 # Foundry Graph - Visual Relationship Mapping
 
-# !!! WARNING !!! - this module is still in beta mode until this comment is removed.  Use it to test its features and give feedback, but do not manage real data, the development is at early stage: metadata will change and there will be no migration path for graphs created.
-
-Draw the threads that connect your world. Turn relationships into stories you can see.
+> Draw the threads that connect your world. Turn relationships into stories you can see.
 Visualize lineage, alliances, and secrets in living diagrams with ease.
-
-
 Foundry Graph is a powerful and intuitive module that lets you visually map relationships between actors, scenes, items, or any other entity in your world. Whether you're managing political intrigue, faction conflicts, character connections, or ancient bloodlines, this tool gives you a dynamic canvas to build, edit, and explore complex networks.
-You can choose between a set of graph types and create your **relation map**
-
-| Graph type | Renderer  | Themes  | System    | Object Allowed | Description                                                                          |
-| ---------- | ------- | ------------ | ---- | --------- | ----------------------------------------------------------------- |
-| Enemy Map | Free Diagram| |any | Actors | A diagram to represent better relationship with enemies |
-| OpenStreetMap (World Map) | Leaflet map | | any | any | A leaflet map to display geographical markers|
-| World of Darkness Relationship Map | Free Diagram |   | WoD5e, Vtm5e, worldofdarkness   | Actors | The relationship map for a coterie or a single character, with dedicated relations for the World of Darkness system   |
-| Faction Power Structure | Free Diagram | | any | Actors | A diagram with relations useful for mapping the internal hierarchy of a faction |
-| Characters Map   | Free Diagram | | any   | Actors | The classical map between generic Actors  |
-| Genealogy Tree  | Genealogy | | any | Actors | Genealogical tree for Actors only |
-| Heaven Layout  | Slot Layout | Castle, manor, house, modern house, condo, penthouse, slums, medieval village, medieval manor, medieval crypt | WoD5e, Vtm5e, worldofdarkness | Items | A layout for displaying a vampire heaven. In each dedicated slot the user can add heaven's merits or flows. |
-
-New graph types are cooking, add an issue if you would like to have a specific graph type.
-
-In this initial phase of the module the goal is to confront with the users and define a good set of relations for each graph type and create together the graph types that are needed.
 
 
-✨ Features
-- **Interactive Graph Builder**: with drag-and-drop node placement and zoom/pan support.
-- **Custom Graph Types**: (e.g., "Enemy Map", "Coterie Web", "Political Factions").
-- **Relation Styling**: Each relationship type can have a unique color, line style, and width (e.g., dashed red for "Enemy", dotted green for "Ally").
-- **Link & Node Management**: Easily link or unlink entities or delete nodes.
-- **Background Support**: Set a background image for your graph to anchor it in a visual context (maps, floor plans, etc.) [at the moment linked to the graph type, but planned to make it custom].
-- **Persistent Storage**: Graphs are saved and managed per world, supporting editing, exporting, and rendering as SVG.
-- **Export of Diagram**: Graphs can be exported as PNG. The VtM Relationship Map below is an example
-- **Open Sheet from Graph**: it is possible to open the sheet of the Document in the graph by double clicking on the node.
+## ⚠️ Beta Status
 
-![Oddfellows Coterie](doc/Oddfellows_Coterie.png)
-![Vampire genealogy](doc/Camarilla_Map.png)
-![Vegas Map](doc/map.png)
-# Usage
-You will find the **Graph Management** button in the Token toolset.
-![Module Button](doc/moduleButton.png)
+**Foundry Graph is currently in beta.**  
+Schemas may change and migrations are not guaranteed yet.
 
-The button will open 
-the **Graph Dashboard** with the list of the existing graphs on the world.
-![alt text](doc/listGraphs.png)
-The **Create Graph** tab allows you to create a new graph or to edit an existing one.
-![alt text](doc/createGraphs.png)
-Each graph type comes with a predefined background; the option of managing a custom background image for a graph is under construction.
+Use for testing and feedback — not long‑term production data.
 
-By pressing the **Open Graph** button in the list view it will be possible to manage the graph.
+---
 
-![graph example](doc/graph_example.png)
-The way of building a graph diagram differs slightly between graph types:
-- Genealogy types: cannot have dangling nodes so - apart the first node - each node must be dropped once the **Link Nodes** button is activated and the dropped node will get the relation - chosen in the select list - with the clicked node.
-- Free Diagrams types: nodes can be placed on the diagram as please and all type of entities can be dropped (Actors, Items, Scenes). Using the **Link Nodes** button it will be possible to draw links between nodes (the first clicked will be the source, the second the target). A left click on either the node or the link will allow deletion
+## Overview
 
-🧩 Use Cases
-- Track political alliances and betrayals in a Game of Thrones-style intrigue.
-- Build a vampire lineage and coterie relationship web for World of Darkness.
-- Visualize quest dependencies and how NPCs are tied to objectives.
-- Map out interconnected factions in a sandbox world.
+**Foundry Graph** is a Foundry VTT module that allows Game Masters to build interactive visual graphs directly inside their worlds.
 
-# Renderers
-This module offers 3 type of renderer that are the engine behind each graph type:
-- Static Force Diagram Renderer: it is used for drawing diagrams of nodes connected with lines; the placement of the nodes is manual by the user to allow precise and fixed positioning
-- Genealogy Renderer: it shows a genealogy of nodes.
-- Slot Layout Renderer: allows to define slots positioned on an image that can allow to accept specific entities within
+Create:
+
+- Character relationship webs  
+- Political or faction hierarchies  
+- Vampire coteries and genealogies  
+- Investigation boards  
+- Geographic maps  
+- Quest dependency diagrams  
+
+Everything lives directly inside Foundry — no external tools.
+
+
+## Quick Visual Tour
+
+<details open>
+  <summary><strong>Relationship Mapping</strong></summary>
+
+![Relationship Example](doc/Oddfellows_Coterie.png)
+</details>
+
+<details>
+  <summary><strong>Genealogy Map</strong></summary>
+
+![Coterie](doc/Camarilla_Map.png)
+</details>
+
+<details>
+  <summary><strong>Geographic Map Mode (Leaflet)</strong></summary>
+
+![Map](doc/map.png)
+</details>
+<details>
+  <summary><strong>Slot Renderer</strong></summary>
+
+### Graph Editor
+![Graph Example](doc/Heaven.png)
+</details>
+<details>
+  <summary><strong>Graph Editor</strong></summary>
+
+### Graph Editor
+![Graph Example](doc/graph_example.png)
+</details>
+
+
+## How the module works: Graph Types and Renderers
+
+Foundry Graph is built around two core concepts:
+
+### 1) Graph Types (templates)
+A **Graph Type** defines the purpose of a graph and its rules:
+
+- which Foundry entities can be dropped (Actors / Items / Scenes / Journal Pages)
+- which relationship types exist (e.g. Ally, Enemy, Child-of…)
+- optional themes and default background configuration
+- which renderer is used to display and edit the graph
+
+Graph Types let you offer “ready-to-use” experiences like *Vampire Relationship Map*, *Genealogy Tree*, or *Geographical Map*, while keeping a consistent data model across the module.
+
+### Graph Types
+Templates defining:
+- allowed entities
+- relations
+- default background
+- renderer choice
+
+These are the graph type available 
+| Graph Type | Renderer | Themes |System | Allowed Objects | Description |
+|-----------|----------|---|-----|-----------------|-------------|
+| Characters Map | Free Diagram | | Any | Actors | Generic character relationships |
+| Enemy Map | Free Diagram | | Any | Actors | Conflict-focused diagrams |
+| Faction Power Structure  | Free Diagram | | Any | Actors | Internal faction hierarchies |
+| World of Darkness Relationship Map | Free Diagram | Modern, Old | WoD5e / VTM5e | Actors, JournalPages | Coterie and vampire relations |
+| Genealogy Tree | Genealogy | | Any | Actors | Family or lineage trees |
+| Geography Map (OpenStreetMap or Raster) | Leaflet | | Any | Any | Geographic markers |
+| Haven Layout | Slot Layout | Castle, manor, house, modern house, condo, penthouse, slums, medieval village, medieval manor, medieval crypt| WoD5e / VTM5e | Items | Vampire haven visualization |
+
+New graph types are actively under development — feel free to open an issue with suggestions.
+
+
+
+### 2) Renderers (interaction engines)
+A **Renderer** is the engine that controls:
+
+- how the graph is displayed
+- how users interact (dragging, linking, drawing, snapping to slots…)
+- what is stored in the graph data (node positions vs lat/lng vs slot ids)
+
+Renderers are reusable: multiple graph types can share the same renderer but differ in allowed entities and relation vocabulary.
+
+#### Force Renderer (Free Diagram)
+**Concept**
+A diagram made of **nodes + links** on a 2D canvas. Nodes have manual positions and links have styles.
+
+**Key interactions**
+- Drag & drop Foundry documents to create nodes
+- Manual positioning: nodes can be dragged anywhere - free placement
+- Linking mode: enable “Link Nodes”, shift-click source → _drag_ → click target to create a relationship
+- Add custom labels at _source_ or _target_ positions
+- Relation styling: links can have color, width, and dashed/dotted styles depending on relation type
+- Node actions:
+  - Double-click opens the referenced document sheet
+  - Deletion
+  - Hiding the image/identity
+  - For Journal Page nodes can customize the image
+
+![alt text](doc/EditLabels.png)
+![alt text](doc/PageImageMenu.png)
+![alt text](doc/EditPageImage.png)
+Best for relationship webs, investigations, factions.
+
+#### Genealogy Renderer
+**Concept**
+A hierarchy layout driven by genealogy rules. Nodes must always be connected.
+
+**Key interactions**
+- Tree requires an initial root node - no dangling nodes
+- Link-first workflow (no dangling nodes):
+  - select an existing node
+  - drop a new Actor to create a related person
+- Relation types are constrained to genealogy semantics
+
+Best for lineage, ancestry, bloodlines, structured “parent/child” trees.
+
+
+#### Map Renderer (Leaflet)
+**Concept**
+A Leaflet-powered map supporting either OpenStreetMap tiles or a raster background image.
+
+**Base layers**
+1. OpenStreetMap (default)
+2. Raster image (png/jpg/webp) using simple image coordinates
+
+**Key interactions**
+- Drag & drop documents to create markers
+- Move markers to update coordinates
+- Draw polygons, polylines, rectangles, circles
+
+![Map Editor](doc/GeoMapEditor.png)
+**Typical graph types**
+Custom city maps, fantasy regions
+
+Best for world maps, city maps, location-centric graphs.
+
+#### Slot Layout Renderer
+**Concept**
+A background image contains predefined slots. Nodes snap into slots and follow validation rules.
+
+Slots define:
+- position and size
+- capacity
+- allowed document types
+
+**Key interactions**
+- Drag & drop documents onto slots
+- Snap-to-slot placement
+- Slot validation (deny if full or invalid type)
+- Optional linking
+
+
+Best for structured boards (havens, dashboards).
+
+---
+
+## Usage
+
+Open **Graph Management** from the Token toolbar:
+
+![Toolbar](doc/moduleButton.png)
+
+Dashboard:
+
+![Dashboard](doc/listGraphs.png)
+
+Create / edit graphs:
+
+![Create](doc/createGraphs.png)
+
+Workflow:
+
+1. Create graph
+2. Open it
+3. Drag documents
+4. Link nodes
+5. Save
+
+---
+
+## Planned Features
+- Timeline renderer
+  
+
+
 
 ## Changelog
 
 [Changelog](CHANGELOG.md)
-
-## Planned features
-- Custom background overloading the one proposed
-- better link drawing: allow for splines of segmented links
 
 ## Support
 
