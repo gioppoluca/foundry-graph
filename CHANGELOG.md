@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-02-01
+### :sparkles: New Features
+- [`bd700e3`](https://github.com/gioppoluca/foundry-graph/commit/bd700e353df4e0d62f631ab11cf1db1a923f69cb) - added on the force renderer the possibility to add labels to source and target links *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`7efae17`](https://github.com/gioppoluca/foundry-graph/commit/7efae17a7bbb80cf73aadf8c6de59e678210f139) - can use raster image for map; closes [#6](https://github.com/gioppoluca/foundry-graph/pull/6) *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`0dcfae9`](https://github.com/gioppoluca/foundry-graph/commit/0dcfae9d9321d8984a453c328727e0090a5ac167) - added journal pages to vampire relations *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`ce86ccf`](https://github.com/gioppoluca/foundry-graph/commit/ce86ccf5d3930d4845a0bbc0da24c57923cae551) - added the option to change the image for the page journal type *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.7.1] - 2026-01-21
 ### :sparkles: New Features
 - [`c92079f`](https://github.com/gioppoluca/foundry-graph/commit/c92079f500343489468b3f3d7d3007d28daf9361) - added the option to change the marker color *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -178,3 +186,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.6.3]: https://github.com/gioppoluca/foundry-graph/compare/0.6.2...0.6.3
 [0.7.0]: https://github.com/gioppoluca/foundry-graph/compare/0.6.3...0.7.0
 [0.7.1]: https://github.com/gioppoluca/foundry-graph/compare/0.7.0...0.7.1
+[0.8.0]: https://github.com/gioppoluca/foundry-graph/compare/0.7.1...0.8.0
