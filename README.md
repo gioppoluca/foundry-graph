@@ -57,13 +57,11 @@ Everything lives directly inside Foundry — no external tools.
 <details>
   <summary><strong>Slot Renderer</strong></summary>
 
-### Graph Editor
 ![Graph Example](doc/Heaven.png)
 </details>
 <details>
   <summary><strong>Graph Editor</strong></summary>
 
-### Graph Editor
 ![Graph Example](doc/graph_example.png)
 </details>
 
