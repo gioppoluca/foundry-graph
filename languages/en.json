@@ -9,7 +9,7 @@
             "manageRelations": "Manage Relations",
             "permissions": "Manage Graph permissions"
         },
-        "themes":{
+        "themes": {
             "none": "No Theme"
         },
         "Tabs": {
@@ -74,6 +74,17 @@
             "InvalidGraphType": "Invalid graph type selected.",
             "GraphSaved": "Graph saved.",
             "GraphCleanupDone": "Cleaned up graph references."
+        },
+        "GraphPage": {
+            "Configure": "Foundry Graph",
+            "Title": "Graph Page",
+            "Hint": "Set Foundry Graph flags for this Journal Page.",
+            "IconLabel": "Custom icon",
+            "PickIcon": "Pick an image",
+            "ClearIcon": "Clear",
+            "Preview": "Preview",
+            "Saved": "Page settings saved.",
+            "SaveError": "Could not save page settings."
         },
         "DeletionDialog": {
             "Title": "Deletion Warning",

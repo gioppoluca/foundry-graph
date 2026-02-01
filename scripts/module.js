@@ -1,6 +1,6 @@
 import { MODULE_ID, setDebugFlag, log, t } from './constants.js';
 import { GraphApi } from "./graph_api.js";
-
+import { GraphPageApplication } from "./graph-page-application.js";
 
 Hooks.once('init', async function () {
   await GraphApi.registerSettings();
@@ -20,6 +20,30 @@ Hooks.once('init', async function () {
 
 Hooks.once('ready', async function () {
 
+});
+
+/**
+ * Add a "Foundry Graph" configuration entry to the header controls (3-dots menu)
+ * of JournalEntryPage sheets.
+ */
+Hooks.on("getHeaderControlsApplicationV2", (app, controls) => {
+  const doc = app?.document;
+  if (!doc) return;
+  if (doc.documentName !== "JournalEntryPage") return;
+
+  // Avoid duplicates
+  const action = `${MODULE_ID}.configurePage`;
+  if (controls.some(c => c.action === action)) return;
+
+  controls.push({
+    action,
+    icon: "fa-solid fa-project-diagram",
+    label: "foundry-graph.GraphPage.Configure",
+    ownership: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER,
+    onClick: () => {
+      new GraphPageApplication({ page: doc }).render(true);
+    }
+  });
 });
 
 /*************************  Scene‑controls button ***************************/
@@ -74,7 +98,7 @@ async function performCleanup(affectedList, uuid) {
   for (const graph of affectedList) {
     const RendererClass = game.modules.get(MODULE_ID)?.api.getRenderer(graph?.renderer);
     log(RendererClass);
-    log(`Foundry Graph | Cleaning up graph ${graph.name} (${graph.id})`,affectedList);
+    log(`Foundry Graph | Cleaning up graph ${graph.name} (${graph.id})`, affectedList);
     // 1. Delegate logic to Renderer
     const cleanedData = RendererClass.removeEntity(graph, uuid);
     log(cleanedData);

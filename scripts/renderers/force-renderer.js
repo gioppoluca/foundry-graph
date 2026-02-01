@@ -1,4 +1,4 @@
-import { log, safeUUID } from "../constants.js";
+import { log, safeUUID, MODULE_ID } from "../constants.js";
 import { BaseRenderer } from "./base-renderer.js";
 const { DialogV2 } = foundry.applications.api;
 
@@ -1075,13 +1075,14 @@ console.log("linkData in edit dialog:", linkData);
           ui.notifications.warn("Could not find page");
           return;
         }
+        const customIcon = page.getFlag(MODULE_ID, "icon");
 
         this.addNode(this.graph, {
           id: newId,
           uuid: data.uuid,
           label: page.name,
           type: 'JournalEntryPage',
-          img: "modules/foundry-graph/img/journal.png",
+          img: customIcon || `modules/${MODULE_ID}/img/journal.png`,
           x: x,
           y: y
         });
