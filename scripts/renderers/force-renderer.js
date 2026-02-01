@@ -70,7 +70,8 @@ export class ForceRenderer extends BaseRenderer {
         fx: n.fx,
         fy: n.fy
       })),
-      links: links.map(l => ({
+      //links: links.map(l => ({
+      links: (this.graph?.data?.links ?? []).map(l => ({
         // CRITICAL FIX: Store only the ID of the source and target nodes
         id: l.id,
         source: l.source.id,
@@ -78,6 +79,8 @@ export class ForceRenderer extends BaseRenderer {
         // --- copy other link properties ---
         relationId: l.relationId,
         label: l.label,
+        sourceLabel: l.sourceLabel ?? "",
+        targetLabel: l.targetLabel ?? "",
         color: l.color,
         style: l.style,
         noArrow: l.noArrow === true || l.noArrow === "true",
@@ -169,6 +172,9 @@ export class ForceRenderer extends BaseRenderer {
     if (Array.isArray(renderGraph?.data?.links)) {
       for (const l of renderGraph.data.links) {
         if (!l.id) l.id = safeUUID();
+        // NEW: defensive defaults for endpoint labels
+        if (l.sourceLabel == null) l.sourceLabel = "";
+        if (l.targetLabel == null) l.targetLabel = "";
       }
     }
 
@@ -285,7 +291,7 @@ export class ForceRenderer extends BaseRenderer {
       .on("contextmenu", (event, d) => {
         log("RIGHT CLICK LINK", d, event)
         event.preventDefault();
-        this._onRightClickLink(d);
+        this._onRightClickLink(event, d);
       });
 
     const linkLabels = zoomLayer.append("g")
@@ -299,7 +305,31 @@ export class ForceRenderer extends BaseRenderer {
       .attr("filter", "url(#link-label-shadow)")
       .text(d => d.label || d.type || "");
 
+    // NEW: endpoint labels (source/target)
+    const linkSourceLabels = zoomLayer.append("g")
+      .attr("class", "link-source-labels")
+      .selectAll("text")
+      .data(renderGraph.data.links, d => d.id)
+      .join("text")
+      .attr("font-size", 11)
+      .attr("fill", d => d.color || "#000")
+      .attr("text-anchor", "start")
+      .attr("filter", "url(#link-label-shadow)")
+      .text(d => d.sourceLabel || "");
+
+    const linkTargetLabels = zoomLayer.append("g")
+      .attr("class", "link-target-labels")
+      .selectAll("text")
+      .data(renderGraph.data.links, d => d.id)
+      .join("text")
+      .attr("font-size", 11)
+      .attr("fill", d => d.color || "#000")
+      .attr("text-anchor", "end")
+      .attr("filter", "url(#link-label-shadow)")
+      .text(d => d.targetLabel || "");
+
     log("added link labels")
+
     const node = zoomLayer.append("g")
       .selectAll("image")
       .data(renderGraph.data.nodes, d => d.id)
@@ -342,6 +372,8 @@ export class ForceRenderer extends BaseRenderer {
                 target: target.id,
                 relationId: relation.id,
                 label: relation.label,
+                sourceLabel: "",
+                targetLabel: "",
                 color: relation.color,
                 style: relation.style,
                 noArrow: relation?.noArrow || false,
@@ -596,6 +628,52 @@ export class ForceRenderer extends BaseRenderer {
       linkLabels
         .attr("x", d => (d.source.x + d.target.x) / 2)
         .attr("y", d => (d.source.y + d.target.y) / 2);
+
+      // Endpoint label positioning
+      // Place near endpoints with a small along-link offset + perpendicular offset for readability.
+      const END_TEXT_OFFSET = 36;   // move away from node center along the link
+      const PERP_TEXT_OFFSET = 12;  // move slightly off the line
+
+      linkSourceLabels
+        .attr("x", d => {
+          const sx = d.source.x, sy = d.source.y;
+          const tx = d.target.x, ty = d.target.y;
+          const dx = tx - sx, dy = ty - sy;
+          const len = Math.hypot(dx, dy) || 1;
+          const ux = dx / len, uy = dy / len;
+          const px = -uy, py = ux; // perpendicular
+          return sx + ux * END_TEXT_OFFSET + px * PERP_TEXT_OFFSET;
+        })
+        .attr("y", d => {
+          const sx = d.source.x, sy = d.source.y;
+          const tx = d.target.x, ty = d.target.y;
+          const dx = tx - sx, dy = ty - sy;
+          const len = Math.hypot(dx, dy) || 1;
+          const ux = dx / len, uy = dy / len;
+          const px = -uy, py = ux; // perpendicular
+          return sy + uy * END_TEXT_OFFSET + py * PERP_TEXT_OFFSET;
+        });
+
+      linkTargetLabels
+        .attr("x", d => {
+          const sx = d.source.x, sy = d.source.y;
+          const tx = d.target.x, ty = d.target.y;
+          const dx = tx - sx, dy = ty - sy;
+          const len = Math.hypot(dx, dy) || 1;
+          const ux = dx / len, uy = dy / len;
+          const px = -uy, py = ux; // perpendicular
+          return tx - ux * END_TEXT_OFFSET + px * PERP_TEXT_OFFSET;
+        })
+        .attr("y", d => {
+          const sx = d.source.x, sy = d.source.y;
+          const tx = d.target.x, ty = d.target.y;
+          const dx = tx - sx, dy = ty - sy;
+          const len = Math.hypot(dx, dy) || 1;
+          const ux = dx / len, uy = dy / len;
+          const px = -uy, py = ux; // perpendicular
+          return ty - uy * END_TEXT_OFFSET + py * PERP_TEXT_OFFSET;
+        });
+
       nodeLabels
         .attr("x", d => d.x)
         .attr("y", d => d.y + 42); // 32 (half icon) + 10 spacing
@@ -703,6 +781,9 @@ export class ForceRenderer extends BaseRenderer {
                 target: target.id,
                 relationId: relation.id,
                 label: relation.label,
+                // NEW: endpoint labels defaults
+                sourceLabel: "",
+                targetLabel: "",
                 color: relation.color,
                 style: relation.style,
                 noArrow: relation?.noArrow || false,
@@ -817,16 +898,124 @@ export class ForceRenderer extends BaseRenderer {
       ]
     });
   }
-
-  async _onRightClickLink(linkData) {
-    log("_onRightClickLink", linkData)
-    const confirmed = await DialogV2.confirm({
-      content: `Delete link from "${linkData.source?.label || linkData.source?.id}" to "${linkData.target?.label || linkData.target?.id}"?`,
-    })
-    if (confirmed) {
-      this.graph.data.links = this.graph.data.links.filter(l => l !== linkData);
-      this.render(); // Redraw
+  /*
+    async _onRightClickLink(linkData) {
+      log("_onRightClickLink", linkData)
+      const confirmed = await DialogV2.confirm({
+        content: `Delete link from "${linkData.source?.label || linkData.source?.id}" to "${linkData.target?.label || linkData.target?.id}"?`,
+      })
+      if (confirmed) {
+        this.graph.data.links = this.graph.data.links.filter(l => l !== linkData);
+        this.render(); // Redraw
+      }
     }
+      */
+
+  async _openEditLinkLabelsDialog(linkData) {
+    const { DialogV2 } = foundry.applications.api;
+    const { StringField } = foundry.data.fields;
+console.log("linkData in edit dialog:", linkData);
+    // Build 2 form groups using Foundry fields (stable + consistent with DialogV2)
+    const sourceGroup = new StringField({
+      label: `Source label (${linkData?.source?.label}): `,
+      initial: linkData?.sourceLabel ?? "",
+      required: false
+    }).toFormGroup(
+      { value: linkData?.sourceLabel ?? "" },
+      { name: "sourceLabel" }
+    ).outerHTML;
+
+    const targetGroup = new StringField({
+      label: `Target label (${linkData?.target?.label}): `,
+      initial: linkData?.targetLabel ?? "",
+      required: false
+    }).toFormGroup(
+      { value: linkData?.targetLabel ?? "" },
+      { name: "targetLabel" }
+    ).outerHTML;
+
+    const content = `
+    <form class="fg-link-label-editor">
+      ${sourceGroup}
+      ${targetGroup}
+      <p class="notes">Tip: leave empty to hide the endpoint label.</p>
+    </form>
+  `;
+
+    // IMPORTANT: DialogV2.prompt returns the callback return value (or null/undefined)
+    const result = await DialogV2.prompt({
+      window: { title: "Edit link endpoint labels" },
+      content,
+      ok: {
+        label: "Save",
+        callback: (event, button) => {
+          // This is the correct v13 way: button.form + FormDataExtended
+          const obj = new FormDataExtended(button.form).object;
+          return {
+            sourceLabel: String(obj.sourceLabel ?? "").trim(),
+            targetLabel: String(obj.targetLabel ?? "").trim()
+          };
+        }
+      },
+      rejectClose: false
+    });
+
+    if (!result) return false;
+
+    // Update datum for immediate redraw
+    linkData.sourceLabel = result.sourceLabel;
+    linkData.targetLabel = result.targetLabel;
+
+    // Update persisted model so it saves reliably
+    const modelLink = this.graph?.data?.links?.find(l => l.id === linkData.id);
+    if (modelLink) {
+      modelLink.sourceLabel = result.sourceLabel;
+      modelLink.targetLabel = result.targetLabel;
+    }
+
+    this.render();
+    return true;
+  }
+
+  async _onRightClickLink(event, linkData) {
+    log("_onRightClickLink", linkData);
+
+    const src = linkData?.source?.label || linkData?.source?.id || "source";
+    const tgt = linkData?.target?.label || linkData?.target?.id || "target";
+    const label = linkData.label || `${src} → ${tgt}`;
+
+    this._showRadialMenu({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      items: [
+        {
+          id: "editLabels",
+          label: `Edit endpoint labels (${label})`,
+          icon: "fa-solid fa-pen-to-square",
+          onClick: async () => {
+            // Close the radial menu so it doesn't remain above the dialog
+            this._closeRadialMenu?.();
+            await this._openEditLinkLabelsDialog(linkData);
+            console.log("Returned from edit labels dialog", linkData, this.graph.data);
+
+          }
+        },
+        {
+          id: "delete",
+          label: `Delete link (${label})`,
+          icon: "fa-solid fa-trash",
+          onClick: async () => {
+            this._closeRadialMenu?.();
+            const confirmed = await DialogV2.confirm({
+              content: `Delete link from "${src}" to "${tgt}"?`,
+            });
+            if (!confirmed) return;
+            this.graph.data.links = this.graph.data.links.filter(l => l !== linkData);
+            this.render();
+          }
+        }
+      ]
+    });
   }
 
   async _onDrop(event) {
