@@ -1,8 +1,8 @@
 export const GRAPH_TYPES = {
   "osm-world-map": {
     "id": "osm-world-map",
-    "name": "OpenStreetMap (World Map)",
-    "description": "A Leaflet/OpenStreetMap map that stores draggable markers (Actors/Scenes/Items/Journal pages) with real-world coordinates.",
+    "name": "Geographical Map",
+    "description": "A Leaflet (OpenStreetMap or Raster) map that stores draggable markers (Actors/Scenes/Items/Journal pages) with real-world coordinates.",
     "themes": [],
     "renderer": "map",
     "color": "#222222",
@@ -131,7 +131,7 @@ export const GRAPH_TYPES = {
     "color": "#ff0000",
     "nodeLabelColor": "#ffffff",
     "version": 1,
-    "allowedEntities": ["Actor"],
+    "allowedEntities": ["Actor", "JournalEntryPage"],
     "systems": [
       "vtm5e",
       "worldofdarkness",
