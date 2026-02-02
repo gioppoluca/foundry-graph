@@ -84,7 +84,27 @@
             "ClearIcon": "Clear",
             "Preview": "Preview",
             "Saved": "Page settings saved.",
-            "SaveError": "Could not save page settings."
+            "SaveError": "Could not save page settings.",
+            "start_date": "Start date",
+            "end_date": "End date",
+            "event_color": "Event color",
+            "StartDateRequired": "Start date is required.",
+            "PickDate": "Pick date",
+            "ClearDate": "Clear",
+            "Year": "Year",
+            "Month": "Month",
+            "Day": "Day",
+            "Time": "Time",
+            "Apply": "Apply",
+            "Close": "Close",
+            "StartDate": "Start date",
+            "EndDate": "End date",
+            "InvalidDate": "Invalid date"
+        },
+        "Timeline": {
+            "DefaultLane": "Default Lane",
+            "AddGraphFrame": "Add Graph Frame",
+            "GraphFrame": "Graph Frame"
         },
         "DeletionDialog": {
             "Title": "Deletion Warning",

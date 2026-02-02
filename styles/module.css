@@ -277,3 +277,86 @@ svg image {
   border: 1px solid rgba(255, 255, 255, 0.25);
   object-fit: cover;
 }
+
+
+.fg-dtp-row {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.fg-dtp-display[readonly] {
+  cursor: default;
+}
+
+.fg-dtp-btn {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  line-height: 30px;
+  text-align: center;
+}
+
+.fg-dtp-popover[hidden] {
+  display: none !important;
+}
+
+.fg-dtp-popover {
+  background: var(--color-cool-5);
+  border: 1px solid var(--color-border-light-2);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  padding: 8px;
+}
+
+.fg-dtp-popover-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fg-dtp-grid {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.fg-dtp-time {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.fg-dtp-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.fg-dtp-small {
+  padding: 4px 10px;
+}
+
+.fg-dtp-lbl {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.foundry-graph-tooltip .timeline-tooltip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 300px;
+}
+
+.foundry-graph-tooltip .timeline-tooltip img {
+    border: 1px solid #7a7971;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+.foundry-graph-tooltip .dates {
+    font-size: 0.85em;
+    color: #bbb;
+}

@@ -6,7 +6,7 @@ import { GenealogyRenderer } from "./renderers/genealogy-renderer.js";
 import { ImageSlotsRenderer } from "./renderers/image-slot-renderer.js";
 import { MapRenderer } from "./renderers/map-renderer.js";
 import { migrateGraph } from "./model/graph_migrations.js";
-
+import { TimelineRenderer } from "./renderers/timeline-renderer.js";
 
 const LEVELS = foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS; // { NONE:0, LIMITED:1, OBSERVER:2, OWNER:3 }
 const DEFAULT_STORAGE_ROOT = "foundry-graph"; // Data/foundry-graph/<worldId>/
@@ -77,6 +77,7 @@ export class GraphApi {
             [GenealogyRenderer.ID, new GenealogyRenderer()],
             [ImageSlotsRenderer.ID, new ImageSlotsRenderer()],
             [MapRenderer.ID, new MapRenderer()],
+            [TimelineRenderer.ID, new TimelineRenderer()],
         ]);
 
         log("GraphApi.constructor", this.graphTypes)
@@ -140,7 +141,7 @@ export class GraphApi {
 
     async updateGraphPermissions(graphId, newPerms) {
         const g = await this.getGraph(graphId);
-        log("updateGraphPermissions", graphId, newPerms, g);    
+        log("updateGraphPermissions", graphId, newPerms, g);
         if (!g) throw new Error(`Graph ${graphId} not found`);
 
         g.permissions = newPerms;
@@ -233,8 +234,8 @@ export class GraphApi {
             revision: revision
         };
 
-//        this._indexMap.set(graph.id, graph);
-//        this._graphMap.set(graph.id, entry);
+        //        this._indexMap.set(graph.id, graph);
+        //        this._graphMap.set(graph.id, entry);
         this._indexMap.set(graph.id, entry);
         this._graphMap.set(graph.id, graph);
 

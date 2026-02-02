@@ -24,6 +24,31 @@
         </div>
     </div>
 
+    <div class="resource flex-group-center">
+        <div class="resource-content flexrow flex-center flex-between">
+        </div>
+        <!-- Start Date Input -->
+        <label for="startdate">{{localize "foundry-graph.GraphPage.start_date"}}</label>
+        
+        {{> "modules/foundry-graph/templates/partials/calendar-datetime.hbs"
+        name="startdate"
+        label=(localize "foundry-graph.GraphPage.start_date")
+        value=startdate
+        id="startdate"
+        required=true}}
+        <br><br>
+
+        <!-- End Date Input -->
+        <label for="enddate">{{localize "foundry-graph.GraphPage.end_date"}}</label>
+        <input type="datetime-local" id="enddate" name="enddate" value="{{enddate}}">
+        <br><br>
+
+        <!-- Color Picker -->
+        <label for="colorevent">{{localize "foundry-graph.GraphPage.event_color"}}</label>
+        <input type="color" id="colorevent" name="colorevent" value="{{colorevent}}">
+
+    </div>
+
     <footer class="sheet-footer flexrow">
         <button type="submit" data-action="save">
             <i class="fa-solid fa-floppy-disk"></i> {{localize "foundry-graph.Buttons.Save"}}

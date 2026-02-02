@@ -5,7 +5,7 @@ export const GRAPH_TYPES = {
     "description": "A Leaflet (OpenStreetMap or Raster) map that stores draggable markers (Actors/Scenes/Items/Journal pages) with real-world coordinates.",
     "themes": [],
     "renderer": "map",
-    "color": "#222222",
+    "color": "#4639f7",
     "nodeLabelColor": "#ffffff",
     "version": 1,
     "allowedEntities": ["Actor", "Scene", "Item", "JournalEntryPage"],
@@ -103,6 +103,25 @@ export const GRAPH_TYPES = {
       }
     ]
   },
+  "timeline-notes": {
+    "id": "timeline-notes",
+    "name": "Timeline",
+    "description": "A lane-based timeline (lanes = relations) that stores time-bands linked to documents.",
+    "themes": [],
+    "background": {
+      "image": "modules/foundry-graph/img/relations.webp",
+      "width": 2500,
+      "height": 1667
+    },
+    "renderer": "timeline",
+    "color": "#01ff6b",
+    "nodeLabelColor": "#ffffff",
+    "version": 1,
+    "systems": [
+      "*"
+    ],
+    "allowedEntities": ["JournalEntryPage", "JournalEntry", "Actor", "Scene", "Item"]
+  },
   "vampire-relations-map": {
     "id": "vampire-relations-map",
     "name": "World of Darkness Relationship Map",
@@ -112,21 +131,21 @@ export const GRAPH_TYPES = {
       "width": 2500,
       "height": 1667
     },
-    "themes": [      {
-        "id": "modern",
-        "label": "Modern",
-        "image": "modules/foundry-graph/img/themes/vamp-rel-chart/vampire-relation-chart.webp",
-        "width": 2500,
-        "height": 1667
-      },
-      {
-        "id": "old",
-        "label": "Old Style",
-        "image": "modules/foundry-graph/img/themes/vamp-rel-chart/vampire-relation-chart-old.webp",
-        "width": 1728,
-        "height": 2464
-      },
-],
+    "themes": [{
+      "id": "modern",
+      "label": "Modern",
+      "image": "modules/foundry-graph/img/themes/vamp-rel-chart/vampire-relation-chart.webp",
+      "width": 2500,
+      "height": 1667
+    },
+    {
+      "id": "old",
+      "label": "Old Style",
+      "image": "modules/foundry-graph/img/themes/vamp-rel-chart/vampire-relation-chart-old.webp",
+      "width": 1728,
+      "height": 2464
+    },
+    ],
     "renderer": "force",
     "color": "#ff0000",
     "nodeLabelColor": "#ffffff",

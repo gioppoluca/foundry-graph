@@ -14,6 +14,9 @@ Hooks.once('init', async function () {
   log(mod)
 
   await mod.api.loadGraphs();
+  await loadTemplates([
+    "modules/foundry-graph/templates/partials/calendar-datetime.hbs",
+  ]);
   // TODO in case we need to give other modules hooks access to the API
   //Hooks.callAll(`${MODULE_ID}.ready`, api);
 });
