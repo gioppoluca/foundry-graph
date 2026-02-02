@@ -1,0 +1,59 @@
+<div class="fg-dtp" data-fg-dtp data-name="{{name}}" data-required="{{required}}">
+    {{!-- Persisted value: world-time seconds (recommended) --}}
+    <input type="hidden" name="{{name}}" value="{{value}}" />
+
+    <div class="form-group">
+        <label>{{label}}</label>
+
+        <div class="form-fields fg-dtp-row">
+            {{!-- Readonly display --}}
+            <input class="fg-dtp-display" type="text" readonly placeholder="—" />
+
+            {{!-- Calendar icon --}}
+            <button type="button" class="fg-dtp-btn" data-action="toggle" title="{{localize 'foundry-graph.GraphPage.PickDate'}}">
+                <i class="fas fa-calendar-alt"></i>
+            </button>
+
+            {{!-- Clear (optional) --}}
+            {{#unless required}}
+            <button type="button" class="fg-dtp-btn" data-action="clear" title="{{localize 'foundry-graph.GraphPage.ClearDate'}}">
+                <i class="fas fa-times"></i>
+            </button>
+            {{/unless}}
+        </div>
+
+        {{!-- Popover (hidden by default). We keep it in DOM for simple positioning. --}}
+        <div class="fg-dtp-popover" hidden>
+            <div class="fg-dtp-popover-inner">
+                <div class="fg-dtp-grid">
+                    <label class="fg-dtp-lbl">{{localize "foundry-graph.GraphPage.Year"}}</label>
+                    <input type="number" class="fg-year" step="1" />
+
+                    <label class="fg-dtp-lbl">{{localize "foundry-graph.GraphPage.Month"}}</label>
+                    <select class="fg-month"></select>
+
+                    <label class="fg-dtp-lbl">{{localize "foundry-graph.GraphPage.Day"}}</label>
+                    <input type="number" class="fg-day" min="1" step="1" />
+
+                    <label class="fg-dtp-lbl">{{localize "foundry-graph.GraphPage.Time"}}</label>
+                    <div class="fg-dtp-time">
+                        <input type="number" class="fg-hour" min="0" step="1" />
+                        <span>:</span>
+                        <input type="number" class="fg-minute" min="0" step="1" />
+                    </div>
+                </div>
+
+                <div class="fg-dtp-actions">
+                    <button type="button" class="fg-dtp-small" data-action="apply">
+                        <i class="fas fa-check"></i> {{localize "foundry-graph.GraphPage.Apply"}}
+                    </button>
+                    <button type="button" class="fg-dtp-small" data-action="close">
+                        <i class="fas fa-times"></i> {{localize "foundry-graph.GraphPage.Close"}}
+                    </button>
+                </div>
+
+                <p class="hint fg-hint"></p>
+            </div>
+        </div>
+    </div>
+</div>
