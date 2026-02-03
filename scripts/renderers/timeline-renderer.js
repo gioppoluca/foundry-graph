@@ -1,5 +1,6 @@
 import { MODULE_ID, log, t } from "../constants.js";
 import { BaseRenderer } from "./base-renderer.js";
+import { FGCalendarDateTimePopover } from "../ui/calendar-datetime-popover.js";
 const { DialogV2 } = foundry.applications.api;
 
 /**
@@ -28,7 +29,7 @@ export class TimelineRenderer extends BaseRenderer {
     this._root = null;
     this._laneWidth = 180; // left label area
     this._margin = { top: 30, right: 20, bottom: 30, left: 10 };
-
+    
     // Zoom and pan state
     this._zoom = null;
     this._container = null;
@@ -233,13 +234,13 @@ export class TimelineRenderer extends BaseRenderer {
     const parentRect = parentNode.getBoundingClientRect();
     const viewportWidth = parentRect.width || 800;
     const viewportHeight = parentRect.height || 600;
-
+    
     const bgW = Number.isFinite(this.graph?.background?.width) ? this.graph.background.width : (this.graph.width || 800);
     const bgH = Number.isFinite(this.graph?.background?.height) ? this.graph.background.height : (this.graph.height || 600);
-
+    
     // Calculate scale to fit the background into the viewport
     const scale = Math.min(viewportWidth / bgW, viewportHeight / bgH, 1);
-
+    
     const transform = d3.zoomIdentity.scale(scale);
     this._svg.transition().duration(500).call(this._zoom.transform, transform);
   }
@@ -275,27 +276,27 @@ export class TimelineRenderer extends BaseRenderer {
     // Set SVG to the full background image dimensions
     // This allows it to overflow the container naturally
     svg.style("width", null)
-      //      .style("height", null)
+//      .style("height", null)
       .style("display", "block")
       .attr("width", bgW)
-      //      .attr("height", bgH)
+//      .attr("height", bgH)
       .attr("viewBox", `0 0 ${bgW} ${bgH}`);
-
+    
     svg.selectAll("*").remove();
 
     // Create a container group for zoom/pan transformations
     this._container = svg.append("g").attr("class", "timeline-container");
-
+    
     // Set up zoom behavior
     this._zoom = d3.zoom()
       .scaleExtent([0.1, 10])  // Allow zoom from 10% to 1000%
       .on("zoom", (event) => {
         this._container.attr("transform", event.transform);
       });
-
+    
     // Apply zoom to svg
     svg.call(this._zoom);
-
+    
     // Start with a fit-to-viewport initial transform if background is larger than default size
     const parentRect = parentNode.getBoundingClientRect();
     if (parentRect.width > 0 && parentRect.height > 0 && (bgW > parentRect.width || bgH > parentRect.height)) {
@@ -383,9 +384,9 @@ export class TimelineRenderer extends BaseRenderer {
 
     // Force the SVG to the full size of the background/content
     svg.style("width", `${totalSvgWidth}px`)
-      //      .style("height", `${totalContentHeight}px`)
+//      .style("height", `${totalContentHeight}px`)
       .attr("width", totalSvgWidth)
-      //      .attr("height", totalContentHeight)
+//      .attr("height", totalContentHeight)
       .attr("viewBox", `0 0 ${totalSvgWidth} ${totalContentHeight}`);
 
     // axis
@@ -667,6 +668,14 @@ export class TimelineRenderer extends BaseRenderer {
           }
         },
         {
+          id: "editDates",
+          label: `Edit Dates (${label})`,
+          icon: "fa-solid fa-calendar-days",
+          onClick: async () => {
+            await this._showEditDatesDialog(item);
+          }
+        },
+        {
           id: "delete",
           label: `Delete (${label})`,
           icon: "fa-solid fa-trash",
@@ -680,6 +689,130 @@ export class TimelineRenderer extends BaseRenderer {
         }
       ]
     });
+  }
+
+  /**
+   * Show a dialog to edit the start and end dates of a timeline item
+   */
+  async _showEditDatesDialog(item) {
+    const doc = await fromUuid(item.uuid);
+    if (!doc) {
+      ui.notifications.error("Could not resolve document.");
+      return;
+    }
+
+    const currentStartTs = doc.getFlag?.(MODULE_ID, "start-date") ?? item.start;
+    const currentEndTs = doc.getFlag?.(MODULE_ID, "end-date") ?? item.end;
+
+    console.log("Current start ts:", currentStartTs);
+    console.log("Current end ts:", currentEndTs);
+
+    // Render the calendar datetime pickers using Handlebars - AWAIT these!
+    const startTemplate = await renderTemplate(
+      "modules/foundry-graph/templates/partials/calendar-datetime.hbs",
+      {
+        name: "start-date",
+        label: game.i18n.localize("foundry-graph.GraphPage.start_date") || "Start Date",
+        value: currentStartTs ? String(currentStartTs) : "",
+        required: true
+      }
+    );
+
+    const endTemplate = await renderTemplate(
+      "modules/foundry-graph/templates/partials/calendar-datetime.hbs",
+      {
+        name: "end-date",
+        label: game.i18n.localize("foundry-graph.GraphPage.end_date") || "End Date",
+        value: currentEndTs ? String(currentEndTs) : "",
+        required: false
+      }
+    );
+    console.log("Rendered startTemplate:", startTemplate);
+    console.log("Rendered endTemplate:", endTemplate);
+
+    // Now create the dialog with the rendered templates
+    const dialog = DialogV2.wait({
+      window: { 
+        title: `Edit Dates: ${item.title}`,
+        resizable: true
+      },
+      content: `
+        <form class="timeline-edit-dates-form">
+          <p class="notes" style="margin-bottom: 1em;">
+            Edit the start and end dates for this timeline item. Changes will be saved to the document flags.
+          </p>
+          ${startTemplate}
+          ${endTemplate}
+        </form>
+      `,
+      buttons: [
+        {
+          action: "save",
+          label: "Save",
+          icon: "fa-solid fa-save",
+          callback: (event, button, dialog) => {
+            const form = dialog.element.querySelector("form");
+            const formData = new FormData(form);
+            
+            const startDateValue = formData.get("start-date");
+            const endDateValue = formData.get("end-date");
+
+            if (!startDateValue || startDateValue === "") {
+              ui.notifications.warn("Start date is required.");
+              return false; // Don't close dialog
+            }
+
+            return { 
+              startDate: Number(startDateValue), 
+              endDate: endDateValue && endDateValue !== "" ? Number(endDateValue) : null 
+            };
+          }
+        },
+        {
+          action: "cancel",
+          label: "Cancel",
+          icon: "fa-solid fa-times"
+        }
+      ],
+      submit: async (result) => {
+        if (result?.startDate === undefined) return; // Cancelled
+
+        try {
+          // Update document flags
+          await doc.setFlag(MODULE_ID, "start-date", result.startDate);
+          
+          if (result.endDate !== null) {
+            await doc.setFlag(MODULE_ID, "end-date", result.endDate);
+          } else {
+            await doc.unsetFlag(MODULE_ID, "end-date");
+          }
+
+          // Update the graph item
+          const graphItem = this.graph?.data?.items?.find(i => i.id === item.id);
+          if (graphItem) {
+            graphItem.start = result.startDate;
+            graphItem.end = result.endDate;
+            graphItem.title = doc.name; // Update title in case it changed
+          }
+
+          // Re-render
+          await this.render(this._svg, this.graph);
+          
+          ui.notifications.info(`Dates updated for "${item.title}"`);
+        } catch (e) {
+          log("TimelineRenderer: failed to update dates", e);
+          ui.notifications.error("Failed to update dates. See console for details.");
+        }
+      },
+      render: async (event, dialog) => {
+        // Enhance the calendar datetime pickers after dialog renders
+        console.log("Enhancing calendar datetime pickers...", dialog, event);
+        //await super._onRender(context, options);
+        FGCalendarDateTimePopover.enhance(dialog.element);
+      }
+    });
+
+    //dialog.render(true);
   }
 
   async _onDrop(event) {
@@ -760,9 +893,5 @@ export class TimelineRenderer extends BaseRenderer {
 
     // re-render
     this.render(this._svg, this.graph);
-  }
-
-  async exportToPNG() {
-    return await this.svgToCanvas({ scale: 3 });
   }
 }
