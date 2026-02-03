@@ -344,19 +344,44 @@ svg image {
 }
 
 .foundry-graph-tooltip .timeline-tooltip {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    max-width: 300px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 300px;
 }
 
 .foundry-graph-tooltip .timeline-tooltip img {
-    border: 1px solid #7a7971;
-    border-radius: 4px;
-    object-fit: cover;
+  border: 1px solid #7a7971;
+  border-radius: 4px;
+  object-fit: cover;
 }
 
 .foundry-graph-tooltip .dates {
-    font-size: 0.85em;
-    color: #bbb;
+  font-size: 0.85em;
+  color: #bbb;
+}
+
+
+/* This allows the timeline to scroll horizontally within the Foundry Tab/Window */
+.foundry-graph-timeline-container {
+  overflow-x: auto !important;
+  overflow-y: hidden;
+  width: 100%;
+}
+
+/* Apply this to the div/section wrapping your SVG */
+.timeline-scroll-wrapper {
+  width: 100%;
+  height: 100%;
+  overflow: auto !important;
+  display: block;
+  /* Enables both horizontal and vertical scrollbars */
+  /*position: relative;
+  background: #111;*/
+}
+
+/* Ensure the SVG doesn't try to shrink back down */
+.timeline-scroll-wrapper svg {
+  display: block;
+  min-width: 100%;
 }

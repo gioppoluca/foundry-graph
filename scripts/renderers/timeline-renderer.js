@@ -29,6 +29,10 @@ export class TimelineRenderer extends BaseRenderer {
     this._laneWidth = 180; // left label area
     this._margin = { top: 30, right: 20, bottom: 30, left: 10 };
 
+    // Zoom and pan state
+    this._zoom = null;
+    this._container = null;
+
     // Distinct colors by dropped document type (Foundry drag payload "type").
     // You can tune these later or move them into a user setting.
     this._typeColors = {
@@ -81,10 +85,18 @@ export class TimelineRenderer extends BaseRenderer {
 
   teardown() {
     try {
-      if (this._svg) this._detachDropHandlers(this._svg.node());
+      if (this._svg) {
+        this._detachDropHandlers(this._svg.node());
+        // Remove zoom behavior
+        if (this._zoom) {
+          this._svg.on('.zoom', null);
+        }
+      }
     } catch (e) { /* ignore */ }
     this._svg = null;
     this._root = null;
+    this._zoom = null;
+    this._container = null;
   }
 
   _ensureGraph(graph) {
@@ -185,6 +197,53 @@ export class TimelineRenderer extends BaseRenderer {
     return this._typeColors?.[type] ?? this._typeColors?.default ?? "#e5e7eb";
   }
 
+  /**
+   * Zoom in by a factor
+   * @param {number} factor - Zoom factor (default 1.2)
+   */
+  zoomIn(factor = 1.2) {
+    if (!this._svg || !this._zoom) return;
+    this._svg.transition().duration(300).call(this._zoom.scaleBy, factor);
+  }
+
+  /**
+   * Zoom out by a factor
+   * @param {number} factor - Zoom factor (default 1.2)
+   */
+  zoomOut(factor = 1.2) {
+    if (!this._svg || !this._zoom) return;
+    this._svg.transition().duration(300).call(this._zoom.scaleBy, 1 / factor);
+  }
+
+  /**
+   * Reset zoom to default (1:1)
+   */
+  resetZoom() {
+    if (!this._svg || !this._zoom) return;
+    this._svg.transition().duration(500).call(this._zoom.transform, d3.zoomIdentity);
+  }
+
+  /**
+   * Fit content to viewport
+   */
+  fitToViewport() {
+    if (!this._svg || !this._zoom || !this.graph) return;
+    const svgNode = this._svg.node();
+    const parentNode = svgNode.parentNode;
+    const parentRect = parentNode.getBoundingClientRect();
+    const viewportWidth = parentRect.width || 800;
+    const viewportHeight = parentRect.height || 600;
+
+    const bgW = Number.isFinite(this.graph?.background?.width) ? this.graph.background.width : (this.graph.width || 800);
+    const bgH = Number.isFinite(this.graph?.background?.height) ? this.graph.background.height : (this.graph.height || 600);
+
+    // Calculate scale to fit the background into the viewport
+    const scale = Math.min(viewportWidth / bgW, viewportHeight / bgH, 1);
+
+    const transform = d3.zoomIdentity.scale(scale);
+    this._svg.transition().duration(500).call(this._zoom.transform, transform);
+  }
+
   async render(svg, graph, ctx) {
     this._ensureGraph(graph);
 
@@ -197,31 +256,76 @@ export class TimelineRenderer extends BaseRenderer {
     // attach DnD just once
     this._detachDropHandlers(el);
     this._attachDropHandlers(el);
-
+    d3.select(svg.node().parentNode).classed("timeline-active", true);
+    /*
     const width = graph.width || 800;
     const height = graph.height || 600;
 
     // reset
     svg.attr("viewBox", `0 0 ${width} ${height}`);
     svg.selectAll("*").remove();
+    */
+    const bgImage = graph?.background?.image;
+    const bgW = Number.isFinite(graph?.background?.width) ? graph.background.width : (graph.width || 800);
+    const bgH = Number.isFinite(graph?.background?.height) ? graph.background.height : (graph.height || 600);
 
-    // root group
-    this._root = svg.append("g").attr("class", "timeline-root");
+    // Get the parent container
+    const parentNode = svg.node().parentNode;
+
+    // Set SVG to the full background image dimensions
+    // This allows it to overflow the container naturally
+    svg.style("width", null)
+      //      .style("height", null)
+      .style("display", "block")
+      .attr("width", bgW)
+      //      .attr("height", bgH)
+      .attr("viewBox", `0 0 ${bgW} ${bgH}`);
+
+    svg.selectAll("*").remove();
+
+    // Create a container group for zoom/pan transformations
+    this._container = svg.append("g").attr("class", "timeline-container");
+
+    // Set up zoom behavior
+    this._zoom = d3.zoom()
+      .scaleExtent([0.1, 10])  // Allow zoom from 10% to 1000%
+      .on("zoom", (event) => {
+        this._container.attr("transform", event.transform);
+      });
+
+    // Apply zoom to svg
+    svg.call(this._zoom);
+
+    // Start with a fit-to-viewport initial transform if background is larger than default size
+    const parentRect = parentNode.getBoundingClientRect();
+    if (parentRect.width > 0 && parentRect.height > 0 && (bgW > parentRect.width || bgH > parentRect.height)) {
+      const scale = Math.min(parentRect.width / bgW, parentRect.height / bgH, 1);
+      svg.call(this._zoom.transform, d3.zoomIdentity.scale(scale));
+    } else {
+      svg.call(this._zoom.transform, d3.zoomIdentity);
+    }
+
+    // root group (now a child of container)
+    this._root = this._container.append("g").attr("class", "timeline-root");
 
     // background
     // Keep consistent with other renderers: if a background image is configured, use it.
-    const bgImage = graph?.background?.image;
-    const bgW = Number.isFinite(graph?.background?.width) ? graph.background.width : width;
-    const bgH = Number.isFinite(graph?.background?.height) ? graph.background.height : height;
+    //const bgImage = graph?.background?.image;
+    //const bgW = Number.isFinite(graph?.background?.width) ? graph.background.width : width;
+    //const bgH = Number.isFinite(graph?.background?.height) ? graph.background.height : height;
 
     if (bgImage) {
       this._root.append("image")
         .attr("xlink:href", bgImage)
+        .attr("class", "timeline-bg-image")
         .attr("x", 0)
         .attr("y", 0)
         .attr("width", bgW)
         .attr("height", bgH)
-        .attr("preserveAspectRatio", "xMidYMid slice");
+        //        .attr("width", totalSvgWidth) // Use the full calculated width
+        //        .attr("height", totalContentHeight)
+        //.attr("preserveAspectRatio", "xMidYMid slice");
+        .attr("preserveAspectRatio", "none");
 
       // Add a subtle veil so lane text stays readable on busy images.
       /*
@@ -243,15 +347,46 @@ export class TimelineRenderer extends BaseRenderer {
     const laneTop = this._margin.top;
     // Reduce available height by 20px to leave dedicated room for the axis labels
     const axisSpace = 30;
-    const laneHeight = Math.max(24, Math.floor((height - this._margin.top - this._margin.bottom - axisSpace) / laneCount));
+    //const laneHeight = Math.max(24, Math.floor((height - this._margin.top - this._margin.bottom - axisSpace) / laneCount));
+    const laneHeight = 45;
     const laneAreaHeight = laneHeight * laneCount;
     //const laneHeight = Math.max(24, Math.floor((height - this._margin.top - this._margin.bottom) / laneCount));
     //const laneAreaHeight = laneHeight * laneCount;
+    // The final height is the lanes + margins + axis
+    const totalContentHeight = Math.max(bgH, laneTop + laneAreaHeight + axisSpace + this._margin.bottom);
 
     // time scale
+    /*
     const xAreaWidth = width - this._laneWidth - this._margin.left - this._margin.right;
     console.log("graph data:", this.graph.data);
     const { x } = this._computeExtent(this.graph.data.items, this.graph.data.extent, xAreaWidth);
+    */
+    // 1. Determine the time span to calculate dynamic width
+    const extentData = this._computeExtent(this.graph.data.items, this.graph.data.extent, 100);
+    const msSpan = extentData.maxTs - extentData.minTs;
+
+    // 2. Define density: How many pixels per hour? 
+    // This example uses roughly 200px per "standard unit" (e.g., a day or hour depending on scale)
+    // Adjust 0.0000001 to fit your specific calendar's scale needs.
+    const density = 0.0000001;
+    const calculatedWidth = Math.max(bgW - this._laneWidth, msSpan * density);
+
+    const xAreaWidth = calculatedWidth;
+    const { x } = this._computeExtent(this.graph.data.items, this.graph.data.extent, xAreaWidth);
+
+    // 3. Update SVG dimensions for the scrollable area
+    //const totalSvgWidth = xAreaWidth + this._laneWidth + this._margin.left + this._margin.right;
+    //svg.attr("width", totalSvgWidth);
+    //svg.attr("viewBox", `0 0 ${totalSvgWidth} ${height}`);
+    // Ensure the timeline is at least as wide as the background image
+    const totalSvgWidth = Math.max(bgW, xAreaWidth + this._laneWidth + this._margin.left + this._margin.right);
+
+    // Force the SVG to the full size of the background/content
+    svg.style("width", `${totalSvgWidth}px`)
+      //      .style("height", `${totalContentHeight}px`)
+      .attr("width", totalSvgWidth)
+      //      .attr("height", totalContentHeight)
+      .attr("viewBox", `0 0 ${totalSvgWidth} ${totalContentHeight}`);
 
     // axis
     // Generate ticks and pre-format them if necessary
@@ -282,7 +417,8 @@ export class TimelineRenderer extends BaseRenderer {
       .attr("transform", "rotate(25)") // Slant down to the right
       .style("text-anchor", "start")   // Anchor at the start so they grow away from the tick
       .attr("x", 9)                    // Move slightly right of the tick
-      .attr("y", 5);                   // Move slightly down from the tick
+      .attr("y", 5)                  // Move slightly down from the tick
+      .style("white-space", "nowrap");
 
     /*
     this._root.append("g")
@@ -311,10 +447,18 @@ export class TimelineRenderer extends BaseRenderer {
     // We keep it subtle so the background image remains visible.
     // Slight alternation helps separate rows without changing the "lane identity".
     const laneVeilOpacity = 0.12;
+    /*
     laneSel.append("rect")
       .attr("class", "lane-bg")
       .attr("x", 0).attr("y", 0)
       .attr("width", width).attr("height", laneHeight)
+      .attr("fill", d => d.color || "rgba(0,0,0,0)")
+      .attr("opacity", (d, i) => laneVeilOpacity + (i % 2 === 0 ? 0.03 : 0));
+*/
+    laneSel.append("rect")
+      .attr("class", "lane-bg")
+      .attr("x", 0).attr("y", 0)
+      .attr("width", totalSvgWidth).attr("height", laneHeight)
       .attr("fill", d => d.color || "rgba(0,0,0,0)")
       .attr("opacity", (d, i) => laneVeilOpacity + (i % 2 === 0 ? 0.03 : 0));
 
@@ -403,7 +547,8 @@ export class TimelineRenderer extends BaseRenderer {
       })
       .on("drag", function (ev, d) {
         const se = ev.sourceEvent ?? ev;
-        const [px, py] = d3.pointer(se, svgNode);
+        // Get pointer position relative to the container (accounting for zoom)
+        const [px, py] = d3.pointer(se, self._container.node());
         let laneIndex = Math.floor((py - laneTop) / laneHeight);
         laneIndex = Math.max(0, Math.min(laneCount - 1, laneIndex));
         const y = laneIndex * laneHeight + Math.floor((laneHeight - barH) / 2);
@@ -411,7 +556,8 @@ export class TimelineRenderer extends BaseRenderer {
       })
       .on("end", function (ev, d) {
         const se = ev.sourceEvent ?? ev;
-        const [px, py] = d3.pointer(se, svgNode);
+        // Get pointer position relative to the container (accounting for zoom)
+        const [px, py] = d3.pointer(se, self._container.node());
         let laneIndex = Math.floor((py - laneTop) / laneHeight);
         laneIndex = Math.max(0, Math.min(laneCount - 1, laneIndex));
         const laneId = lanes[laneIndex]?.id || lanes[0]?.id;
@@ -568,9 +714,9 @@ export class TimelineRenderer extends BaseRenderer {
     }
 
     // compute lane by mouse Y
-    const svgNode = this._svg?.node();
-    if (!svgNode) return;
-    const [, y0] = d3.pointer(event, svgNode);
+    const containerNode = this._container?.node();
+    if (!containerNode) return;
+    const [, y0] = d3.pointer(event, containerNode);
 
     const lanes = this.graph.relations || [];
     const laneCount = Math.max(1, lanes.length);
@@ -614,5 +760,9 @@ export class TimelineRenderer extends BaseRenderer {
 
     // re-render
     this.render(this._svg, this.graph);
+  }
+
+  async exportToPNG() {
+    return await this.svgToCanvas({ scale: 3 });
   }
 }
