@@ -193,6 +193,7 @@ export class BaseRenderer {
       log("phase 2")
       const svgClone = svgElement.cloneNode(true);
 
+
       // 3) Ensure namespaces (helps some renderers)
       svgClone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
       svgClone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
@@ -296,6 +297,15 @@ export class BaseRenderer {
       // 4) Inline images + styles
       await inlineImages();
       inlineComputedStyles();
+
+      // 4.1) Strip UI checkbox
+      try {
+        // Remove renderer overlay layer if present
+        svgClone.querySelector("#fg-legend-toggle")?.remove();
+      } catch (e) {
+        // noop: export can continue even if cleanup fails
+      }
+
       log("end phase 4")
       // 5) Use the background image dimensions to export the WHOLE graph
       let exportX = 0, exportY = 0, exportW, exportH;

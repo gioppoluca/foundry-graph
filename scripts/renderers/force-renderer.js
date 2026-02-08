@@ -16,7 +16,8 @@ export class ForceRenderer extends BaseRenderer {
     this._zoomBehavior = null;       // Stores the d3.zoom() instance
     this._zoomLayer = null;          // Stores the <g> element
     this._currentTransform = null; // Stores the last zoom/pan transform
-
+    this._uiLayer = null;            // Fixed overlay UI (not zoomed/panned)
+    this._showRelationLegend = false; // UI-only toggle (not persisted)
     // Link endpoint rewiring state
     this._isRewiringLink = false;
     this._rewireGhostLine = null;
@@ -114,6 +115,8 @@ export class ForceRenderer extends BaseRenderer {
     this._zoomBehavior = null;
     this._zoomLayer = null;
     this._currentTransform = null;
+    this._uiLayer = null;
+    this._showRelationLegend = false;
   }
 
   render(svg, graph, ctx) {
@@ -123,6 +126,7 @@ export class ForceRenderer extends BaseRenderer {
     log("ForceRenderer.render", svg, this.graph, ctx);
     if (!this._svg) this._svg = svg;
 
+    
     if (!this._zoomBehavior) {
       // FIRST RENDER: Set up persistent elements
       log("ForceRenderer: First render, setting up zoom.");
@@ -148,6 +152,9 @@ export class ForceRenderer extends BaseRenderer {
       this._svg.selectAll("*").remove(); // Clear SVG *once*
       this._zoomLayer = this._svg.append("g").classed("zoom-layer", true);
 
+      // 3b. Fixed UI overlay layer (NOT transformed by zoom)
+      this._uiLayer = this._svg.append("g").classed("ui-layer", true);
+
       // 4. Store the initial transform
       this._currentTransform = d3.zoomIdentity;
 
@@ -159,6 +166,13 @@ export class ForceRenderer extends BaseRenderer {
       // SUBSEQUENT RENDERS: Just clear the layer's contents
       log("ForceRenderer: Re-render, clearing zoom layer contents.");
       this._zoomLayer.selectAll("*").remove();
+
+      // Also clear fixed UI layer contents (keep the layer)
+      if (!this._uiLayer) {
+        this._uiLayer = this._svg.append("g").classed("ui-layer", true);
+      } else {
+        this._uiLayer.selectAll("*").remove();
+      }
 
       // Ensure the layer has the correct transform
       this._zoomLayer.attr("transform", this._currentTransform);
@@ -204,7 +218,7 @@ export class ForceRenderer extends BaseRenderer {
     const bgWidth = renderGraph.background.width || renderGraph.width;
     const bgHeight = renderGraph.background.height || renderGraph.height;
 
-    // APPSND TO 'zoomLayer', NOT 'this._svg'
+    // APPEND TO 'zoomLayer', NOT 'this._svg'
     zoomLayer.append("image")
       .attr("xlink:href", renderGraph.background.image || "modules/foundry-graph/img/vampire.png")
       .attr("x", 0)
@@ -294,6 +308,67 @@ export class ForceRenderer extends BaseRenderer {
         this._onRightClickLink(event, d);
       });
 
+    // ------------------------------------------------------------------
+    // UI: Toggle to switch between center labels vs relation legend
+    // (UI-only, not persisted)
+    // ------------------------------------------------------------------
+    const uiLayer = this._uiLayer;
+    const UI_PAD = 10;
+
+    if (uiLayer) {
+      uiLayer.style("pointer-events", "all");
+
+      const toggleW = 250;
+      const toggleH = 28;
+      const toggleX = Math.max(0, renderGraph.width - toggleW - UI_PAD);
+      const toggleY = UI_PAD;
+
+      const toggle = uiLayer.append("g")
+        .attr("id", "fg-legend-toggle")
+        .attr("class", "fg-legend-toggle")
+        .attr("transform", `translate(${toggleX},${toggleY})`)
+        .style("cursor", "pointer")
+        .on("mousedown", (event) => { event.preventDefault(); event.stopPropagation(); })
+        .on("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          this._showRelationLegend = !this._showRelationLegend;
+          this.render();
+        });
+
+      toggle.append("rect")
+        .attr("x", 0).attr("y", 0)
+        .attr("width", toggleW).attr("height", toggleH)
+        .attr("rx", 10).attr("ry", 10)
+        .attr("fill", "rgba(255,255,255,0.85)")
+        .attr("stroke", "rgba(0,0,0,0.20)");
+
+      toggle.append("rect")
+        .attr("x", 10).attr("y", 7)
+        .attr("width", 14).attr("height", 14)
+        .attr("rx", 3).attr("ry", 3)
+        .attr("fill", "rgba(255,255,255,0.95)")
+        .attr("stroke", "rgba(0,0,0,0.40)");
+
+      if (this._showRelationLegend) {
+        toggle.append("path")
+          .attr("d", "M13 14 L16 17 L21 10")
+          .attr("fill", "none")
+          .attr("stroke", "rgba(0,0,0,0.85)")
+          .attr("stroke-width", 2)
+          .attr("stroke-linecap", "round")
+          .attr("stroke-linejoin", "round");
+      }
+
+      toggle.append("text")
+        .attr("x", 32).attr("y", 19)
+        .attr("font-size", 12)
+        .attr("font-weight", 600)
+        .attr("fill", "#111")
+        .text("Hide center labels + show legend");
+    }
+
+
     const linkLabels = zoomLayer.append("g")
       .attr("class", "link-labels")
       .selectAll("text")
@@ -305,6 +380,22 @@ export class ForceRenderer extends BaseRenderer {
       .attr("filter", "url(#link-label-shadow)")
       .text(d => d.label || d.type || "");
 
+    // If legend mode is ON, hide the center labels (only the center ones)
+    if (this._showRelationLegend) {
+      linkLabels.attr("display", "none");
+    }
+    /*
+        const linkLabels = zoomLayer.append("g")
+          .attr("class", "link-labels")
+          .selectAll("text")
+          .data(renderGraph.data.links, d => d.id)
+          .join("text")
+          .attr("font-size", 12)
+          .attr("fill", d => d.color || "#000")
+          .attr("text-anchor", "middle")
+          .attr("filter", "url(#link-label-shadow)")
+          .text(d => d.label || d.type || "");
+    */
     // NEW: endpoint labels (source/target)
     const linkSourceLabels = zoomLayer.append("g")
       .attr("class", "link-source-labels")
@@ -329,6 +420,93 @@ export class ForceRenderer extends BaseRenderer {
       .text(d => d.targetLabel || "");
 
     log("added link labels")
+
+    // ------------------------------------------------------------------
+    // Legend (lower-right) for USED relations only, shown only in legend mode
+    // ------------------------------------------------------------------
+    if (this._showRelationLegend && uiLayer) {
+      // build unique used relations
+      const entriesMap = new Map();
+      for (const l of (renderGraph?.data?.links ?? [])) {
+        const label = l.label || l.type || "";
+        if (!label) continue;
+        const key = String(l.relationId ?? `${label}|${l.color}|${l.style}|${l.strokeWidth}|${l.noArrow}`);
+        if (entriesMap.has(key)) continue;
+        entriesMap.set(key, {
+          label,
+          color: l.color || "#000",
+          style: l.style || "solid",
+          strokeWidth: l.strokeWidth || 2,
+          noArrow: l.noArrow === true || l.noArrow === "true"
+        });
+      }
+      const entries = Array.from(entriesMap.values());
+      if (!entries.length) return;
+
+
+      if (entries.length > 0) {
+        const LEG_PAD = 10;
+        const ROW_H = 18;
+        const LINE_W = 42;
+        const TEXT_GAP = 10;
+        const LEG_W = 260;
+        const LEG_H = LEG_PAD * 2 + entries.length * ROW_H + 22; // + title
+
+        const legX = Math.max(0, renderGraph.width - LEG_W - UI_PAD);
+        const legY = Math.max(0, renderGraph.height - LEG_H - UI_PAD);
+
+        const legend = uiLayer.append("g")
+          .attr("class", "fg-relation-legend")
+          .attr("transform", `translate(${legX},${legY})`)
+          .style("pointer-events", "all");
+
+        legend.append("rect")
+          .attr("x", 0)
+          .attr("y", 0)
+          .attr("width", LEG_W)
+          .attr("height", LEG_H)
+          .attr("rx", 10)
+          .attr("ry", 10)
+          .attr("fill", "rgba(255,255,255,0.85)")
+          .attr("stroke", "rgba(0,0,0,0.20)");
+
+        legend.append("text")
+          .attr("x", LEG_PAD)
+          .attr("y", LEG_PAD + 10)
+          .attr("font-size", 12)
+          .attr("font-weight", 700)
+          .attr("fill", "#111")
+          .text("Relations");
+
+        const startY = LEG_PAD + 22;
+
+        const rows = legend.append("g").selectAll("g")
+          .data(entries)
+          .join("g")
+          .attr("transform", (_, i) => `translate(${LEG_PAD}, ${startY + i * ROW_H})`);
+
+        rows.append("line")
+          .attr("x1", 0)
+          .attr("y1", 6)
+          .attr("x2", LINE_W)
+          .attr("y2", 6)
+          .attr("stroke", d => d.color)
+          .attr("stroke-width", d => d.strokeWidth)
+          .style("stroke-dasharray", d => {
+            if (d.style === "dashed") return "4 4";
+            if (d.style === "dotted") return "2 4";
+            return "0";
+          })
+          .attr("marker-end", d => d.noArrow ? null : "url(#fg-arrow)");
+
+        rows.append("text")
+          .attr("x", LINE_W + TEXT_GAP)
+          .attr("y", 10)
+          .attr("font-size", 12)
+          .attr("fill", "#111")
+          .text(d => d.label);
+      }
+    }
 
     const node = zoomLayer.append("g")
       .selectAll("image")
@@ -914,7 +1092,7 @@ export class ForceRenderer extends BaseRenderer {
   async _openEditLinkLabelsDialog(linkData) {
     const { DialogV2 } = foundry.applications.api;
     const { StringField } = foundry.data.fields;
-console.log("linkData in edit dialog:", linkData);
+    console.log("linkData in edit dialog:", linkData);
     // Build 2 form groups using Foundry fields (stable + consistent with DialogV2)
     const sourceGroup = new StringField({
       label: `Source label (${linkData?.source?.label}): `,
