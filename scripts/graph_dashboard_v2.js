@@ -195,24 +195,43 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     }
     log(metadata)
 
-    let newGraph = new GraphBuilder({
-      id: id,
-      name: name,
-      desc: desc,
-      graphType: type,
-      theme: selectedThemeId,
-      background: {
-        image: finalBgImg,
-        width: Number(finalBgWidth) || Number(width) || 800,
-        height: Number(finalBgHeight) || Number(height) || 600
-      }
-    }).build();
+    let graphToSave;
 
-    log("newGraph", newGraph)
-    // Save the new graph
-    await this.api.upsertGraph(newGraph);
-    ui.notifications.info(`Graph ${name} created.`);
-    // Optionally, refresh the dashboard or list view
+    if (this.editingGraph) {
+      // --- EDIT MODE: preserve all existing graph data (nodes, links, etc.)
+      // Only overwrite the metadata fields that the form controls.
+      graphToSave = foundry.utils.deepClone(this.editingGraph);
+      graphToSave.name = name;
+      graphToSave.desc = desc;
+      graphToSave.theme = selectedThemeId;
+      graphToSave.background = {
+        ...graphToSave.background,
+        image: finalBgImg,
+        width: Number(finalBgWidth) || Number(width) || graphToSave.background?.width || 800,
+        height: Number(finalBgHeight) || Number(height) || graphToSave.background?.height || 600,
+      };
+      log("editingGraph - patched metadata", graphToSave);
+    } else {
+      // --- CREATE MODE: build a brand-new graph from scratch
+      graphToSave = new GraphBuilder({
+        id: id,
+        name: name,
+        desc: desc,
+        graphType: type,
+        theme: selectedThemeId,
+        background: {
+          image: finalBgImg,
+          width: Number(finalBgWidth) || Number(width) || 800,
+          height: Number(finalBgHeight) || Number(height) || 600
+        }
+      }).build();
+      log("newGraph", graphToSave);
+    }
+
+    // Save the graph
+    await this.api.upsertGraph(graphToSave);
+    ui.notifications.info(this.editingGraph ? `Graph ${name} updated.` : `Graph ${name} created.`);
+    // Refresh the dashboard / list view
     this.editingGraph = null;
     this.changeTab("listGraph", "primary");
     this.render(true);
