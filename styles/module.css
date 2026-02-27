@@ -20,6 +20,27 @@
 .graph-table {
   margin: 0 !important;
   color: #cccccc;
+  width: 100%;
+}
+
+section.tab.listGraph {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+}
+
+.listGraph-details {
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.listGraph-details thead th {
+  position: sticky;
+  top: 0;
+  background: var(--color-bg, #1a1a1a);
+  z-index: 1;
 }
 
 .creationGraph-details {
