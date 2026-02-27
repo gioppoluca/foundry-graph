@@ -408,7 +408,14 @@ export class VisTimelineRenderer extends BaseRenderer {
             parentDiv.appendChild(this._container);
         }
 
-        // --- 3. Build vis.js DataSets from graph.data ---------------------------
+        // --- 3. Backfill img for items that predate the img field ----------------
+        // Items loaded from disk (saved before img was added) won't have img set.
+        // We resolve them here once, update graph.data in-place, and the tooltip
+        // will find the value on subsequent hovers.  Fire-and-forget: we don't
+        // await all of them before first render so the timeline appears instantly.
+        this._backfillMissingImages();
+
+        // --- 4. Build vis.js DataSets from graph.data ---------------------------
         const { visItems, visGroups } = this._buildVisData();
 
         // --- 4. Determine initial window ----------------------------------------
@@ -504,6 +511,33 @@ export class VisTimelineRenderer extends BaseRenderer {
     }
 
     /**
+     * Backfill the `img` field on items that were stored before img was added.
+     * Fires async lookups only for items missing img — typically just once after
+     * a graph is first opened with the new renderer.  When all lookups resolve
+     * we update the DataSet in-place so the next hover shows the image without
+     * a full re-render.
+     */
+    _backfillMissingImages() {
+        const items = this.graph?.data?.items ?? [];
+        const missing = items.filter(i => i.img == null && i.uuid);
+        if (missing.length === 0) return;
+
+        for (const item of missing) {
+            fromUuid(item.uuid).then(doc => {
+                if (!doc) return;
+                const img = doc.img ?? doc.src ?? doc.background?.src ?? doc.thumb ?? null;
+                if (img == null) return;
+                item.img = img;   // update in-place on graph.data.items
+                // Also push the update into the live DataSet so vis.js re-renders
+                // the tooltip on the next hover without a full render() call.
+                if (this._itemsDs) {
+                    try { this._itemsDs.updateOnly({ id: item.id }); } catch (_) { /* item may not exist yet */ }
+                }
+            }).catch(() => { /* uuid may be invalid — silently skip */ });
+        }
+    }
+
+    /**
      * Convert graph.data (seconds) → vis.js DataSet entries (ms).
      * @returns {{ visItems: Object[], visGroups: Object[] }}
      */
@@ -517,16 +551,13 @@ export class VisTimelineRenderer extends BaseRenderer {
 
             return {
                 id: item.id,
-                // vis.js uses `content` for the HTML/text shown inside the item bar
                 content: this._buildItemContent(item),
                 start: startMs,
                 end: hasRange ? endMs : undefined,
-                group: item.group,             // group = lane id
+                group: item.group,
                 type: hasRange ? "range" : "point",
-                title: this._buildItemTooltip(item),  // HTML tooltip on hover
-                // Pass original data for event handlers
-                _raw: item,
-                // Colour the item using the entity type colour or explicit override
+                // Note: vis.js DataSet strips unknown fields, so we do NOT store _raw here.
+                // The tooltip.template callback looks up the item by id from this.graph.data.items.
                 style: this._buildItemStyle(item),
                 className: `fg-vis-item fg-type-${(item.entityType || "unknown").toLowerCase()}`,
             };
@@ -546,28 +577,155 @@ export class VisTimelineRenderer extends BaseRenderer {
         return item.title || item.uuid || item.id;
     }
 
-    _buildItemTooltip(item) {
-        const startStr = fgFormatFull(item.start);
-        const endStr = item.end != null ? fgFormatFull(item.end) : null;
-        const dateStr = endStr ? `${startStr} – ${endStr}` : startStr;
-        return `<div class="fg-vis-tooltip"><strong>${item.title || item.id}</strong><br>${dateStr}</div>`;
-    }
+
 
     _buildItemStyle(item) {
-        const color = item.color || this._typeColor(item.entityType);
-        return `background-color: ${color}; border-color: ${color};`;
+        const fill = item.color || this._typeColor(item.entityType);
+        const border = item.color || this._typeBorderColor(item.entityType);
+        const text = this._typeTextColor(item.entityType);
+        return `background-color:${fill}; border-color:${border}; color:${text};`;
     }
 
-    /** Simple entity-type → colour map (matches existing renderer palette). */
+    /**
+     * Build the rich HTML tooltip shown on item hover.
+     *
+     * Layout:
+     *   ┌──────────────────────────────────┐
+     *   │ [img]  Title              [type] │
+     *   │        DD MonthName Year HH:MM   │
+     *   │        → DD MonthName Year HH:MM │  (only for ranges)
+     *   └──────────────────────────────────┘
+     *
+     * The image is shown only for Actor, Item, and Scene (types that reliably
+     * carry a portrait/icon).  JournalEntry / JournalEntryPage can have images
+     * but they are often large article illustrations — we skip them by default.
+     */
+    _buildTooltipHTML(item) {
+        const fill = item.color || this._typeColor(item.entityType);
+        const border = item.color || this._typeBorderColor(item.entityType);
+        const startStr = fgFormatFull(item.start);
+        const endStr = item.end != null ? fgFormatFull(item.end) : null;
+
+        // Type badge label
+        const typeLabel = item.entityType ?? "Unknown";
+
+        // Image — only for types that have a meaningful portrait/icon
+        const showImg = ["Actor", "Item", "Scene"].includes(item.entityType) && item.img;
+        /*
+        const imgHTML = showImg
+            ? `<img src="${item.img}"
+              style="width:52px;height:52px;object-fit:cover;
+                     border-radius:4px;flex-shrink:0;
+                     border:1px solid ${border};" />`
+            : "";
+            */
+        const imgHTML = showImg
+            ? `<div style="
+                    width:52px; height:52px; flex-shrink:0;
+                    border-radius:4px;
+                    border:2px solid ${border};
+                    background-image:url('${item.img}');
+                    background-size:cover;
+                    background-position:center;
+                    background-repeat:no-repeat;
+                    background-color:#2a2a3e;"></div>`
+            : "";
+
+
+        console.log("Tooltip for item", item, "showImg?", showImg, "imgHTML:", imgHTML);
+        // Date line(s)
+        const dateHTML = endStr
+            ? `<span>${startStr}</span>
+         <span style="opacity:.7;margin:0 3px;">→</span>
+         <span>${endStr}</span>`
+            : `<span>${startStr}</span>`;
+
+        return `
+      <div class="fg-vis-tooltip" style="
+            display:flex; flex-direction:column; gap:4px;
+            min-width:180px; max-width:260px;
+            background:#1e1e2e; color:#cdd6f4;
+            border:2px solid ${border};
+            border-radius:6px; padding:8px;
+            font-size:12px; line-height:1.4;
+            box-shadow:0 4px 12px rgba(0,0,0,.5);">
+
+        <div style="display:flex; gap:8px; align-items:flex-start;">
+          ${imgHTML}
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; justify-content:space-between;
+                        align-items:center; gap:6px; margin-bottom:3px;">
+              <strong style="
+                    white-space:nowrap; overflow:hidden;
+                    text-overflow:ellipsis; font-size:13px;
+                    color:#cdd6f4;">
+                ${item.title || item.id}
+              </strong>
+              <span style="
+                    font-size:10px; font-weight:600;
+                    background:${fill}; color:${this._typeTextColor(item.entityType)};
+                    border-radius:3px; padding:1px 5px;
+                    white-space:nowrap; flex-shrink:0;">
+                ${typeLabel}
+              </span>
+            </div>
+            <div style="display:flex; align-items:center; flex-wrap:wrap;
+                        gap:2px; color:#a6adc8; font-size:11px;">
+              ${dateHTML}
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    /**
+     * Background fill colour per entity type.
+     * Colours are chosen to be visually distinct, accessible against both
+     * light and dark backgrounds, and semantically suggestive:
+     *   Actor            – blue   (characters, people)
+     *   Scene            – teal   (locations, places)
+     *   Item             – amber  (objects, things)
+     *   JournalEntry     – violet (lore, notes)
+     *   JournalEntryPage – pink   (specific pages / fragments)
+     *   RollTable        – orange (random events)
+     *   Macro            – grey   (scripted events)
+     */
     _typeColor(type) {
         const map = {
-            Actor: "#60a5fa",
-            Scene: "#34d399",
-            Item: "#fbbf24",
-            JournalEntry: "#a78bfa",
-            JournalEntryPage: "#f472b6",
+            Actor: "#3b82f6",   // blue-500
+            Scene: "#10b981",   // emerald-500
+            Item: "#f59e0b",   // amber-500
+            JournalEntry: "#8b5cf6",   // violet-500
+            JournalEntryPage: "#ec4899",   // pink-500
+            RollTable: "#f97316",   // orange-500
+            Macro: "#6b7280",   // grey-500
         };
-        return map[type] ?? "#e5e7eb";
+        return map[type] ?? "#94a3b8";   // slate-400 fallback
+    }
+
+    /**
+     * Border colour — a darker shade of the fill for visual depth.
+     * We darken by blending toward black at ~40%.
+     */
+    _typeBorderColor(type) {
+        const map = {
+            Actor: "#1d4ed8",   // blue-700
+            Scene: "#047857",   // emerald-700
+            Item: "#b45309",   // amber-700
+            JournalEntry: "#6d28d9",   // violet-700
+            JournalEntryPage: "#be185d",   // pink-700
+            RollTable: "#c2410c",   // orange-700
+            Macro: "#374151",   // grey-700
+        };
+        return map[type] ?? "#475569";   // slate-600 fallback
+    }
+
+    /**
+     * Text colour to use on top of the item fill.
+     * Most fills are dark enough that white is legible; amber is an exception.
+     */
+    _typeTextColor(type) {
+        return type === "Item" ? "#1c1917" : "#ffffff";
     }
 
     // --------------------------------------------------------------------------
@@ -657,12 +815,28 @@ export class VisTimelineRenderer extends BaseRenderer {
             },
 
             // ---- Appearance ------------------------------------------------------
-            // Show a tooltip on hover using the `title` field we set above.
             tooltip: {
                 followMouse: true,
                 overflowMethod: "cap",
+                // template is called on hover with the vis DataSet item.
+                // vis.js strips unknown fields from DataSet items, so we look up our
+                // stored item by id from graph.data.items — img and all fields intact.
+                template: (visItem, _element, _data) => {
+                    const raw = this.graph?.data?.items?.find(i => i.id === visItem?.id);
+                    if (!raw) return "";
+                    return this._buildTooltipHTML(raw);
+                },
             },
-
+            xss: {
+                filterOptions: {
+                    allowList: {
+                        img: ['src', 'style'],
+                        span: ['style'],
+                        div: ['style'],
+                        strong: ['style'],
+                    },
+                },
+            },
             // Height: fill the container div (which itself fills #d3-graph-container)
             height: "100%",
 
@@ -982,6 +1156,16 @@ export class VisTimelineRenderer extends BaseRenderer {
             log("VisTimelineRenderer._onDrop: could not set date flags", e);
         }
 
+        // Resolve the portrait/image for the tooltip.
+        // Actor and Item have .img; Scene has .background.src or .thumb;
+        // JournalEntryPage has .src (image pages) or no image.
+        // We store it on the item so the tooltip never needs an async lookup.
+        const img = doc.img
+            ?? doc.src
+            ?? doc.background?.src
+            ?? doc.thumb
+            ?? null;
+
         const item = {
             id: `tl-${foundry.utils.randomID(8)}`,
             uuid: data.uuid,
@@ -991,8 +1175,9 @@ export class VisTimelineRenderer extends BaseRenderer {
             start: dropTimeSec,
             end: endSec,
             color: colorOverride,
+            img,                          // portrait/icon for tooltip
         };
-
+        console.log("Constructed timeline item from drop:", item, img);
         // Upsert: re-dropping the same document updates position and lane
         const existing = this.graph.data.items.find(i => i.uuid === item.uuid);
         if (existing) {
@@ -1038,5 +1223,232 @@ export class VisTimelineRenderer extends BaseRenderer {
 
     fitToViewport() {
         this.resetZoom();
+    }
+
+    // --------------------------------------------------------------------------
+    // PNG Export
+    // --------------------------------------------------------------------------
+
+    /**
+     * Export the current timeline view as a PNG file.
+     *
+     * Strategy: the foreignObject/innerHTML approach always taints the canvas
+     * in Foundry's browser environment because stylesheets and assets are loaded
+     * from paths the browser considers cross-origin relative to a blob: URL.
+     *
+     * Instead we render the timeline directly onto a <canvas> using the 2D API:
+     *   1. Read the bounding rects of vis.js DOM elements (axis, group labels,
+     *      item boxes) from the live DOM — no serialisation, no taint.
+     *   2. Draw backgrounds, borders, text and (optionally) portrait images
+     *      using ctx.drawImage() with per-image taint detection.
+     *
+     * This produces a faithful, always-exportable screenshot of the visible
+     * timeline window.
+     *
+     * @param {{ scale?: number }} [options]
+     */
+    async exportToPNG({ scale = 3 } = {}) {
+        if (!this._container || !this._timeline) {
+            ui?.notifications?.warn?.("Timeline is not ready for export yet.");
+            return;
+        }
+
+        const _root = document.body;
+        const _prevCursor = _root.style.cursor;
+        _root.style.cursor = "progress";
+        ui?.notifications?.info?.(t("Notifications.ExportPrepare") ?? "Preparing export…");
+
+        try {
+            const pixelRatio = Math.max(1, Number(scale) || 2);
+            const containerRect = this._container.getBoundingClientRect();
+            const W = Math.max(1, Math.round(containerRect.width));
+            const H = Math.max(1, Math.round(containerRect.height));
+
+            const canvas = document.createElement("canvas");
+            canvas.width  = Math.round(W * pixelRatio);
+            canvas.height = Math.round(H * pixelRatio);
+            const ctx = canvas.getContext("2d");
+            ctx.scale(pixelRatio, pixelRatio);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+
+            // Helper: translate a viewport rect to canvas-local coords
+            const toLocal = (domRect) => ({
+                x: domRect.left - containerRect.left,
+                y: domRect.top  - containerRect.top,
+                w: domRect.width,
+                h: domRect.height,
+            });
+
+            // Helper: clamp a local rect to the canvas area
+            const clip = (r) => ({
+                x: Math.max(0, r.x),
+                y: Math.max(0, r.y),
+                w: Math.min(W - Math.max(0, r.x), r.w),
+                h: Math.min(H - Math.max(0, r.y), r.h),
+            });
+
+            // ── 1. Background ──────────────────────────────────────────────────
+            ctx.fillStyle = "#1a1a2e";
+            ctx.fillRect(0, 0, W, H);
+
+            // ── 2. Paint every visible DOM element by class ───────────────────
+            //
+            // We read computed styles from the live DOM so colours / borders are
+            // accurate without needing to parse any CSS ourselves.
+
+            const paintEl = (el, { fillOverride, strokeOverride, textOverride, radius = 2 } = {}) => {
+                const cs   = getComputedStyle(el);
+                const rect = el.getBoundingClientRect();
+                const r    = clip(toLocal(rect));
+                if (r.w <= 0 || r.h <= 0) return;
+
+                // Fill
+                const fill = fillOverride ?? cs.backgroundColor;
+                if (fill && fill !== "rgba(0, 0, 0, 0)" && fill !== "transparent") {
+                    ctx.fillStyle = fill;
+                    if (radius > 0) {
+                        ctx.beginPath();
+                        ctx.roundRect?.(r.x, r.y, r.w, r.h, radius) ??
+                            ctx.rect(r.x, r.y, r.w, r.h);
+                        ctx.fill();
+                    } else {
+                        ctx.fillRect(r.x, r.y, r.w, r.h);
+                    }
+                }
+
+                // Border
+                const bw = parseFloat(cs.borderTopWidth) || 0;
+                if (bw > 0) {
+                    ctx.strokeStyle = strokeOverride ?? cs.borderTopColor ?? "#555";
+                    ctx.lineWidth   = bw;
+                    ctx.beginPath();
+                    ctx.roundRect?.(r.x + bw / 2, r.y + bw / 2, r.w - bw, r.h - bw, radius) ??
+                        ctx.rect(r.x + bw / 2, r.y + bw / 2, r.w - bw, r.h - bw);
+                    ctx.stroke();
+                }
+
+                // Text
+                const textEl = el.querySelector(".vis-item-content, .vis-group, .vis-label") ?? el;
+                const text   = (textOverride ?? textEl.textContent ?? "").trim();
+                if (text) {
+                    const fs   = parseFloat(cs.fontSize) || 11;
+                    ctx.fillStyle  = cs.color || "#cdd6f4";
+                    ctx.font       = `${cs.fontWeight || "normal"} ${fs}px ${cs.fontFamily || "sans-serif"}`;
+                    ctx.textBaseline = "middle";
+                    ctx.save();
+                    ctx.rect(r.x + 2, r.y, Math.max(0, r.w - 4), r.h);
+                    ctx.clip();
+                    ctx.fillText(text, r.x + 4, r.y + r.h / 2);
+                    ctx.restore();
+                }
+            };
+
+            // ── 3. Axis / header rows ──────────────────────────────────────────
+            for (const el of this._container.querySelectorAll(".vis-time-axis .vis-panel, .vis-time-axis")) {
+                paintEl(el, { radius: 0, fillOverride: "#12121e" });
+            }
+            for (const el of this._container.querySelectorAll(".vis-time-axis .vis-text")) {
+                const r = clip(toLocal(el.getBoundingClientRect()));
+                if (r.w <= 0 || r.h <= 0) continue;
+                const cs = getComputedStyle(el);
+                ctx.fillStyle = cs.color || "#888";
+                ctx.font = `${parseFloat(cs.fontSize) || 10}px ${cs.fontFamily || "sans-serif"}`;
+                ctx.textBaseline = "middle";
+                ctx.fillText(el.textContent.trim(), r.x + 2, r.y + r.h / 2);
+            }
+
+            // ── 4. Group label column ──────────────────────────────────────────
+            for (const el of this._container.querySelectorAll(".vis-labelset .vis-label")) {
+                paintEl(el, { radius: 0, fillOverride: "#1e1e30" });
+            }
+
+            // ── 5. Item rows (background stripes) ─────────────────────────────
+            for (const el of this._container.querySelectorAll(".vis-background .vis-group")) {
+                paintEl(el, { radius: 0, fillOverride: "#16162a" });
+            }
+
+            // ── 6. Timeline items ─────────────────────────────────────────────
+            for (const el of this._container.querySelectorAll(".vis-item")) {
+                paintEl(el, { radius: 3 });
+            }
+
+            // ── 7. Gridlines (minor) ───────────────────────────────────────────
+            ctx.save();
+            ctx.strokeStyle = "rgba(255,255,255,0.06)";
+            ctx.lineWidth   = 1;
+            for (const el of this._container.querySelectorAll(".vis-time-axis .vis-grid.vis-minor")) {
+                const r = toLocal(el.getBoundingClientRect());
+                if (r.x < 0 || r.x > W) continue;
+                ctx.beginPath();
+                ctx.moveTo(Math.round(r.x) + 0.5, 0);
+                ctx.lineTo(Math.round(r.x) + 0.5, H);
+                ctx.stroke();
+            }
+            ctx.strokeStyle = "rgba(255,255,255,0.15)";
+            for (const el of this._container.querySelectorAll(".vis-time-axis .vis-grid.vis-major")) {
+                const r = toLocal(el.getBoundingClientRect());
+                if (r.x < 0 || r.x > W) continue;
+                ctx.beginPath();
+                ctx.moveTo(Math.round(r.x) + 0.5, 0);
+                ctx.lineTo(Math.round(r.x) + 0.5, H);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // ── 8. Portrait images (best-effort, never taints) ────────────────
+            //   We draw each <img> inside a vis item.  If the image is cross-origin
+            //   and drawing it would taint the canvas we catch that and move on.
+            const imagePromises = [];
+            for (const imgEl of this._container.querySelectorAll(".vis-item img")) {
+                const src = imgEl.getAttribute("src");
+                if (!src) continue;
+                const imgRect = clip(toLocal(imgEl.getBoundingClientRect()));
+                if (imgRect.w <= 0 || imgRect.h <= 0) continue;
+
+                imagePromises.push((async () => {
+                    try {
+                        const probe = new Image();
+                        probe.decoding = "async";
+                        await new Promise((res, rej) => {
+                            probe.onload  = res;
+                            probe.onerror = rej;
+                            probe.src = src;
+                        });
+                        // Test for taint with a throwaway canvas before drawing on ours
+                        const test = document.createElement("canvas");
+                        test.width = 1; test.height = 1;
+                        test.getContext("2d").drawImage(probe, 0, 0, 1, 1);
+                        test.toDataURL();           // throws SecurityError if tainted
+
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.roundRect?.(imgRect.x, imgRect.y, imgRect.w, imgRect.h, 3) ??
+                            ctx.rect(imgRect.x, imgRect.y, imgRect.w, imgRect.h);
+                        ctx.clip();
+                        ctx.drawImage(probe, imgRect.x, imgRect.y, imgRect.w, imgRect.h);
+                        ctx.restore();
+                    } catch (_) {
+                        // Cross-origin or broken — skip silently, item text still visible
+                    }
+                })());
+            }
+            await Promise.all(imagePromises);
+
+            // ── 9. Download ───────────────────────────────────────────────────
+            const safeName = String(this.graph?.name ?? "timeline")
+                .trim().replace(/[^\w.-]+/g, "_");
+            const a = document.createElement("a");
+            a.download = `${safeName}.png`;
+            a.href = canvas.toDataURL("image/png");
+            a.click();
+
+        } catch (err) {
+            log("VisTimelineRenderer.exportToPNG failed", err);
+            ui?.notifications?.error?.(t("Errors.ExportFailed") ?? "Export failed — see console.");
+        } finally {
+            _root.style.cursor = _prevCursor || "";
+            ui?.notifications?.info?.(t("Notifications.ExportFinished") ?? "Export complete.");
+        }
     }
 }
