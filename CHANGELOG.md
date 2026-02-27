@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-02-27
+### :sparkles: New Features
+- [`a52e028`](https://github.com/gioppoluca/foundry-graph/commit/a52e0286201e102be5b859189ea9e588c375887e) - added timeline renderer *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`9da205e`](https://github.com/gioppoluca/foundry-graph/commit/9da205e777d398fe6fc19c2581a7942de5677a64) - calendar popover *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`54db559`](https://github.com/gioppoluca/foundry-graph/commit/54db559080be712fefb4c63f018c47fc6d6f1514) - added zoom and pan *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`a9b56e4`](https://github.com/gioppoluca/foundry-graph/commit/a9b56e4b9b1674814bd22bceb0f452ed12d1279a) - change date from graph *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`31242f1`](https://github.com/gioppoluca/foundry-graph/commit/31242f1a81139634f4f1f41db5369f5bb4f1a32d) - added optional legend in force renderer *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`7acab54`](https://github.com/gioppoluca/foundry-graph/commit/7acab547837e0a51684674c6336ff9f38af7de73) - implemented a released boolean for be able not to show work in progress stuff *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+### :bug: Bug Fixes
+- [`ad1038b`](https://github.com/gioppoluca/foundry-graph/commit/ad1038b757bb07e2c3f537fb8fc48c39f271d50e) - editing was loosing graph data; fix [#8](https://github.com/gioppoluca/foundry-graph/pull/8). *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.8.0] - 2026-02-01
 ### :sparkles: New Features
 - [`bd700e3`](https://github.com/gioppoluca/foundry-graph/commit/bd700e353df4e0d62f631ab11cf1db1a923f69cb) - added on the force renderer the possibility to add labels to source and target links *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -187,3 +200,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.7.0]: https://github.com/gioppoluca/foundry-graph/compare/0.6.3...0.7.0
 [0.7.1]: https://github.com/gioppoluca/foundry-graph/compare/0.7.0...0.7.1
 [0.8.0]: https://github.com/gioppoluca/foundry-graph/compare/0.7.1...0.8.0
+[0.8.1]: https://github.com/gioppoluca/foundry-graph/compare/0.8.0...0.8.1
