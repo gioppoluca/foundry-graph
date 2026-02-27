@@ -7,6 +7,7 @@ import { ImageSlotsRenderer } from "./renderers/image-slot-renderer.js";
 import { MapRenderer } from "./renderers/map-renderer.js";
 import { migrateGraph } from "./model/graph_migrations.js";
 import { TimelineRenderer } from "./renderers/timeline-renderer.js";
+import { VisTimelineRenderer } from "./renderers/vis-timeline-renderer.js";
 
 const LEVELS = foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS; // { NONE:0, LIMITED:1, OBSERVER:2, OWNER:3 }
 const DEFAULT_STORAGE_ROOT = "foundry-graph"; // Data/foundry-graph/<worldId>/
@@ -78,7 +79,8 @@ export class GraphApi {
             [GenealogyRenderer.ID, new GenealogyRenderer()],
             [ImageSlotsRenderer.ID, new ImageSlotsRenderer()],
             [MapRenderer.ID, new MapRenderer()],
-            [TimelineRenderer.ID, new TimelineRenderer()],
+            [TimelineRenderer.ID, new VisTimelineRenderer()],
+            [VisTimelineRenderer.ID, new VisTimelineRenderer()],
         ]);
 
         log("GraphApi.constructor", this.graphTypes)
