@@ -70,7 +70,8 @@ export class GraphApi {
 
         // Convert map → array and filter by system
         this.graphTypes = Object.fromEntries(Object.entries(JSON_graph_types)
-            .filter(([id, cfg]) => cfg.systems.includes(currentSystem) || cfg.systems.includes("*")));
+            .filter(([id, cfg]) => cfg.systems.includes(currentSystem) || cfg.systems.includes("*"))
+            .filter(([id, cfg]) => cfg.released !== false));
 
         this.registryRenderers = new Map([
             [ForceRenderer.ID, new ForceRenderer()],

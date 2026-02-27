@@ -8,6 +8,7 @@ export const GRAPH_TYPES = {
     "color": "#4639f7",
     "nodeLabelColor": "#ffffff",
     "version": 1,
+    "released": true,
     "allowedEntities": ["Actor", "Scene", "Item", "JournalEntryPage"],
     "systems": ["*"],
     "relations": []
@@ -26,6 +27,7 @@ export const GRAPH_TYPES = {
     "color": "#550044",
     "nodeLabelColor": "#000000",
     "version": 1,
+    "released": true,
     "allowedEntities": ["Actor"],
     "systems": [
       "*"
@@ -117,6 +119,7 @@ export const GRAPH_TYPES = {
     "color": "#01ff6b",
     "nodeLabelColor": "#ffffff",
     "version": 1,
+    "released": false,
     "systems": [
       "*"
     ],
@@ -150,6 +153,7 @@ export const GRAPH_TYPES = {
     "color": "#ff0000",
     "nodeLabelColor": "#ffffff",
     "version": 1,
+    "released": true,
     "allowedEntities": ["Actor", "JournalEntryPage"],
     "systems": [
       "vtm5e",
@@ -326,6 +330,7 @@ export const GRAPH_TYPES = {
     "color": "#0000aa",
     "nodeLabelColor": "#000000",
     "version": 1,
+    "released": true,
     "allowedEntities": ["Actor"],
     "width": 1200,
     "height": 900,
@@ -413,6 +418,7 @@ export const GRAPH_TYPES = {
     "color": "#ffffff",
     "nodeLabelColor": "#000000",
     "version": 1,
+    "released": true,
     "allowedEntities": ["Actor"],
     "width": 1000,
     "height": 800,
@@ -510,6 +516,7 @@ export const GRAPH_TYPES = {
     "color": "#226633",
     "nodeLabelColor": "#000000",
     "version": 1,
+    "released": true,
     "allowedEntities": ["Actor"],
     "systems": [
       "*"
@@ -625,6 +632,7 @@ export const GRAPH_TYPES = {
     "color": "#226633",
     "nodeLabelColor": "#000000",
     "version": 1,
+    "released": true,
     "allowedEntities": ["Item"],
     "systems": [
       "vtm5e",
