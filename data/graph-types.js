@@ -901,7 +901,7 @@ export const GRAPH_TYPES = {
     "description": "A lane-based timeline powered by vis.js. Items are linked to documents carrying start/end date flags. Supports drag-to-move, zoom, pan and custom calendar axis labels.",
     "themes": [],
     "background": {
-      "image": "modules/foundry-graph/img/relations.webp",
+      "image": "modules/foundry-graph/img/timeline.webp",
       "width": 2500,
       "height": 1667
     },

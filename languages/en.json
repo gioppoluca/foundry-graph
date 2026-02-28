@@ -109,6 +109,7 @@
         "DeletionDialog": {
             "Title": "Deletion Warning",
             "UsedInGraphs": "is used in these graphs:",
+            "RangeDropHint": "Range item placed — drag the right edge to set the end date.",
             "WarningRemoveFromDiagrams": "Deleting it will remove it from these diagrams. Proceed?"
         }
     }

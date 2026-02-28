@@ -408,6 +408,17 @@ export class VisTimelineRenderer extends BaseRenderer {
             parentDiv.appendChild(this._container);
         }
 
+        // --- 2b. Apply background image (same data as force-renderer uses) ------
+        const bgImage = graph?.background?.image ?? null;
+        if (bgImage) {
+            this._container.style.backgroundImage = `url('${bgImage}')`;
+            this._container.style.backgroundSize = "cover";
+            this._container.style.backgroundPosition = "center";
+            this._container.style.backgroundRepeat = "no-repeat";
+        } else {
+            this._container.style.backgroundImage = "";
+        }
+
         // --- 3. Backfill img for items that predate the img field ----------------
         // Items loaded from disk (saved before img was added) won't have img set.
         // We resolve them here once, update graph.data in-place, and the tooltip
@@ -630,9 +641,6 @@ export class VisTimelineRenderer extends BaseRenderer {
                     background-repeat:no-repeat;
                     background-color:#2a2a3e;"></div>`
             : "";
-
-
-        console.log("Tooltip for item", item, "showImg?", showImg, "imgHTML:", imgHTML);
         // Date line(s)
         const dateHTML = endStr
             ? `<span>${startStr}</span>
@@ -1265,7 +1273,7 @@ export class VisTimelineRenderer extends BaseRenderer {
             const H = Math.max(1, Math.round(containerRect.height));
 
             const canvas = document.createElement("canvas");
-            canvas.width  = Math.round(W * pixelRatio);
+            canvas.width = Math.round(W * pixelRatio);
             canvas.height = Math.round(H * pixelRatio);
             const ctx = canvas.getContext("2d");
             ctx.scale(pixelRatio, pixelRatio);
@@ -1275,7 +1283,7 @@ export class VisTimelineRenderer extends BaseRenderer {
             // Helper: translate a viewport rect to canvas-local coords
             const toLocal = (domRect) => ({
                 x: domRect.left - containerRect.left,
-                y: domRect.top  - containerRect.top,
+                y: domRect.top - containerRect.top,
                 w: domRect.width,
                 h: domRect.height,
             });
@@ -1292,15 +1300,44 @@ export class VisTimelineRenderer extends BaseRenderer {
             ctx.fillStyle = "#1a1a2e";
             ctx.fillRect(0, 0, W, H);
 
+            // ── 1b. Background image (same source as rendered in the live view) ─
+            const bgSrc = this.graph?.background?.image ?? null;
+            if (bgSrc) {
+                try {
+                    const bgImg = new Image();
+                    bgImg.decoding = "async";
+                    await new Promise((res, rej) => {
+                        bgImg.onload = res;
+                        bgImg.onerror = rej;
+                        bgImg.src = bgSrc;
+                    });
+                    // Taint check — if cross-origin this will throw and we skip it
+                    const test = document.createElement("canvas");
+                    test.width = 1; test.height = 1;
+                    test.getContext("2d").drawImage(bgImg, 0, 0, 1, 1);
+                    test.toDataURL();
+
+                    // Draw cover-fit: scale to fill W×H, centred (mirrors CSS background-size:cover)
+                    const bgScale = Math.max(W / bgImg.naturalWidth, H / bgImg.naturalHeight);
+                    const dw = bgImg.naturalWidth * bgScale;
+                    const dh = bgImg.naturalHeight * bgScale;
+                    const dx = (W - dw) / 2;
+                    const dy = (H - dh) / 2;
+                    ctx.drawImage(bgImg, dx, dy, dw, dh);
+                } catch (_) {
+                    // Cross-origin or broken image — solid fill already in place, continue
+                }
+            }
+
             // ── 2. Paint every visible DOM element by class ───────────────────
             //
             // We read computed styles from the live DOM so colours / borders are
             // accurate without needing to parse any CSS ourselves.
 
             const paintEl = (el, { fillOverride, strokeOverride, textOverride, radius = 2 } = {}) => {
-                const cs   = getComputedStyle(el);
+                const cs = getComputedStyle(el);
                 const rect = el.getBoundingClientRect();
-                const r    = clip(toLocal(rect));
+                const r = clip(toLocal(rect));
                 if (r.w <= 0 || r.h <= 0) return;
 
                 // Fill
@@ -1321,7 +1358,7 @@ export class VisTimelineRenderer extends BaseRenderer {
                 const bw = parseFloat(cs.borderTopWidth) || 0;
                 if (bw > 0) {
                     ctx.strokeStyle = strokeOverride ?? cs.borderTopColor ?? "#555";
-                    ctx.lineWidth   = bw;
+                    ctx.lineWidth = bw;
                     ctx.beginPath();
                     ctx.roundRect?.(r.x + bw / 2, r.y + bw / 2, r.w - bw, r.h - bw, radius) ??
                         ctx.rect(r.x + bw / 2, r.y + bw / 2, r.w - bw, r.h - bw);
@@ -1330,11 +1367,11 @@ export class VisTimelineRenderer extends BaseRenderer {
 
                 // Text
                 const textEl = el.querySelector(".vis-item-content, .vis-group, .vis-label") ?? el;
-                const text   = (textOverride ?? textEl.textContent ?? "").trim();
+                const text = (textOverride ?? textEl.textContent ?? "").trim();
                 if (text) {
-                    const fs   = parseFloat(cs.fontSize) || 11;
-                    ctx.fillStyle  = cs.color || "#cdd6f4";
-                    ctx.font       = `${cs.fontWeight || "normal"} ${fs}px ${cs.fontFamily || "sans-serif"}`;
+                    const fs = parseFloat(cs.fontSize) || 11;
+                    ctx.fillStyle = cs.color || "#cdd6f4";
+                    ctx.font = `${cs.fontWeight || "normal"} ${fs}px ${cs.fontFamily || "sans-serif"}`;
                     ctx.textBaseline = "middle";
                     ctx.save();
                     ctx.rect(r.x + 2, r.y, Math.max(0, r.w - 4), r.h);
@@ -1346,7 +1383,7 @@ export class VisTimelineRenderer extends BaseRenderer {
 
             // ── 3. Axis / header rows ──────────────────────────────────────────
             for (const el of this._container.querySelectorAll(".vis-time-axis .vis-panel, .vis-time-axis")) {
-                paintEl(el, { radius: 0, fillOverride: "#12121e" });
+                paintEl(el, { radius: 0, fillOverride: bgSrc ? "rgba(18, 18, 30, 0.65)" : "#12121e" });
             }
             for (const el of this._container.querySelectorAll(".vis-time-axis .vis-text")) {
                 const r = clip(toLocal(el.getBoundingClientRect()));
@@ -1360,12 +1397,14 @@ export class VisTimelineRenderer extends BaseRenderer {
 
             // ── 4. Group label column ──────────────────────────────────────────
             for (const el of this._container.querySelectorAll(".vis-labelset .vis-label")) {
-                paintEl(el, { radius: 0, fillOverride: "#1e1e30" });
+                paintEl(el, { radius: 0, fillOverride: bgSrc ? "rgba(30, 30, 48, 0.65)" : "#1e1e30" });
             }
 
             // ── 5. Item rows (background stripes) ─────────────────────────────
+            // Use a semi-transparent tint so the background image shows through,
+            // matching the transparent CSS rules applied in the live view.
             for (const el of this._container.querySelectorAll(".vis-background .vis-group")) {
-                paintEl(el, { radius: 0, fillOverride: "#16162a" });
+                paintEl(el, { radius: 0, fillOverride: bgSrc ? "rgba(22, 22, 42, 0.45)" : "#16162a" });
             }
 
             // ── 6. Timeline items ─────────────────────────────────────────────
@@ -1376,7 +1415,7 @@ export class VisTimelineRenderer extends BaseRenderer {
             // ── 7. Gridlines (minor) ───────────────────────────────────────────
             ctx.save();
             ctx.strokeStyle = "rgba(255,255,255,0.06)";
-            ctx.lineWidth   = 1;
+            ctx.lineWidth = 1;
             for (const el of this._container.querySelectorAll(".vis-time-axis .vis-grid.vis-minor")) {
                 const r = toLocal(el.getBoundingClientRect());
                 if (r.x < 0 || r.x > W) continue;
@@ -1411,7 +1450,7 @@ export class VisTimelineRenderer extends BaseRenderer {
                         const probe = new Image();
                         probe.decoding = "async";
                         await new Promise((res, rej) => {
-                            probe.onload  = res;
+                            probe.onload = res;
                             probe.onerror = rej;
                             probe.src = src;
                         });
