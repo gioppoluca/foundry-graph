@@ -23,9 +23,17 @@
   width: 100%;
 }
 
-section.tab.listGraph {
+/* Hide all tab sections by default; only show the active one */
+section.tab {
+  display: none;
+}
+
+section.tab.active {
   display: flex;
   flex-direction: column;
+}
+
+section.tab.listGraph.active {
   overflow: hidden;
   height: 100%;
 }
@@ -405,4 +413,30 @@ svg image {
 .timeline-scroll-wrapper svg {
   display: block;
   min-width: 100%;
+}
+
+/* ── vis-timeline renderer: transparent panels so background image shows ── */
+#fg-vis-timeline .vis-panel,
+#fg-vis-timeline .vis-content,
+#fg-vis-timeline .vis-background,
+#fg-vis-timeline .vis-center,
+#fg-vis-timeline .vis-left,
+#fg-vis-timeline .vis-right,
+#fg-vis-timeline .vis-bottom,
+#fg-vis-timeline .vis-top {
+  background: transparent !important;
+}
+
+/* Keep axis and group label areas semi-transparent so the bg image remains visible */
+#fg-vis-timeline .vis-time-axis,
+#fg-vis-timeline .vis-labelset {
+  background: rgba(20, 20, 30, 0.45) !important;
+}
+
+#fg-vis-timeline .vis-background .vis-group {
+  background: transparent !important;
+}
+
+.vis-time-axis .vis-text {
+  color: #000 !important;
 }
