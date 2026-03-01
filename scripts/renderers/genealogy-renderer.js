@@ -13,8 +13,71 @@ export class GenealogyRenderer extends BaseRenderer {
     this.graph = null;
     this._svg = null;
     this._orientation = 'horizontal'; // default
+    const PORTRAIT_RADIUS = 28;
+
     this.opts = {
       orientation: this._orientation,
+      nodeSize: (node) => node.isUnion ? [10, 60] : [PORTRAIT_RADIUS * 2 + 8, 100],
+      nodeLabelOffsetFunction: (node) => node.isUnion ? 0 : PORTRAIT_RADIUS + 4,
+      nodeRenderFunction: (group, node, opts, ft) => {
+        if (node.isUnion) {
+          // keep the default tiny union dot
+          group.append('circle')
+            .on('click', (event, d) => opts.nodeClickFunction(d, ft))
+            .transition().duration(opts.transitionDuration)
+            .attr('r', opts.nodeSizeFunction)
+            .attr('class', (d) => opts.nodeCSSClassFunction(d));
+          return;
+        }
+
+        const img = node.data.img;
+        console.log("Rendering node:", node.data.name, "with img:", img, node);
+        const id = node.data.id;
+        const clipId = `clip-portrait-${id.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+        // Ensure <defs> and clipPath exist in the lib's own SVG
+        const svgEl = group.node().ownerSVGElement;
+        let defs = svgEl.querySelector('defs');
+        if (!defs) {
+          defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+          svgEl.insertBefore(defs, svgEl.firstChild);
+        }
+        if (!defs.querySelector(`#${clipId}`)) {
+          const clip = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+          clip.setAttribute('id', clipId);
+          const cc = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          cc.setAttribute('r', PORTRAIT_RADIUS);
+          cc.setAttribute('cx', '0');
+          cc.setAttribute('cy', '0');
+          clip.appendChild(cc);
+          defs.appendChild(clip);
+        }
+
+        // Border circle
+        group.append('circle')
+          .attr('r', PORTRAIT_RADIUS + 2)
+          .attr('fill', '#444')
+          .attr('stroke', '#ccc')
+          .attr('stroke-width', 2)
+          .on('click', (event, d) => opts.nodeClickFunction(d, ft));
+
+        // Portrait (or fallback grey if no img)
+        if (img) {
+          group.append('image')
+            .attr('href', img)
+            .attr('x', -PORTRAIT_RADIUS).attr('y', -PORTRAIT_RADIUS)
+            .attr('width', PORTRAIT_RADIUS * 2).attr('height', PORTRAIT_RADIUS * 2)
+            .attr('clip-path', `url(#${clipId})`)
+            .attr('preserveAspectRatio', 'xMidYMid slice')
+            .attr('pointer-events', 'none');
+        }
+      },
+
+      nodeUpdateFunction: (group, opts) => {
+        // portraits don't need class updates — nothing to do
+        // if you add selection highlighting later, update the border circle here:
+        // group.select('circle').attr('stroke', d => d.selected ? '#ff0' : '#ccc');
+      },
       nodeClickFunction: (node, ft) => {
         log("nodeClickFunction")
         if (this._linkingMode) {
@@ -339,6 +402,7 @@ export class GenealogyRenderer extends BaseRenderer {
         this.familytree.addPerson({
           id: this._linkSourceNode.data.id,
           name: this._linkSourceNode.data.name,
+          img: this._linkSourceNode.data.img,
           ownFamily: familyId,
           parentFamily: this._linkSourceNode.data.parentFamily
         });
@@ -351,7 +415,7 @@ export class GenealogyRenderer extends BaseRenderer {
       switch (this.relation.id) {
         case "child-of":
           // since the existing node is the parent the child has not a family of its own yet
-          this.familytree.addPerson({ id: uuid, name: label, parentFamily: familyId });
+          this.familytree.addPerson({ id: uuid, name: label, img, parentFamily: familyId });
           // add the union of the parents if not already existing (should overwrite it in any case)
           this.familytree.addUnion({ id: familyId });
           // before the link from the source to union - again should overwrite if already present
@@ -373,6 +437,7 @@ export class GenealogyRenderer extends BaseRenderer {
             this.familytree.addPerson({
               id: this._linkSourceNode.data.id,
               name: this._linkSourceNode.data.name,
+              img: this._linkSourceNode.data.img,
               parentFamily: parentFamilyId,
               ownFamily: this._linkSourceNode.data.ownFamily
             });
@@ -381,14 +446,14 @@ export class GenealogyRenderer extends BaseRenderer {
             this.familytree.addLink(parentFamilyId, this._linkSourceNode.data.id);
           }
           // add the new parent
-          this.familytree.addPerson({ id: uuid, name: label, ownFamily: parentFamilyId });
+          this.familytree.addPerson({ id: uuid, name: label, img, ownFamily: parentFamilyId });
           // add the link of the parent
           this.familytree.addLink(uuid, parentFamilyId);
 
           break;
         case "spouse-of":
           // since we are adding a spouse we assign it to the existing family of the existing spouse
-          this.familytree.addPerson({ id: uuid, name: label, ownFamily: familyId });
+          this.familytree.addPerson({ id: uuid, name: label, img, ownFamily: familyId });
           // add the union of the parents if not already existing (should overwrite it in any case)
           this.familytree.addUnion({ id: familyId });
           // before the link from the source to union - again should overwrite if already present
@@ -404,7 +469,7 @@ export class GenealogyRenderer extends BaseRenderer {
       // first node
       this.graph.data = {
         "start": uuid,
-        "persons": { [uuid]: { name: label } },
+        "persons": { [uuid]: { name: label, img } },
         "unions": {},
         "links": []
       }
