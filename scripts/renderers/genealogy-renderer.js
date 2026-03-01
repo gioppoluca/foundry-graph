@@ -12,7 +12,9 @@ export class GenealogyRenderer extends BaseRenderer {
     this.relation = null
     this.graph = null;
     this._svg = null;
+    this._orientation = 'horizontal'; // default
     this.opts = {
+      orientation: this._orientation,
       nodeClickFunction: (node, ft) => {
         log("nodeClickFunction")
         if (this._linkingMode) {
@@ -37,6 +39,8 @@ export class GenealogyRenderer extends BaseRenderer {
       }
     }
     this.selectedNode = null;
+    this._moveState = null;
+
   }
 
   get instructions() {
@@ -47,6 +51,7 @@ export class GenealogyRenderer extends BaseRenderer {
     <b>Scroll</b>: Zoom<br>
     <b>DblClick</b>: Open Sheet<br>
     <b>Left Click</b>: Delete Node with all descendants
+    <b>Ctrl Click</b>: To drag for re-parenting
   `;
   }
 
@@ -91,6 +96,10 @@ export class GenealogyRenderer extends BaseRenderer {
     this._linkingMode = false;
     this._linkSourceNode = null;
     this.relation = null
+    this._moveState = null;
+    document.getElementById('genealogy-orientation-btn')?.remove();
+
+
   }
   /**
    * Find all nodes (persons + unions + links) connected to a starting person id.
@@ -241,6 +250,7 @@ export class GenealogyRenderer extends BaseRenderer {
 
       log("this.opts:", this.opts)
       this.familytree = new FT.FamilyTree(this.graph.data, container, this.opts);
+
       log("FT:", this.familytree)
     }
 
@@ -258,6 +268,9 @@ export class GenealogyRenderer extends BaseRenderer {
 
         this._onNodeRightClick(nodeId, nodeData, event);
       });
+    this._attachMoveHandlers();
+    // Inject the overlay button (safe to call on every render — it's idempotent)
+    this._injectOrientationButton();
 
   }
 
@@ -400,6 +413,8 @@ export class GenealogyRenderer extends BaseRenderer {
       log("container:", container);
       log("this.opts:", this.opts)
       this.familytree = new FT.FamilyTree(this.graph.data, container, this.opts);
+      this._attachMoveHandlers();
+
     }
   }
 
@@ -613,4 +628,322 @@ export class GenealogyRenderer extends BaseRenderer {
     return await this.svgToCanvas({ scale: 3 });
   }
 
+  // ─── MOVE / REPARENT FEATURE ──────────────────────────────────────────────────
+  // Add to the constructor:
+  //   this._moveState = null;   // { personId, personData, ghostEl, overlayEl }
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // ── 1. Call this once after each render() ──────────────────────────────────
+  _attachMoveHandlers() {
+    const svg = this._svg;
+    if (!svg) return;
+
+    svg.selectAll("circle").each((d, i, nodes) => {
+      const circle = d3.select(nodes[i]);
+      // Only person nodes (not union nodes)
+      if (!d?.data?.id || d.isUnion) return;
+
+      circle
+        .style("cursor", "grab")
+        .on("mousedown.move", (event) => this._onMoveMouseDown(event, d))
+    });
+
+    // Global mouse tracking on the SVG
+    svg
+      .on("mousemove.move", (event) => this._onMoveMouseMove(event))
+      .on("mouseup.move", (event) => this._onMoveMouseUp(event));
+  }
+  /*
+    _onMoveMouseDown(event, nodeData) {
+      // Only trigger on Ctrl+drag (to not conflict with normal click/zoom)
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+      event.stopPropagation();
+  
+      const svgEl = this._svg.node();
+      const pt = svgEl.createSVGPoint();
+      pt.x = event.clientX; pt.y = event.clientY;
+      const svgPt = pt.matrixTransform(svgEl.getScreenCTM().inverse());
+  
+      // Create a ghost circle that follows the cursor
+      const ghost = this._svg.select("g.zoom-layer").append("circle")
+        .classed("move-ghost", true)
+        .attr("r", 22)
+        .attr("cx", svgPt.x)
+        .attr("cy", svgPt.y)
+        .attr("fill", "rgba(255,200,0,0.5)")
+        .attr("stroke", "#f90")
+        .attr("stroke-width", 2)
+        .attr("pointer-events", "none");
+  
+      this._moveState = {
+        personId: nodeData.data.id,
+        personData: nodeData.data,
+        ghost,
+        hoverTargetId: null,
+      };
+  
+      ui.notifications.info(`Moving "${nodeData.data.name}" — Ctrl+drop on a target parent`);
+    }
+  
+    _onMoveMouseMove(event) {
+      if (!this._moveState) return;
+      const { ghost } = this._moveState;
+  
+      const svgEl = this._svg.node();
+      const pt = svgEl.createSVGPoint();
+      pt.x = event.clientX; pt.y = event.clientY;
+      const svgPt = pt.matrixTransform(svgEl.getScreenCTM().inverse());
+  
+      ghost.attr("cx", svgPt.x).attr("cy", svgPt.y);
+  
+      // Highlight whatever circle is under the cursor (excluding the dragged node)
+      this._svg.selectAll("circle.move-highlight").classed("move-highlight", false)
+        .attr("stroke", null).attr("stroke-width", null);
+  
+      this._moveState.hoverTargetId = null;
+  
+      // Hit-test: find closest person node within 30px of cursor
+      this._svg.selectAll("circle").each((d, i, nodes) => {
+        if (!d?.data?.id || d.isUnion) return;
+        if (d.data.id === this._moveState.personId) return;
+  
+        const circle = nodes[i];
+        const cx = parseFloat(circle.getAttribute("cx") || 0) + (circle.ownerSVGElement ? 0 : 0);
+        const cy = parseFloat(circle.getAttribute("cy") || 0);
+        // Use getBoundingClientRect for accurate screen position
+        const rect = circle.getBoundingClientRect();
+        const dx = event.clientX - (rect.left + rect.width / 2);
+        const dy = event.clientY - (rect.top + rect.height / 2);
+        if (Math.sqrt(dx * dx + dy * dy) < 30) {
+          d3.select(circle).classed("move-highlight", true)
+            .attr("stroke", "#0f0").attr("stroke-width", 4);
+          this._moveState.hoverTargetId = d.data.id;
+        }
+      });
+    }
+  */
+  _onMoveMouseUp(event) {
+    if (!this._moveState) return;
+    const { personId, personData, ghost, hoverTargetId } = this._moveState;
+
+    ghost.remove();
+    this._svg.selectAll("circle.move-highlight").classed("move-highlight", false)
+      .attr("stroke", null).attr("stroke-width", null);
+
+    this._moveState = null;
+
+    if (!hoverTargetId) return; // dropped on empty space — cancel
+
+    if (hoverTargetId === personId) return; // dropped on self — cancel
+
+    // Prevent dropping onto own descendant (would create a cycle)
+    if (this._isDescendant(personId, hoverTargetId)) {
+      ui.notifications.error("Cannot move a node onto one of its own descendants.");
+      return;
+    }
+
+    this._reparentPerson(personId, hoverTargetId);
+  }
+
+  _onMoveMouseDown(event, nodeData) {
+    if (!event.ctrlKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    // Ghost lives on the SVG ROOT — not inside zoom-layer — so it's unaffected by pan/zoom transform
+    const ghost = this._svg.append("circle")
+      .classed("move-ghost", true)
+      .attr("r", 22)
+      .attr("fill", "rgba(255,200,0,0.5)")
+      .attr("stroke", "#f90")
+      .attr("stroke-width", 2)
+      .attr("pointer-events", "none");
+
+    this._moveState = {
+      personId: nodeData.data.id,
+      personData: nodeData.data,
+      ghost,
+      hoverTargetId: null,
+    };
+
+    // Position it immediately at the cursor (SVG root coords)
+    this._updateGhostPosition(event);
+
+    ui.notifications.info(`Moving "${nodeData.data.name}" — Ctrl+drop on a target parent`);
+  }
+
+  _updateGhostPosition(event) {
+    if (!this._moveState?.ghost) return;
+    const svgEl = this._svg.node();
+    const rect = svgEl.getBoundingClientRect();
+
+    // Map clientX/Y → SVG root viewport coords (no zoom transform involved)
+    const svgX = (event.clientX - rect.left) * (svgEl.viewBox.baseVal.width / rect.width);
+    const svgY = (event.clientY - rect.top) * (svgEl.viewBox.baseVal.height / rect.height);
+
+    this._moveState.ghost.attr("cx", svgX).attr("cy", svgY);
+  }
+
+  _onMoveMouseMove(event) {
+    if (!this._moveState) return;
+
+    this._updateGhostPosition(event);
+
+    // Reset previous highlight
+    this._svg.selectAll("circle.move-highlight")
+      .classed("move-highlight", false)
+      .attr("stroke", null)
+      .attr("stroke-width", null);
+
+    this._moveState.hoverTargetId = null;
+
+    // Hit-test purely in screen space using getBoundingClientRect — no coordinate math needed
+    this._svg.selectAll("circle").each((d, i, nodes) => {
+      if (!d?.data?.id || d.isUnion) return;
+      if (d.data.id === this._moveState.personId) return;
+
+      const rect = nodes[i].getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const dx = event.clientX - centerX;
+      const dy = event.clientY - centerY;
+
+      if (Math.sqrt(dx * dx + dy * dy) < 30) {
+        d3.select(nodes[i])
+          .classed("move-highlight", true)
+          .attr("stroke", "#0f0")
+          .attr("stroke-width", 4);
+        this._moveState.hoverTargetId = d.data.id;
+      }
+    });
+  }
+
+  // ── 2. Core reparent logic (pure data surgery, no lib modification) ──────────
+  _reparentPerson(personId, newParentId) {
+    const data = this.graph.data;
+    const person = data.persons[personId];
+    if (!person) return;
+
+    log(`Reparenting ${personId} under ${newParentId}`);
+
+    // Step A: detach from old parentFamily
+    const oldParentFamilyId = person.parentFamily;
+    if (oldParentFamilyId) {
+      // Remove the link [oldParentFamily → personId]
+      data.links = data.links.filter(([s, t]) => !(s === oldParentFamilyId && t === personId));
+
+      // If the old union now has no children left, clean it up
+      const oldUnionStillHasChildren = data.links.some(
+        ([s, t]) => s === oldParentFamilyId && data.persons[t]
+      );
+      if (!oldUnionStillHasChildren) {
+        // Remove parents' links to this union too
+        data.links = data.links.filter(([s, t]) => t !== oldParentFamilyId);
+        delete data.unions[oldParentFamilyId];
+        // Clear ownFamily from the old parents
+        for (const [pid, p] of Object.entries(data.persons)) {
+          if (p.ownFamily === oldParentFamilyId) {
+            delete data.persons[pid].ownFamily;
+          }
+        }
+      }
+      delete person.parentFamily;
+    }
+
+    // Step B: attach to newParent's family
+    const newParent = data.persons[newParentId];
+    if (!newParent) return;
+
+    let newFamilyId = newParent.ownFamily;
+    if (!newFamilyId) {
+      // Create a new union for the new parent
+      newFamilyId = safeUUID();
+      newParent.ownFamily = newFamilyId;
+      data.unions[newFamilyId] = { id: newFamilyId, visible: true };
+      // Link new parent → union
+      this.familytree.addLink(newParentId, newFamilyId, false);
+    }
+
+    // Update person's parentFamily
+    person.parentFamily = newFamilyId;
+
+    // Link union → person
+    this.familytree.addLink(newFamilyId, personId, false);
+
+    // Flush
+    this.familytree.reimportData();
+    log("Reparent complete, new data:", data);
+    ui.notifications.info(`Moved "${person.name}" under "${newParent.name}"`);
+  }
+
+  // ── 3. Cycle-guard: is candidateId a descendant of personId? ─────────────────
+  _isDescendant(personId, candidateId) {
+    const data = this.graph.data;
+    const visited = new Set();
+    const queue = [personId];
+    while (queue.length) {
+      const cur = queue.shift();
+      if (cur === candidateId) return true;
+      if (visited.has(cur)) continue;
+      visited.add(cur);
+      const p = data.persons[cur];
+      if (!p?.ownFamily) continue;
+      for (const [s, t] of data.links) {
+        if (s === p.ownFamily && data.persons[t] && !visited.has(t)) {
+          queue.push(t);
+        }
+      }
+    }
+    return false;
+  }
+
+  _toggleOrientation() {
+    this._orientation = this._orientation === 'vertical' ? 'horizontal' : 'vertical';
+    this.opts.orientation = this._orientation;
+
+    // Update button label
+    const btn = document.getElementById('genealogy-orientation-btn');
+    if (btn) btn.textContent = this._orientation === 'vertical' ? '↕ Vertical' : '↔ Horizontal';
+
+    // A full render() re-creates the FamilyTree instance with the new opts
+    this.render();
+  }
+  _injectOrientationButton() {
+    // Idempotent — don't inject twice
+    if (document.getElementById('genealogy-orientation-btn')) return;
+
+    const container = document.getElementById('d3-graph-container');
+    if (!container) return;
+
+    // Ensure the container is the positioning context
+    container.style.position = 'relative';
+
+    const btn = document.createElement('button');
+    btn.id = 'genealogy-orientation-btn';
+    btn.textContent = this._orientation === 'vertical' ? '↕ Vertical' : '↔ Horizontal';
+    btn.title = 'Toggle tree orientation';
+    Object.assign(btn.style, {
+      position: 'absolute',
+      top: '8px',
+      right: '8px',
+      zIndex: '100',
+      padding: '4px 10px',
+      background: 'rgba(30,30,30,0.85)',
+      color: '#eee',
+      border: '1px solid #666',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      fontSize: '12px',
+      userSelect: 'none',
+    });
+
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this._toggleOrientation();
+    });
+
+    container.appendChild(btn);
+  }
 }
