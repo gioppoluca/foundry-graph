@@ -88,15 +88,16 @@ Templates defining:
 - renderer choice
 
 These are the graph type available 
-| Graph Type | Renderer | Themes |System | Allowed Objects | Description |
-|-----------|----------|---|-----|-----------------|-------------|
-| Characters Map | Free Diagram | | Any | Actors | Generic character relationships |
-| Enemy Map | Free Diagram | | Any | Actors | Conflict-focused diagrams |
-| Faction Power Structure  | Free Diagram | | Any | Actors | Internal faction hierarchies |
-| World of Darkness Relationship Map | Free Diagram | Modern, Old | WoD5e / VTM5e | Actors, JournalPages | Coterie and vampire relations |
-| Genealogy Tree | Genealogy | | Any | Actors | Family or lineage trees |
-| Geography Map (OpenStreetMap or Raster) | Leaflet | | Any | Any | Geographic markers |
-| Haven Layout | Slot Layout | Castle, manor, house, modern house, condo, penthouse, slums, medieval village, medieval manor, medieval crypt| WoD5e / VTM5e | Items | Vampire haven visualization |
+| | Graph Type | Renderer | Themes |System | Allowed Objects | Description |
+|--|---------|----------|---|-----|-----------------|-------------|
+| ![](img/icons/icon-character-map.webp) | Characters Map | Free Diagram | | Any | Actors | Generic character relationships |
+| ![](img/icons/icon-enemy-map.webp) | Enemy Map | Free Diagram | | Any | Actors | Conflict-focused diagrams |
+| ![](img/icons/icon-faction-power.webp) | Faction Power Structure  | Free Diagram | | Any | Actors | Internal faction hierarchies |
+| ![](img/icons/icon-wod-relations.webp) | World of Darkness Relationship Map | Free Diagram | Modern, Old | WoD5e / VTM5e | Actors, JournalPages | Coterie and vampire relations |
+| ![](img/icons/icon-genealogy-tree.webp) | Genealogy Tree | Genealogy | | Any | Actors | Family or lineage trees |
+| ![](img/icons/icon-geographical-map.webp) | Geography Map | Map | | Any | Any | Geographic markers labels and polygons on a map (OpenStreetMap or Raster) |
+| ![](img/icons/icon-haven-layout.webp) | Haven Layout | Slot Layout | Castle, manor, house, modern house, condo, penthouse, slums, medieval village, medieval manor, medieval crypt| WoD5e / VTM5e | Items | Vampire haven visualization |
+| ![](img/icons/icon-vis-timeline.webp)| Timeline | Timeline | | Any | Any | Thins that can happen on a timeline |
 
 New graph types are actively under development — feel free to open an issue with suggestions.
 
@@ -183,6 +184,18 @@ Slots define:
 
 Best for structured boards (havens, dashboards).
 
+#### Timeline Renderer
+**Concept**
+Placing Scenes, Journals, Actors or Items on a temporal timeline with different lanes
+
+**Key interactions**
+- Define relations as lanes
+- Drag & drop documents onto lanes (ALT-Drop for ranged element)
+- Select and Move the element on the timeline
+- Zoom in the timeline
+- Double-click to open sheet
+
+![timeline example](doc/Orcish_History.png)
 ---
 
 ## Usage
