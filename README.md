@@ -223,7 +223,7 @@ Workflow:
 ---
 
 ## Planned Features
-- Timeline renderer
+- cleanup and final release
   
 
 
