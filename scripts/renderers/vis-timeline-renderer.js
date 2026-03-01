@@ -1,6 +1,5 @@
 import { MODULE_ID, log, t } from "../constants.js";
 import { BaseRenderer } from "./base-renderer.js";
-import { FGCalendarDateTimePopover } from "../ui/calendar-datetime-popover.js";
 const { DialogV2 } = foundry.applications.api;
 
 // ---------------------------------------------------------------------------
@@ -946,12 +945,6 @@ export class VisTimelineRenderer extends BaseRenderer {
                     onClick: () => this._openDocumentSheet(item),
                 },
                 {
-                    id: "editDates",
-                    label: `Edit Dates (${label})`,
-                    icon: "fa-solid fa-calendar-days",
-                    onClick: () => this._showEditDatesDialog(item),
-                },
-                {
                     id: "delete",
                     label: `Delete (${label})`,
                     icon: "fa-solid fa-trash",
@@ -976,89 +969,6 @@ export class VisTimelineRenderer extends BaseRenderer {
         } catch (e) {
             log("VisTimelineRenderer: failed to open sheet", e);
         }
-    }
-
-    // --------------------------------------------------------------------------
-    // Edit Dates dialog (reuses the same calendar-datetime partial as before)
-    // --------------------------------------------------------------------------
-
-    async _showEditDatesDialog(item) {
-        const doc = await fromUuid(item.uuid);
-        if (!doc) { ui.notifications.error("Could not resolve document."); return; }
-
-        const currentStartSec = doc.getFlag?.(MODULE_ID, "start-date") ?? item.start;
-        const currentEndSec = doc.getFlag?.(MODULE_ID, "end-date") ?? item.end;
-
-        const [startTemplate, endTemplate] = await Promise.all([
-            renderTemplate("modules/foundry-graph/templates/partials/calendar-datetime.hbs", {
-                name: "start-date",
-                label: game.i18n.localize("foundry-graph.GraphPage.start_date") || "Start Date",
-                value: currentStartSec != null ? String(currentStartSec) : "",
-                required: true,
-            }),
-            renderTemplate("modules/foundry-graph/templates/partials/calendar-datetime.hbs", {
-                name: "end-date",
-                label: game.i18n.localize("foundry-graph.GraphPage.end_date") || "End Date",
-                value: currentEndSec != null ? String(currentEndSec) : "",
-                required: false,
-            }),
-        ]);
-
-        await DialogV2.wait({
-            window: { title: `Edit Dates: ${item.title}`, resizable: true },
-            content: `
-        <form class="timeline-edit-dates-form">
-          <p class="notes" style="margin-bottom:1em;">
-            Edit the start and end dates for this timeline item.
-          </p>
-          ${startTemplate}
-          ${endTemplate}
-        </form>
-      `,
-            buttons: [
-                {
-                    action: "save",
-                    label: "Save",
-                    icon: "fa-solid fa-save",
-                    callback: (_ev, _btn, dialog) => {
-                        const form = dialog.element.querySelector("form");
-                        const formData = new FormData(form);
-                        const startVal = formData.get("start-date");
-                        const endVal = formData.get("end-date");
-                        if (!startVal) { ui.notifications.warn("Start date is required."); return false; }
-                        return {
-                            startSec: Number(startVal),
-                            endSec: endVal ? Number(endVal) : null,
-                        };
-                    },
-                },
-                { action: "cancel", label: "Cancel", icon: "fa-solid fa-times" },
-            ],
-            submit: async (result) => {
-                if (result?.startSec == null) return;  // cancelled
-                try {
-                    await doc.setFlag(MODULE_ID, "start-date", result.startSec);
-                    if (result.endSec !== null) await doc.setFlag(MODULE_ID, "end-date", result.endSec);
-                    else await doc.unsetFlag(MODULE_ID, "end-date");
-
-                    const stored = this.graph.data.items.find(i => i.id === item.id);
-                    if (stored) {
-                        stored.start = result.startSec;
-                        stored.end = result.endSec;
-                        stored.title = doc.name;
-                    }
-
-                    await this.render(d3.select(this._svgEl), this.graph);
-                    ui.notifications.info(`Dates updated for "${item.title}"`);
-                } catch (e) {
-                    log("VisTimelineRenderer: failed to update dates", e);
-                    ui.notifications.error("Failed to update dates. See console for details.");
-                }
-            },
-            render: async (_ev, dialog) => {
-                FGCalendarDateTimePopover.enhance(dialog.element);
-            },
-        });
     }
 
     // --------------------------------------------------------------------------
