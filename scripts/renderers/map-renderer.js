@@ -1503,4 +1503,18 @@ export class MapRenderer extends BaseRenderer {
       img.src = url;
     });
   }
+
+  async syncLabels(graphData) {
+    const markers = graphData?.markers ?? [];
+    for (const marker of markers) {
+      if (!marker.uuid) continue;
+      try {
+        const doc = await fromUuid(marker.uuid);
+        if (!doc) continue;
+        if (doc.name != null) marker.label = doc.name;
+        if (doc.img != null) marker.img = doc.img;
+      } catch (_) { }
+    }
+    return graphData;
+  }
 }

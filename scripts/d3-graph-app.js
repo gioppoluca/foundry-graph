@@ -365,6 +365,8 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     const data = this.renderer.getGraphData()
     log("D3GraphApp._saveGraph", data)
+    // Refresh labels/images from live Foundry documents before persisting
+    data = await this.renderer.syncLabels(data);
     this.graph.data = data;
     await api.upsertGraph(this.graph);
     this.renderer.teardown();
@@ -377,6 +379,11 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   async _drawGraph(data = null) {
     let svg = d3.select("#d3-graph");
     log("D3GraphApp._drawGraph", this.renderer, this.graph, svg)
+    if (this.graph?.data) {
+      this.graph.data = await this.renderer.syncLabels(
+        foundry.utils.deepClone(this.graph.data)
+      );
+    }
     const relationId = this.element.querySelector("#relation-type")?.value || "";
     const relation = this.graph.relations.find(r => r.id === relationId);
     this.renderer.setRelationData(relation);

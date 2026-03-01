@@ -1011,4 +1011,17 @@ export class GenealogyRenderer extends BaseRenderer {
 
     container.appendChild(btn);
   }
+
+  async syncLabels(graphData) {
+    const persons = graphData?.persons ?? {};
+    for (const [uuid, person] of Object.entries(persons)) {
+      try {
+        const doc = await fromUuid(uuid);
+        if (!doc) continue;
+        if (doc.name != null) person.name = doc.name;
+        if (doc.img != null) person.img = doc.img;
+      } catch (_) { }
+    }
+    return graphData;
+  }
 }

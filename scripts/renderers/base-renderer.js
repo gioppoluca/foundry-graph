@@ -407,4 +407,30 @@ export class BaseRenderer {
       ui?.notifications?.info?.(t("Notifications.ExportFinished"));
     }
   }
+
+  /**
+ * Synchronise node labels (and images) with the current Foundry document data.
+ * Each renderer that stores entities by UUID should override this if its data
+ * shape differs from the default {nodes: [{uuid, label, img}]} convention.
+ *
+ * Called automatically before saving. Safe to call at any time.
+ *
+ * @param {Object} graphData  - Raw graph data object (will be mutated in place).
+ * @returns {Promise<Object>} - The same graphData with refreshed labels/images.
+ */
+  async syncLabels(graphData) {
+    const nodes = graphData?.nodes ?? [];
+    for (const node of nodes) {
+      if (!node.uuid) continue;
+      try {
+        const doc = await fromUuid(node.uuid);
+        if (!doc) continue;
+        if (doc.name != null) node.label = doc.name;
+        if (doc.img != null) node.img = doc.img;
+      } catch (e) {
+        // UUID no longer valid – leave label as-is, removeEntity handles deletion
+      }
+    }
+    return graphData;
+  }
 }
