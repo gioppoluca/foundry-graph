@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-03-01
+### :sparkles: New Features
+- [`280f9d6`](https://github.com/gioppoluca/foundry-graph/commit/280f9d6082c85d9c82a1dc2dea41f67188fe5a3b) - new timeline done with vis.js *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`d733a35`](https://github.com/gioppoluca/foundry-graph/commit/d733a35d6a469712b20a1409c7da5f4f749dc4d5) - styling tooltip in timeline and export diagram *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`83a7294`](https://github.com/gioppoluca/foundry-graph/commit/83a7294e2630657396ca5cce260f5242e1ed1944) - timeline graph type ready for publish *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`3bd66d2`](https://github.com/gioppoluca/foundry-graph/commit/3bd66d2b94acbb4b0dcb90aceea92a279fa02b9d) - new icons for graph types *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`f5d14dd`](https://github.com/gioppoluca/foundry-graph/commit/f5d14dd6574bbd3731363f078d20c86944afc5a6) - new graph type icon *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+### :bug: Bug Fixes
+- [`464028d`](https://github.com/gioppoluca/foundry-graph/commit/464028def144720e374629b3af3e7b34f3b57c0f) - scroll graph list *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`3e61ba4`](https://github.com/gioppoluca/foundry-graph/commit/3e61ba4bf922a9ffb69384efb60f2ad8f4fa6d90) - graph list showed under create. better timeline style *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`96cee3a`](https://github.com/gioppoluca/foundry-graph/commit/96cee3a2a9abc72fd4b465c669bf56b435be9982) - removed the dialog to write date *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.8.1] - 2026-02-27
 ### :sparkles: New Features
 - [`a52e028`](https://github.com/gioppoluca/foundry-graph/commit/a52e0286201e102be5b859189ea9e588c375887e) - added timeline renderer *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -201,3 +215,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.7.1]: https://github.com/gioppoluca/foundry-graph/compare/0.7.0...0.7.1
 [0.8.0]: https://github.com/gioppoluca/foundry-graph/compare/0.7.1...0.8.0
 [0.8.1]: https://github.com/gioppoluca/foundry-graph/compare/0.8.0...0.8.1
+[0.9.0]: https://github.com/gioppoluca/foundry-graph/compare/0.8.1...0.9.0
