@@ -33,6 +33,7 @@
         },
         "List": {
             "SavedGraphs": "Saved Graphs",
+            "Type": "Type",
             "Name": "Name",
             "Description": "Description",
             "Actions": "Actions"

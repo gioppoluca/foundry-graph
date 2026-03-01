@@ -23,6 +23,23 @@
   width: 100%;
 }
 
+/* Icon column: remove cell padding so the image fills the row height naturally */
+.graph-table th.graph-type-icon-col,
+.graph-table td.graph-type-icon {
+  padding: 0 2px;
+  width: 36px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.graph-table td.graph-type-icon img {
+  display: block;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  margin: 0 auto;
+}
+
 /* Hide all tab sections by default; only show the active one */
 section.tab {
   display: none;
@@ -414,7 +431,6 @@ svg image {
   display: block;
   min-width: 100%;
 }
-
 /* ── vis-timeline renderer: transparent panels so background image shows ── */
 #fg-vis-timeline .vis-panel,
 #fg-vis-timeline .vis-content,
@@ -430,13 +446,16 @@ svg image {
 /* Keep axis and group label areas semi-transparent so the bg image remains visible */
 #fg-vis-timeline .vis-time-axis,
 #fg-vis-timeline .vis-labelset {
-  background: rgba(20, 20, 30, 0.45) !important;
+  background: rgba(20, 20, 30, 0.65) !important;
 }
 
 #fg-vis-timeline .vis-background .vis-group {
   background: transparent !important;
 }
 
-.vis-time-axis .vis-text {
-  color: #000 !important;
+/* Rich icon tooltip */
+.fg-type-icon-tooltip {
+  text-align: center;
+  padding: 6px;
+  min-width: 110px;
 }

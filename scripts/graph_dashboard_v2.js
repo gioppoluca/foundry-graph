@@ -115,6 +115,14 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       }
     }
 
+    // Enrich each graph entry with its type icon and name for the list view
+    const graphTypeMap = new Map((this._graphTypes ?? []).map(t => [t.id, t]));
+    const graphsWithMeta = graphs.map(g => ({
+      ...g,
+      typeIcon: graphTypeMap.get(g.graphType)?.icon ?? "modules/foundry-graph/img/icons/icon-generic.webp",
+      typeName: graphTypeMap.get(g.graphType)?.name ?? g.graphType,
+    }));
+
     return {
       title: this.title,
       version: this.api.version,
@@ -126,7 +134,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       selectedGraphType: this.editingGraph?.graphType,
       selectedGraphThemes,
       selectedTheme,
-      graphs
+      graphs: graphsWithMeta
     };
   }
 

@@ -5,6 +5,9 @@
     <table class="graph-table">
       <thead>
         <tr>
+          <th class="graph-type-icon-col" data-tooltip="{{localize 'foundry-graph.List.Type'}}">
+            <i class="fa-solid fa-diagram-project"></i>
+          </th>
           <th>{{localize "foundry-graph.List.Name"}}</th>
           <th>{{localize "foundry-graph.List.Description"}}</th>
           <th style="width: 200px">{{localize "foundry-graph.List.Actions"}}</th>
@@ -13,6 +16,11 @@
       <tbody>
         {{#each graphs}}
         <tr data-graph-id="{{this.id}}">
+          <td class="graph-type-icon"
+            data-tooltip="<img src='{{this.typeIcon}}' style='width:96px;height:96px;object-fit:contain;display:block;margin:0 auto 4px;'><div style='text-align:center;'>{{this.typeName}}</div>"
+            data-tooltip-class="fg-type-icon-tooltip">
+            <img src="{{this.typeIcon}}" alt="{{this.typeName}}" />
+          </td>
           <td style="color: {{ this.color }}">{{this.name}}</td>
           <td>{{this.desc}}</td>
           <td class="flexrow">

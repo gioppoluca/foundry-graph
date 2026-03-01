@@ -4,6 +4,7 @@ export const GRAPH_TYPES = {
     "name": "Geographical Map",
     "description": "A Leaflet (OpenStreetMap or Raster) map that stores draggable markers (Actors/Scenes/Items/Journal pages) with real-world coordinates.",
     "themes": [],
+    "icon": "modules/foundry-graph/img/icons/icon-geographical-map.webp",
     "renderer": "map",
     "color": "#4639f7",
     "nodeLabelColor": "#ffffff",
@@ -23,6 +24,7 @@ export const GRAPH_TYPES = {
       "height": 1667
     },
     "themes": [],
+    "icon": "modules/foundry-graph/img/icons/icon-enemy-map.webp",
     "renderer": "force",
     "color": "#550044",
     "nodeLabelColor": "#000000",
@@ -115,6 +117,7 @@ export const GRAPH_TYPES = {
       "width": 2500,
       "height": 1667
     },
+    "icon": "modules/foundry-graph/img/icons/icon-timeline.webp",
     "renderer": "timeline",
     "color": "#01ff6b",
     "nodeLabelColor": "#ffffff",
@@ -149,6 +152,7 @@ export const GRAPH_TYPES = {
       "height": 2464
     },
     ],
+    "icon": "modules/foundry-graph/img/icons/icon-wod-relations.webp",
     "renderer": "force",
     "color": "#ff0000",
     "nodeLabelColor": "#ffffff",
@@ -326,6 +330,7 @@ export const GRAPH_TYPES = {
       "height": 1667
     },
     "themes": [],
+    "icon": "modules/foundry-graph/img/icons/icon-faction-power.webp",
     "renderer": "force",
     "color": "#0000aa",
     "nodeLabelColor": "#000000",
@@ -414,6 +419,7 @@ export const GRAPH_TYPES = {
       "height": 1667
     },
     "themes": [],
+    "icon": "modules/foundry-graph/img/icons/icon-character-map.webp",
     "renderer": "force",
     "color": "#ffffff",
     "nodeLabelColor": "#000000",
@@ -510,6 +516,7 @@ export const GRAPH_TYPES = {
       "height": 1667
     },
     "themes": [],
+    "icon": "modules/foundry-graph/img/icons/icon-genealogy-tree.webp",
     "renderer": "genealogy",
     "width": 1200,
     "height": 800,
@@ -626,6 +633,7 @@ export const GRAPH_TYPES = {
         "height": 2464
       }
     ],
+    "icon": "modules/foundry-graph/img/icons/icon-haven-layout.webp",
     "renderer": "imageSlots",
     "width": 1200,
     "height": 800,
@@ -901,10 +909,11 @@ export const GRAPH_TYPES = {
     "description": "A lane-based timeline powered by vis.js. Items are linked to documents carrying start/end date flags. Supports drag-to-move, zoom, pan and custom calendar axis labels.",
     "themes": [],
     "background": {
-      "image": "modules/foundry-graph/img/timeline.webp",
+      "image": "modules/foundry-graph/img/relations.webp",
       "width": 2500,
       "height": 1667
     },
+    "icon": "modules/foundry-graph/img/icons/icon-vis-timeline.webp",
     "renderer": "vis-timeline",
     "color": "#01d4ff",
     "nodeLabelColor": "#ffffff",
