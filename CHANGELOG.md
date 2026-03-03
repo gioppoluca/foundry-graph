@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] - 2026-03-03
+### :sparkles: New Features
+- [`5965b68`](https://github.com/gioppoluca/foundry-graph/commit/5965b683578a62e0d184743ac0720a1e58fe8ed5) - keep labels updated with changes outside the graph *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`2cc1a3d`](https://github.com/gioppoluca/foundry-graph/commit/2cc1a3d7368d347a6d4d627851788fdf969fda0d) - import graph *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`e0c37b5`](https://github.com/gioppoluca/foundry-graph/commit/e0c37b5d9019341e63c8583e0a2486d9ae76e61d) - added information for graph *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+### :bug: Bug Fixes
+- [`c790dec`](https://github.com/gioppoluca/foundry-graph/commit/c790dec308f9e6e3430c954caa19c93aa065b256) - images over clickable area closes [#13](https://github.com/gioppoluca/foundry-graph/pull/13). *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`2d98bd1`](https://github.com/gioppoluca/foundry-graph/commit/2d98bd16ca35ca7731f8207656a1a45b3c96f8d8) - remove useless vis.js label in graph type *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`72b5d0d`](https://github.com/gioppoluca/foundry-graph/commit/72b5d0df3e33a6f0f8c1473ae1f0257c0a5350a7) - not able to save *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.9.1] - 2026-03-01
 ### :sparkles: New Features
 - [`0968ef8`](https://github.com/gioppoluca/foundry-graph/commit/0968ef85b34a6909a2291b6230a0973e8aff5050) - closes [#11](https://github.com/gioppoluca/foundry-graph/pull/11), closes [#12](https://github.com/gioppoluca/foundry-graph/pull/12) *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -223,3 +235,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.8.1]: https://github.com/gioppoluca/foundry-graph/compare/0.8.0...0.8.1
 [0.9.0]: https://github.com/gioppoluca/foundry-graph/compare/0.8.1...0.9.0
 [0.9.1]: https://github.com/gioppoluca/foundry-graph/compare/0.9.0...0.9.1
+[0.9.2]: https://github.com/gioppoluca/foundry-graph/compare/0.9.1...0.9.2
