@@ -363,7 +363,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static async _saveGraph() {
     const api = game.modules.get("foundry-graph").api;
 
-    const data = this.renderer.getGraphData()
+    let  data = this.renderer.getGraphData()
     log("D3GraphApp._saveGraph", data)
     // Refresh labels/images from live Foundry documents before persisting
     data = await this.renderer.syncLabels(data);
