@@ -905,7 +905,7 @@ export const GRAPH_TYPES = {
   },
   "vis-timeline-notes": {
     "id": "vis-timeline-notes",
-    "name": "Timeline (vis.js)",
+    "name": "Timeline",
     "description": "A lane-based timeline powered by vis.js. Items are linked to documents carrying start/end date flags. Supports drag-to-move, zoom, pan and custom calendar axis labels.",
     "themes": [],
     "background": {
