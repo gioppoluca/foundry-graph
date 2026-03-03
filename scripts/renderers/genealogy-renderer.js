@@ -53,13 +53,13 @@ export class GenealogyRenderer extends BaseRenderer {
           defs.appendChild(clip);
         }
 
-        // Border circle
+        // Border circle (visual only — sits behind the portrait)
         group.append('circle')
           .attr('r', PORTRAIT_RADIUS + 2)
           .attr('fill', '#444')
           .attr('stroke', '#ccc')
           .attr('stroke-width', 2)
-          .on('click', (event, d) => opts.nodeClickFunction(d, ft));
+          .attr('pointer-events', 'none');
 
         // Portrait (or fallback grey if no img)
         if (img) {
@@ -71,6 +71,15 @@ export class GenealogyRenderer extends BaseRenderer {
             .attr('preserveAspectRatio', 'xMidYMid slice')
             .attr('pointer-events', 'none');
         }
+
+        // Transparent hit-area circle on top — intercepts ALL click/drag events
+        // Must be appended last so it sits above the image in SVG paint order
+        group.append('circle')
+          .attr('class', 'node-hit-area')
+          .attr('r', PORTRAIT_RADIUS + 2)
+          .attr('fill', 'transparent')
+          .attr('stroke', 'none')
+          .on('click', (event, d) => opts.nodeClickFunction(d, ft));
       },
 
       nodeUpdateFunction: (group, opts) => {
@@ -317,8 +326,8 @@ export class GenealogyRenderer extends BaseRenderer {
       log("FT:", this.familytree)
     }
 
-    // add right click only afterr the graph is created or there are no circles
-    this._svg.selectAll('circle')
+    // add right click only after the graph is created or there are no circles
+    this._svg.selectAll('circle.node-hit-area, circle')
       .on('contextmenu', (event, d) => {
         event.preventDefault();
         event.stopPropagation();
@@ -703,9 +712,9 @@ export class GenealogyRenderer extends BaseRenderer {
     const svg = this._svg;
     if (!svg) return;
 
-    svg.selectAll("circle").each((d, i, nodes) => {
+    svg.selectAll("circle.node-hit-area, circle").each((d, i, nodes) => {
       const circle = d3.select(nodes[i]);
-      // Only person nodes (not union nodes)
+      // Only person nodes (not union nodes), skip visual-only border circles
       if (!d?.data?.id || d.isUnion) return;
 
       circle
@@ -864,7 +873,8 @@ export class GenealogyRenderer extends BaseRenderer {
     this._moveState.hoverTargetId = null;
 
     // Hit-test purely in screen space using getBoundingClientRect — no coordinate math needed
-    this._svg.selectAll("circle").each((d, i, nodes) => {
+    // Use node-hit-area circles (transparent top layer) for accurate hit detection
+    this._svg.selectAll("circle.node-hit-area").each((d, i, nodes) => {
       if (!d?.data?.id || d.isUnion) return;
       if (d.data.id === this._moveState.personId) return;
 
@@ -875,7 +885,10 @@ export class GenealogyRenderer extends BaseRenderer {
       const dy = event.clientY - centerY;
 
       if (Math.sqrt(dx * dx + dy * dy) < 30) {
-        d3.select(nodes[i])
+        // Apply highlight to the sibling border circle (previousSibling or parent's first circle)
+        const group = nodes[i].parentNode;
+        const borderCircle = group ? group.querySelector('circle:not(.node-hit-area)') : nodes[i];
+        d3.select(borderCircle)
           .classed("move-highlight", true)
           .attr("stroke", "#0f0")
           .attr("stroke-width", 4);
