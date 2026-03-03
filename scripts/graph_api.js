@@ -190,6 +190,9 @@ export class GraphApi {
         return graph;
     }
 
+    migrateGraph(graphRaw) {
+        return migrateGraph(graphRaw, this.graphTypes); // the imported function
+    }
 
     async _saveIndex() {
         await game.settings.set(MODULE_ID, "graphIndex", Array.from(this._indexMap.values()));

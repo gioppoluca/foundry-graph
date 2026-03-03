@@ -72,7 +72,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       graphDelete: GraphDashboardV2.graphDelete,
       graphPerms: GraphDashboardV2.graphPerms,
       graphRelations: GraphDashboardV2.onGraphRelations,
-      onCancelCreate: GraphDashboardV2.onCancelCreate
+      onCancelCreate: GraphDashboardV2.onCancelCreate,
+      onImportGraph: GraphDashboardV2.onImportGraph,
     }
   };
 
@@ -436,6 +437,65 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     this.updateButtonState();
   }
 
+  static async onImportGraph(event, target) {
+    // Trigger the hidden file picker
+    const fileInput = this.element.querySelector("#import-graph-file");
+    if (!fileInput) return;
+
+    // Remove any previous listener to avoid stacking
+    fileInput.onchange = null;
+
+    fileInput.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      fileInput.value = ""; // reset so the same file can be re-imported if needed
+
+      let graph;
+      try {
+        const text = await file.text();
+        graph = JSON.parse(text);
+      } catch (err) {
+        return ui.notifications.error(t("Errors.ImportParseFailed"));
+      }
+
+      // Basic structural validation
+      if (!graph?.id || !graph?.graphType) {
+        return ui.notifications.error(t("Errors.ImportInvalidFile"));
+      }
+
+      const api = game.modules.get("foundry-graph").api;
+
+      // Check for ID collision and reassign if needed
+      const existingGraphs = api.getAllGraphs();
+      const idCollision = existingGraphs.some(g => g.id === graph.id);
+      if (idCollision) {
+        // Give it a fresh ID derived from the name to avoid overwriting an existing graph
+        const newId = `${graph.id}-imported-${Date.now()}`;
+        ui.notifications.warn(
+          tf("Notifications.ImportIdCollision", { oldId: graph.id, newId })
+        );
+        graph.id = newId;
+      }
+
+      // Run migrations to ensure compatibility with current schema
+      try {
+        const migratedGraph = api.migrateGraph
+          ? api.migrateGraph(graph)          // if you expose it on the api
+          : graph;                           // fallback: trust the file as-is
+        await api.upsertGraph(migratedGraph);
+      } catch (err) {
+        log("Import failed", err);
+        return ui.notifications.error(t("Errors.ImportSaveFailed"));
+      }
+
+      ui.notifications.info(tf("Notifications.ImportSuccess", { name: graph.name }));
+      // Switch to list tab so the user sees their newly imported graph
+      this.changeTab("listGraph", "primary");
+      this.render(true);
+    };
+
+    fileInput.click();
+  }
 
   /** Called after the HTML is rendered */
   _onRender() {

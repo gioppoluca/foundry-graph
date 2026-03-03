@@ -52,6 +52,7 @@
             "graphId": "Graph ID",
             "graphName": "Graph Name",
             "graphDesc": "Graph Description",
+            "importGraph": "Import Graph",
             "SelectGraphType": "Select Graph Type"
         },
         "Confirm": {
@@ -61,7 +62,10 @@
         "Errors": {
             "SaveError": "Error while saving the graph.",
             "ExportFailed": "Export failed. See console for details.",
-            "NoGraphSelectedForExport": "No graph selected for export."
+            "NoGraphSelectedForExport": "No graph selected for export.",
+            "ImportParseFailed": "Could not read the file. Make sure it is a valid JSON graph export.",
+            "ImportInvalidFile": "This file does not appear to be a valid Foundry Graph export.",
+            "ImportSaveFailed": "The graph was parsed but could not be saved. Check the console for details."
         },
         "Defaults": {
             "UntitledGraph": "New Graph",
@@ -74,7 +78,9 @@
             "ExportFinished": "Export finished.",
             "InvalidGraphType": "Invalid graph type selected.",
             "GraphSaved": "Graph saved.",
-            "GraphCleanupDone": "Cleaned up graph references."
+            "GraphCleanupDone": "Cleaned up graph references.",
+            "ImportSuccess": "Graph \"{name}\" imported successfully.",
+            "ImportIdCollision": "A graph with ID \"{oldId}\" already exists. Imported with new ID: {newId}."
         },
         "GraphPage": {
             "Configure": "Foundry Graph",

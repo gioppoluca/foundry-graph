@@ -71,5 +71,14 @@
         <i class="fa-solid fa-ban"></i> Cancel
       </button>
     </div>
+    {{!-- Import section --}}
+    <div class="flexrow"
+      style="margin-top: 0.75rem; border-top: 1px solid var(--color-border-dark, #aaa); padding-top: 0.75rem;">
+      <button id="import-graph-btn" type="button" data-action="onImportGraph">
+        <i class="fa-solid fa-file-import"></i> {{ localize 'foundry-graph.Labels.importGraph' }}
+      </button>
+      {{!-- Hidden file input, triggered programmatically --}}
+      <input type="file" id="import-graph-file" accept=".json" style="display:none;" />
+    </div>
   </div>
 </section>
