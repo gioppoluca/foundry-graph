@@ -325,6 +325,17 @@ export class VisTimelineRenderer extends BaseRenderer {
     get isLinkNodesVisible() { return false; }
     get isRelationSelectVisible() { return false; }
 
+    get instructions() {
+        return `
+    <b>Use relations for creating new lanes<br>
+    <b>Click on Node</b>: Select Node for editing position, range (if ranged) and lane<br>
+    <b>Scroll</b>: Zoom<br>
+    <b>DblClick</b>: Open Sheet<br>
+    <b>Right Click</b>: Radial menu for delete or open sheet<br>
+    <b>Drop</b>: Add element to timeline<br>
+    <b>Ctrl Drop</b>: To drop a ranged type item with default duration (can be resized immediately after drop)
+  `;
+    }
     // --------------------------------------------------------------------------
     // Static entity helpers (called by graph_api cleanup hooks)
     // --------------------------------------------------------------------------
