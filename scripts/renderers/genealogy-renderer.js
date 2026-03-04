@@ -26,6 +26,7 @@ export class GenealogyRenderer extends BaseRenderer {
           // keep the default tiny union dot
           group.append('circle')
             .on('click', (event, d) => opts.nodeClickFunction(d, ft))
+            .on('dblclick', (event, d) => opts.nodeDoubleClickFunction(d, ft))
             .transition().duration(opts.transitionDuration)
             .attr('r', opts.nodeSizeFunction)
             .attr('class', (d) => opts.nodeCSSClassFunction(d));
@@ -81,7 +82,8 @@ export class GenealogyRenderer extends BaseRenderer {
           .attr('r', PORTRAIT_RADIUS + 2)
           .attr('fill', 'transparent')
           .attr('stroke', 'none')
-          .on('click', (event, d) => opts.nodeClickFunction(d, ft));
+          .on('click', (event, d) => opts.nodeClickFunction(d, ft))
+          .on('dblclick', (event, d) => opts.nodeDoubleClickFunction(d, ft));
       },
 
       nodeUpdateFunction: (group, opts) => {
@@ -103,6 +105,12 @@ export class GenealogyRenderer extends BaseRenderer {
         }
         log("Node clicked:", node, ft);
         ft.nodeClickHandler(node);
+      },
+      nodeDoubleClickFunction: (node, _ft) => {
+        if (!node?.data?.id) return;
+        fromUuid(node.data.id)
+          .then(doc => { if (doc?.sheet?.render) doc.sheet.render(true); })
+          .catch(err => log("nodeDoubleClickFunction: could not open sheet", err));
       },
       nodeLabelFunction: (node, missingData) => {
 

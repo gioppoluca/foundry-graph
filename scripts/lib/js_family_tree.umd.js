@@ -3772,6 +3772,7 @@
                 linkPathFunction: D3Renderer.defaultLinkPathFunction,
                 linkCSSClassFunction: D3Renderer.defaultLinkCSSClassFunction,
                 nodeClickFunction: D3Renderer.defaultNodeClickFunction,
+                nodeDoubleClickFunction: D3Renderer.defaultNodeDoubleClickFunction,
                 nodeRightClickFunction: D3Renderer.defaultNodeRightClickFunction,
                 nodeCSSClassFunction: D3Renderer.defaultNodeCSSClassFunction,
                 nodeLabelFunction: D3Renderer.defaultNodeLabelFunction,
@@ -3859,6 +3860,13 @@
             return;
         }
         /**
+         * Default node double-click handler: doesn't do anything.
+         * Override via opts.nodeDoubleClickFunction to react to double-clicks.
+         */
+        static defaultNodeDoubleClickFunction(node, ft) {
+            return;
+        }
+        /**
          * Default function to generate labels for a node.
          * Returns an array of strings containing name, birthyear and deathyear.
          * Each array entry representing a line of the label.
@@ -3929,6 +3937,7 @@
             group
                 .append('circle')
                 .on('click', (event, d) => opts.nodeClickFunction(d, ft))
+                .on('dblclick', (event, d) => opts.nodeDoubleClickFunction(d, ft))
                 .on('contextmenu', (event, d) => opts.nodeRightClickFunction(d, ft))
                 .transition()
                 .duration(opts.transitionDuration)
