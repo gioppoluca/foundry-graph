@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3] - 2026-03-04
+### :sparkles: New Features
+- [`2334144`](https://github.com/gioppoluca/foundry-graph/commit/2334144a592fdefea869efddea408e9467a0285b) - labels below on vertical layout, bigger distance on genealogy siblings; closes [#16](https://github.com/gioppoluca/foundry-graph/pull/16) *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`054c424`](https://github.com/gioppoluca/foundry-graph/commit/054c42421f587f45c4bb5ed58994202dd2d454d3) - enable the opportunity to manage relations only for the graphs where this is meaningful *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`ee69fb8`](https://github.com/gioppoluca/foundry-graph/commit/ee69fb8eb399b9f30ed10a607e4885cd8bbe1dd9) - added doubleclick for open sheet *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+### :bug: Bug Fixes
+- [`55737df`](https://github.com/gioppoluca/foundry-graph/commit/55737dff757fd83a94c2d593eae282f91d1fbb7d) - geoman text label issue *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`e326121`](https://github.com/gioppoluca/foundry-graph/commit/e326121752c56156019e34544dbd62595b621cbc) - also other graph types do not require the relations *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`90c57bf`](https://github.com/gioppoluca/foundry-graph/commit/90c57bf89b337d9b5823eda7659a07cd2bf38f21) - removing the relation select in graph where it does not mean anything *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`3a587ac`](https://github.com/gioppoluca/foundry-graph/commit/3a587ac7913d2314546766e373617deab2ed1f22) - instructions more proper *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.9.2] - 2026-03-03
 ### :sparkles: New Features
 - [`5965b68`](https://github.com/gioppoluca/foundry-graph/commit/5965b683578a62e0d184743ac0720a1e58fe8ed5) - keep labels updated with changes outside the graph *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -236,3 +249,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.9.0]: https://github.com/gioppoluca/foundry-graph/compare/0.8.1...0.9.0
 [0.9.1]: https://github.com/gioppoluca/foundry-graph/compare/0.9.0...0.9.1
 [0.9.2]: https://github.com/gioppoluca/foundry-graph/compare/0.9.1...0.9.2
+[0.9.3]: https://github.com/gioppoluca/foundry-graph/compare/0.9.2...0.9.3
