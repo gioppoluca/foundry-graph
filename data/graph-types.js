@@ -10,7 +10,7 @@ export const GRAPH_TYPES = {
     "nodeLabelColor": "#ffffff",
     "version": 1,
     "released": true,
-    "editRelationsEnabled": true,
+    "editRelationsEnabled": false,
     "allowedEntities": ["Actor", "Scene", "Item", "JournalEntryPage"],
     "systems": ["*"],
     "relations": []
@@ -648,7 +648,7 @@ export const GRAPH_TYPES = {
     "nodeLabelColor": "#000000",
     "version": 1,
     "released": true,
-    "editRelationsEnabled": true,
+    "editRelationsEnabled": false,
     "allowedEntities": ["Item"],
     "systems": [
       "vtm5e",
