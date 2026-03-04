@@ -158,8 +158,15 @@
                 decross: customSugiyamaDecross,
                 coord: Ji(),
                 orientation: Horizontal,
+                siblingDistance: 50,
             };
             this.opts = Object.assign(Object.assign({}, this.opts), opts);
+            // If siblingDistance was provided but nodeSize was not customised,
+            // rebuild the default nodeSize with the requested spacing.
+            if ((opts === null || opts === void 0 ? void 0 : opts.siblingDistance) !== undefined && (opts === null || opts === void 0 ? void 0 : opts.nodeSize) === undefined) {
+                const d = this.opts.siblingDistance;
+                this.opts.nodeSize = () => [d, 100];
+            }
         }
         /**
          * Calculates the layout for the given nodes.
@@ -3773,6 +3780,7 @@
                 nodeRenderFunction: D3Renderer.defaultNodeRenderFunction,
                 nodeUpdateFunction: D3Renderer.defaultNodeUpdateFunction,
                 nodeLabelOffsetFunction: D3Renderer.defaultNodeLabelOffsetFunction,
+                nodeLabelVerticalOffsetFunction: D3Renderer.defaultNodeLabelVerticalOffsetFunction,
             };
             this.ft = ft;
             this.opts = Object.assign(Object.assign({}, this.opts), opts);
@@ -3949,6 +3957,14 @@
             return opts.nodeSizeFunction(node) + 3;
         }
         /**
+         * Default function to determine the vertical label offset for a node in
+         * vertical orientation. Returns nodeSizeFunction(node) + 5, placing the
+         * label just below the default circle, centred horizontally.
+         */
+        static defaultNodeLabelVerticalOffsetFunction(node, opts) {
+            return opts.nodeSizeFunction(node) + 5;
+        }
+        /**
          * Default function to determine the CSS class for a link.
          * Returns 'link' for all links.
          */
@@ -4086,34 +4102,54 @@
         /**
          * Renders multi-line labels for entering nodes.
          * Each line is rendered as a separate <tspan> element.
+         *
+         * In **horizontal** orientation the label sits to the right of the node:
+         *   - `x` is set to `xOffset` (positive = right of centre)
+         *   - `text-anchor` is `start`
+         *
+         * In **vertical** orientation the label sits below the node, centred:
+         *   - The first tspan's `dy` is `yOffset` (vertical clearance from centre)
+         *   - `x` is 0 and `text-anchor` is `middle`
+         *
          * @param enteringNodes - The selection of entering nodes.
+         * @param orientation - Layout orientation ('horizontal' | 'vertical').
          * @param cssClass - CSS class for the text element.
          * @param lineSep - Vertical separation between lines.
-         * @param xOffset - Horizontal offset for the text.
+         * @param xOffset - Horizontal offset used in horizontal orientation.
+         * @param yOffset - Vertical offset used in vertical orientation.
          * @param dominantBaseline - SVG dominant-baseline attribute value.
          */
-        renderLabels(enteringNodes, cssClass = 'node-label', lineSep = 14, xOffset = 13, dominantBaseline = 'central') {
+        renderLabels(enteringNodes, orientation = Vertical, cssClass = 'node-label', lineSep = 14, xOffset = 13, yOffset = 15, dominantBaseline = 'central') {
             const nodeLabelFunction = this.opts.nodeLabelFunction;
-            const resolveOffset = typeof xOffset === 'function' ? xOffset : () => xOffset;
-            enteringNodes
+            const resolveXOffset = typeof xOffset === 'function' ? xOffset : () => xOffset;
+            const resolveYOffset = typeof yOffset === 'function' ? yOffset : () => yOffset;
+            const isVertical = orientation === Vertical;
+            const textSel = enteringNodes
                 .append('text')
                 .attr('class', cssClass)
                 .attr('dominant-baseline', dominantBaseline)
+                .attr('text-anchor', isVertical ? 'middle' : 'start');
+            textSel
                 .selectAll('tspan')
                 .data((node) => {
                 const lines = nodeLabelFunction(node);
-                const yOffset = (-lineSep * (lines.length - 1)) / 2;
-                return lines.map((line, i) => ({
-                    line,
-                    node,
-                    dy: i === 0 ? yOffset : lineSep,
-                }));
+                return lines.map((line, i) => ({ line, node, i, total: lines.length }));
             })
                 .enter()
                 .append('tspan')
                 .text((d) => d.line)
-                .attr('x', (d) => resolveOffset(d.node))
-                .attr('dy', (d) => d.dy);
+                .attr('x', (d) => isVertical ? 0 : resolveXOffset(d.node))
+                .attr('dy', (d) => {
+                if (isVertical) {
+                    // first line: drop below node; subsequent lines: line separation
+                    return d.i === 0 ? resolveYOffset(d.node) : lineSep;
+                }
+                else {
+                    // original horizontal behaviour: vertically centre the block
+                    const yOff = (-lineSep * (d.total - 1)) / 2;
+                    return d.i === 0 ? yOff : lineSep;
+                }
+            });
         }
         /**
          * Sorts the DOM elements in the main group so that nodes are drawn on top of links.
@@ -4141,7 +4177,7 @@
             this.sortDomElements();
             // add tooltips and node labels
             this.setupTooltips(nodeSelect);
-            this.renderLabels(nodeSelect, 'node-label', 14, (node) => this.opts.nodeLabelOffsetFunction(node, this.opts), 'central');
+            this.renderLabels(nodeSelect, layoutResult.orientation, 'node-label', 14, (node) => this.opts.nodeLabelOffsetFunction(node, this.opts), (node) => this.opts.nodeLabelVerticalOffsetFunction(node, this.opts), 'central');
             // center view on clicked node
             // work-around because JSDOM+d3-zoom throws errors
             if (!this.isJSDOM) {

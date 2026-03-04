@@ -17,8 +17,10 @@ export class GenealogyRenderer extends BaseRenderer {
 
     this.opts = {
       orientation: this._orientation,
-      nodeSize: (node) => node.isUnion ? [10, 60] : [PORTRAIT_RADIUS * 2 + 8, 100],
+      siblingDistance: 180,
+      nodeSize: (node) => node.isUnion ? [10, 60] : [PORTRAIT_RADIUS * 2 + 58, 100],
       nodeLabelOffsetFunction: (node) => node.isUnion ? 0 : PORTRAIT_RADIUS + 4,
+      nodeLabelVerticalOffsetFunction: (node) => node.isUnion ? 0 : PORTRAIT_RADIUS + 4,
       nodeRenderFunction: (group, node, opts, ft) => {
         if (node.isUnion) {
           // keep the default tiny union dot
