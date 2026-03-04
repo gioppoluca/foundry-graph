@@ -47,7 +47,7 @@ export class MapRenderer extends BaseRenderer {
     // UI toggles for the D3GraphApp chrome
     this.isLinkNodesVisible = false;
     this.isRelationSelectVisible = false;
-    this.instructions = "Drop Actors/Scenes/Items/Journal pages on the map to create markers. Drag markers to reposition. Right-click a marker to delete.";
+    this.instructions = "Drop Actors/Scenes/Items/Journal pages on the map to create markers. Drag markers to reposition. Right-click a marker to radial menu.";
   }
 
   initializeGraphData(_graph) {
@@ -375,8 +375,8 @@ export class MapRenderer extends BaseRenderer {
 
       // Update user instructions depending on mode
       this.instructions = useRaster
-        ? "Drop Actors/Scenes/Items/Journal pages on the background to create markers. Drag markers to reposition. Right-click a marker to delete. (Background image mode: coordinates are local/pixel-like, not real lat/lng.)"
-        : "Drop Actors/Scenes/Items/Journal pages on the map to create markers. Drag markers to reposition. Right-click a marker to delete.";
+        ? "Drop Actors/Scenes/Items/Journal pages on the background to create markers. Drag markers to reposition. Right-click a marker to radial menu. (Background image mode: coordinates are local/pixel-like, not real lat/lng.)"
+        : "Drop Actors/Scenes/Items/Journal pages on the map to create markers. Drag markers to reposition. Right-click a marker to radial menu.";
 
       const mapOptions = {
         zoomControl: true,
