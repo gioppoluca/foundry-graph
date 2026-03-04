@@ -690,26 +690,70 @@ export class MapRenderer extends BaseRenderer {
 
     const onCreate = (e) => {
       const layer = e?.layer;
+      const shape = e?.shape;
       if (!layer) return;
       // Ensure layer is in our persistence group
       try { this._geomanLayer?.addLayer(layer); } catch (_e) { /* ignore */ }
       // Track the original Geoman shape (polygon, line, rectangle, etc.)
-      try { layer.__fgPmShape = e?.shape || layer.__fgPmShape; } catch (_e) { /* ignore */ }
+      try { layer.__fgPmShape = shape || layer.__fgPmShape; } catch (_e) { /* ignore */ }
       this._attachGeomanLayerListeners(layer);
-      log("MapRenderer: pm:create shape =", e?.shape, " total layers =",
+      log("MapRenderer: pm:create shape =", shape, " total layers =",
         this._geomanLayer?.getLayers?.()?.length ?? 0
       );
-      // Optional: ask for a label and bind it as a permanent tooltip.
+      // Ask for a label and bind it as a permanent tooltip.
       // (Geoman doesn't have a native per-feature label system; Leaflet tooltips do.)
       Promise.resolve()
         .then(async () => {
+          log("MapRenderer: onCreate - prompting for label, shape =", shape);
           const label = await this._promptForLabel("");
+          log("MapRenderer: onCreate - label returned:", label, "shape:", shape);
+
           if (label && String(label).trim().length > 0) {
-            layer.__fgLabel = String(label).trim();
-            this._applyGeomanLabel(layer, layer.__fgLabel);
+            const trimmed = String(label).trim();
+
+            // The Geoman Text tool fires pm:remove on this layer internally while
+            // the dialog is open. This nulls out the layer's internal Leaflet icon
+            // state (_icon, _shadow), causing a white box on render.
+            // Trying to re-add the evicted layer doesn't help because its icon
+            // state is already corrupted. Instead, replace it with a fresh L.marker
+            // at the same position — this is exactly what _loadGeomanFromGraphData
+            // does on reload, which is why it works after save/reopen.
+            const wasRemoved = !this._geomanLayer?.hasLayer?.(layer);
+            let targetLayer = layer;
+
+            if (wasRemoved) {
+              log("MapRenderer: onCreate - Text tool evicted layer; replacing with fresh marker");
+              try {
+                // Get the position from the original layer before it's gone
+                const latlng = layer.getLatLng?.();
+                if (latlng && this._map) {
+                  const L = globalThis.L;
+                  const freshMarker = L.marker(latlng, { draggable: true });
+                  freshMarker.__fgPmShape = shape || "Text";
+                  freshMarker.addTo(this._map);
+                  this._geomanLayer?.addLayer(freshMarker);
+                  this._attachGeomanLayerListeners(freshMarker);
+                  targetLayer = freshMarker;
+                }
+              } catch (_e) {
+                log("MapRenderer: onCreate - failed to create fresh marker", _e);
+              }
+            }
+
+            targetLayer.__fgLabel = trimmed;
+            this._applyGeomanLabel(targetLayer, targetLayer.__fgLabel);
+            log("MapRenderer: onCreate - label applied:", trimmed,
+              "layer in group:", this._geomanLayer?.hasLayer?.(targetLayer));
+          } else {
+            log("MapRenderer: onCreate - no label entered");
           }
         })
+        .catch((err) => {
+          log("MapRenderer: onCreate - error in label prompt:", err);
+        })
         .finally(() => {
+          log("MapRenderer: onCreate - updating geoman data, layers =",
+            this._geomanLayer?.getLayers?.()?.length ?? 0);
           this._updateGeomanDataFromLayers();
         });
     };
