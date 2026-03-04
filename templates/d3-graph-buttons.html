@@ -5,6 +5,7 @@
     {{#if isLinkNodesVisible}}
     <button type="button" data-action="linkNodes" class="graph-btn">Link Nodes</button>
     {{/if}}
+    {{#if isRelationSelectVisible}}
     <label for="relation-type">Relation Type:</label>
     <select id="relation-type">
       {{#each relations}}
@@ -13,6 +14,7 @@
       </option>
       {{/each}}
     </select>
+    {{/if}}
   </div>
   <div class="flexrow">
     <button data-action="exportAction" id="export-btn">🖼 {{localize "foundry-graph.Buttons.ExportSvg"}}</button>
