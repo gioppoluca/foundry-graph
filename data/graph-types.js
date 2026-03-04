@@ -10,6 +10,7 @@ export const GRAPH_TYPES = {
     "nodeLabelColor": "#ffffff",
     "version": 1,
     "released": true,
+    "editRelationsEnabled": true,
     "allowedEntities": ["Actor", "Scene", "Item", "JournalEntryPage"],
     "systems": ["*"],
     "relations": []
@@ -30,6 +31,7 @@ export const GRAPH_TYPES = {
     "nodeLabelColor": "#000000",
     "version": 1,
     "released": true,
+    "editRelationsEnabled": true,
     "allowedEntities": ["Actor"],
     "systems": [
       "*"
@@ -123,6 +125,7 @@ export const GRAPH_TYPES = {
     "nodeLabelColor": "#ffffff",
     "version": 1,
     "released": false,
+    "editRelationsEnabled": true,
     "systems": [
       "*"
     ],
@@ -158,6 +161,7 @@ export const GRAPH_TYPES = {
     "nodeLabelColor": "#ffffff",
     "version": 1,
     "released": true,
+    "editRelationsEnabled": true,
     "allowedEntities": ["Actor", "JournalEntryPage"],
     "systems": [
       "vtm5e",
@@ -336,6 +340,7 @@ export const GRAPH_TYPES = {
     "nodeLabelColor": "#000000",
     "version": 1,
     "released": true,
+    "editRelationsEnabled": true,
     "allowedEntities": ["Actor"],
     "width": 1200,
     "height": 900,
@@ -425,6 +430,7 @@ export const GRAPH_TYPES = {
     "nodeLabelColor": "#000000",
     "version": 1,
     "released": true,
+    "editRelationsEnabled": true,
     "allowedEntities": ["Actor"],
     "width": 1000,
     "height": 800,
@@ -524,6 +530,7 @@ export const GRAPH_TYPES = {
     "nodeLabelColor": "#000000",
     "version": 1,
     "released": true,
+    "editRelationsEnabled": false,
     "allowedEntities": ["Actor"],
     "systems": [
       "*"
@@ -641,6 +648,7 @@ export const GRAPH_TYPES = {
     "nodeLabelColor": "#000000",
     "version": 1,
     "released": true,
+    "editRelationsEnabled": true,
     "allowedEntities": ["Item"],
     "systems": [
       "vtm5e",
@@ -919,6 +927,7 @@ export const GRAPH_TYPES = {
     "nodeLabelColor": "#ffffff",
     "version": 1,
     "released": true,
+    "editRelationsEnabled": true,
     "systems": [
       "*"
     ],

@@ -122,6 +122,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       ...g,
       typeIcon: graphTypeMap.get(g.graphType)?.icon ?? "modules/foundry-graph/img/icons/icon-generic.webp",
       typeName: graphTypeMap.get(g.graphType)?.name ?? g.graphType,
+      editRelationsEnabled: graphTypeMap.get(g.graphType)?.editRelationsEnabled ?? true,
     }));
 
     return {

@@ -7,6 +7,7 @@
             "backgroundImage": "Set background image for the graph",
             "selectGraphType": "Select the type of graph to create",
             "manageRelations": "Manage Relations",
+            "manageRelationsDisabled": "Relations are fixed for this graph type",
             "permissions": "Manage Graph permissions"
         },
         "themes": {
