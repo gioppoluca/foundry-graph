@@ -197,6 +197,9 @@ function interceptDeletion(document, options, id) {
   // 2. PERMISSION: Only GM checks (or rely on API permissions)
   if (!game.user.isGM) return true;
 
+  // ✅ FIX 1: Don't intercept compendium document deletions
+  if (document.uuid?.startsWith("Compendium.")) return true;
+  
   // 3. INTERCEPT: Stop the deletion immediately!
   // We trigger the async logic separately, but we MUST return false now.
   performAsyncCheck(document, options);

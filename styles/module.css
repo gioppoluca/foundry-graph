@@ -41,11 +41,11 @@
 }
 
 /* Hide all tab sections by default; only show the active one */
-section.tab {
+.fgraph section.tab {
   display: none;
 }
 
-section.tab.active {
+.fgraph section.tab.active {
   display: flex;
   flex-direction: column;
 }
