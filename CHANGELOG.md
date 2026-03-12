@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.4] - 2026-03-12
+### :bug: Bug Fixes
+- [`e451856`](https://github.com/gioppoluca/foundry-graph/commit/e451856e15d35ef098bd129d71a1b8507df2fd8f) - css problem with compendium *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.9.3] - 2026-03-04
 ### :sparkles: New Features
 - [`2334144`](https://github.com/gioppoluca/foundry-graph/commit/2334144a592fdefea869efddea408e9467a0285b) - labels below on vertical layout, bigger distance on genealogy siblings; closes [#16](https://github.com/gioppoluca/foundry-graph/pull/16) *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -250,3 +255,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.9.1]: https://github.com/gioppoluca/foundry-graph/compare/0.9.0...0.9.1
 [0.9.2]: https://github.com/gioppoluca/foundry-graph/compare/0.9.1...0.9.2
 [0.9.3]: https://github.com/gioppoluca/foundry-graph/compare/0.9.2...0.9.3
+[0.9.4]: https://github.com/gioppoluca/foundry-graph/compare/0.9.3...0.9.4
