@@ -330,6 +330,8 @@ export class VisTimelineRenderer extends BaseRenderer {
     <b>Use relations for creating new lanes<br>
     <b>Click on Node</b>: Select Node for editing position, range (if ranged) and lane<br>
     <b>Scroll</b>: Zoom<br>
+    <b>ALT+Left Click</b>: Add a free item<br>
+    <b>ALT+SHIFT+Left Click</b>: Add a ranged item<br>
     <b>DblClick</b>: Open Sheet<br>
     <b>Right Click</b>: Radial menu for delete or open sheet<br>
     <b>Drop</b>: Add element to timeline<br>
@@ -902,6 +904,78 @@ export class VisTimelineRenderer extends BaseRenderer {
             if (item) this._openDocumentSheet(item);
         });
 
+        // Alt + left-click on empty area → create a free (no-document) point event
+        // Shift + Alt + left-click              → create a free range event
+        this._timeline.on("click", (props) => {
+            if (!props.event?.altKey) return;
+            if (props.item) return;             // clicked an existing item, skip
+            if (props.what === "group-label") return; // clicked the lane label, skip
+            this._onAltClickCreateFreeEvent(props, props.event.shiftKey);
+        });
+
+    }
+
+    /**
+     * Alt + left-click        → free point event (no Foundry document reference)
+     * Shift + Alt + left-click → free range event (default duration, resizable)
+     *
+     * A small dialog prompts for a title in both cases.
+     *
+     * @param {object}  props    vis.js click event properties
+     * @param {boolean} isRange  true when Shift was also held
+     */
+    async _onAltClickCreateFreeEvent(props, isRange = false) {
+        const clickTimeSec = props.time instanceof Date
+            ? msToSec(props.time.valueOf())
+            : (game.time?.worldTime ?? 0);
+        const groupId = props.group ?? this.graph.relations?.[0]?.id ?? "lane-default";
+
+        let title;
+        try {
+            title = await DialogV2.prompt({
+                window: { title: isRange ? "New Range Event" : "New Timeline Event" },
+                content: `<div class="form-group">
+                    <label>Event title</label>
+                    <input type="text" name="title" value="New Event" autofocus />
+                </div>`,
+                ok: {
+                    label: "Create",
+                    callback: (_ev, button) => {
+                        const v = button.form.elements.title.value.trim();
+                        return v || null;
+                    },
+                },
+            });
+        } catch (e) {
+            return; // dialog was dismissed / cancelled
+        }
+        if (!title) return;
+
+        const endSec = isRange
+            ? clickTimeSec + VisTimelineRenderer.DEFAULT_RANGE_SEC
+            : null;
+
+        const item = {
+            id:         `tl-${foundry.utils.randomID(8)}`,
+            uuid:       null,
+            title,
+            entityType: "FreeEvent",
+            group:      groupId,
+            start:      clickTimeSec,
+            end:        endSec,
+            color:      null,
+            img:        null,
+        };
+
+        this.graph.data.items.push(item);
+        await this.render(d3.select(this._svgEl), this.graph);
+
+        if (isRange) {
+            ui.notifications.info(
+                game.i18n.localize("foundry-graph.Timeline.RangeDropHint")
+                ?? "Range item placed — drag the right edge to set the end date."
+            );
+        }
     }
 
     /**
@@ -925,15 +999,18 @@ export class VisTimelineRenderer extends BaseRenderer {
         if (visItem.group) stored.group = visItem.group;
 
         // Persist the new dates to the underlying Foundry document flags
-        try {
-            const doc = await fromUuid(stored.uuid);
-            if (doc) {
-                await doc.setFlag(MODULE_ID, "start-date", newStartSec);
-                if (newEndSec !== null) await doc.setFlag(MODULE_ID, "end-date", newEndSec);
-                else await doc.unsetFlag(MODULE_ID, "end-date");
+        // (skipped for free events that have no linked document)
+        if (stored.uuid) {
+            try {
+                const doc = await fromUuid(stored.uuid);
+                if (doc) {
+                    await doc.setFlag(MODULE_ID, "start-date", newStartSec);
+                    if (newEndSec !== null) await doc.setFlag(MODULE_ID, "end-date", newEndSec);
+                    else await doc.unsetFlag(MODULE_ID, "end-date");
+                }
+            } catch (e) {
+                log("VisTimelineRenderer: failed to update document flags after drag", e);
             }
-        } catch (e) {
-            log("VisTimelineRenderer: failed to update document flags after drag", e);
         }
 
         callback(visItem);  // accept the move in vis.js
@@ -945,16 +1022,51 @@ export class VisTimelineRenderer extends BaseRenderer {
 
     async _onRightClickItem(event, item) {
         const label = item?.title || item?.uuid || item?.id || "item";
+        const isFree = !item?.uuid;
         this._showRadialMenu({
             clientX: event.clientX,
             clientY: event.clientY,
             items: [
-                {
-                    id: "openSheet",
-                    label: `Open (${label})`,
-                    icon: "fa-solid fa-up-right-from-square",
-                    onClick: () => this._openDocumentSheet(item),
-                },
+                isFree
+                    ? {
+                        id: "editTitle",
+                        label: `Edit title (${label})`,
+                        icon: "fa-solid fa-pencil",
+                        onClick: async () => {
+                            let newTitle;
+                            try {
+                                newTitle = await DialogV2.prompt({
+                                    window: { title: "Edit Event Title" },
+                                    content: `<div class="form-group">
+                                        <label>Event title</label>
+                                        <input type="text" name="title" value="${label}" autofocus />
+                                    </div>`,
+                                    ok: {
+                                        label: "Save",
+                                        callback: (_ev, button) => {
+                                            const v = button.form.elements.title.value.trim();
+                                            return v || null;
+                                        },
+                                    },
+                                });
+                            } catch (e) { return; }
+                            if (!newTitle) return;
+                            item.title = newTitle;
+                            await this.render(d3.select(this._svgEl), this.graph);
+                        },
+                    }
+                    : {
+                        id: "openSheet",
+                        label: `Open (${label})`,
+                        icon: "fa-solid fa-up-right-from-square",
+                        onClick: () => this._openDocumentSheet(item),
+                    },
+                ...(isFree ? [{
+                    id: "convertToJournal",
+                    label: "Convert to Journal Page",
+                    icon: "fa-solid fa-book",
+                    onClick: () => this._convertFreeEventToJournal(item),
+                }] : []),
                 {
                     id: "delete",
                     label: `Delete (${label})`,
@@ -973,6 +1085,10 @@ export class VisTimelineRenderer extends BaseRenderer {
     }
 
     async _openDocumentSheet(item) {
+        if (!item.uuid) {
+            ui.notifications.info(`"${item.title}" is a free event with no linked document.`);
+            return;
+        }
         try {
             const doc = await fromUuid(item.uuid);
             if (doc?.sheet) doc.sheet.render(true);
@@ -980,6 +1096,137 @@ export class VisTimelineRenderer extends BaseRenderer {
         } catch (e) {
             log("VisTimelineRenderer: failed to open sheet", e);
         }
+    }
+
+    /**
+     * Resolves the human-readable label for a lane (group) id.
+     * Checks graph.relations first (authoritative), then graph.data.groups,
+     * then falls back to the raw id.
+     *
+     * @param {string} groupId
+     * @returns {string}
+     */
+    _resolveLaneName(groupId) {
+        const rel = this.graph.relations?.find(r => r.id === groupId);
+        if (rel?.label) return rel.label;
+        const grp = this.graph.data?.groups?.find(g => g.id === groupId);
+        if (grp?.content) return grp.content;
+        return groupId ?? "Timeline";
+    }
+
+    /**
+     * Override BaseRenderer.syncLabels for the timeline data shape.
+     *
+     * The base class walks graphData.nodes but the timeline stores entities in
+     * graphData.items (each with uuid / title / img).  Free events (uuid = null)
+     * are skipped — their title is managed manually.
+     *
+     * Called automatically by D3GraphApp before save and before the initial draw.
+     *
+     * @param {Object} graphData  - graphData object (mutated in place)
+     * @returns {Promise<Object>}
+     */
+    async syncLabels(graphData) {
+        const items = graphData?.items ?? [];
+        for (const item of items) {
+            if (!item.uuid) continue;   // free event – no document to sync from
+            try {
+                const doc = await fromUuid(item.uuid);
+                if (!doc) continue;
+                if (doc.name != null) item.title = doc.name;
+                const img = doc.img ?? doc.src ?? doc.background?.src ?? doc.thumb ?? null;
+                if (img != null) item.img = img;
+            } catch (_) { /* UUID no longer valid – leave as-is */ }
+        }
+        return graphData;
+    }
+
+    /**
+     * Converts a free (uuid-less) timeline event into a linked JournalEntryPage.
+     *
+     * Foundry v13 structure used:
+     *   JournalEntry  (name = graph name)
+     *     └─ JournalEntryCategory  (name = lane label)
+     *          └─ JournalEntryPage  (name = event title, category = category.id)
+     *
+     * Flow:
+     *  1. Confirm with the user (shows journal / category / page names).
+     *  2. Find or create a JournalEntry whose name matches the graph name.
+     *  3. Find or create a JournalEntryCategory inside it for the lane.
+     *  4. Create a JournalEntryPage assigned to that category.
+     *  5. Write start/end date flags onto the new page.
+     *  6. Update item.uuid / item.entityType and re-render.
+     *
+     * @param {object} item  – timeline item from graph.data.items
+     */
+    async _convertFreeEventToJournal(item) {
+        const journalName = this.graph.name || "Timeline";
+        const laneName    = this._resolveLaneName(item.group);
+        const pageTitle   = item.title;
+
+        const confirmed = await DialogV2.confirm({
+            window: { title: "Convert to Journal Page" },
+            content: `<p>Convert "<strong>${pageTitle}</strong>" into a journal page?</p>
+                      <ul style="margin:.4em 0 0 1em">
+                        <li>Journal: <em>${journalName}</em></li>
+                        <li>Category: <em>${laneName}</em></li>
+                        <li>Page: <em>${pageTitle}</em></li>
+                      </ul>
+                      <p style="margin-top:.6em;font-size:.85em;color:var(--color-text-light-6)">
+                        The journal entry and category will be created if they do not exist yet.
+                      </p>`,
+        });
+        if (!confirmed) return;
+
+        // ── 1. Find or create the journal entry ───────────────────────────────
+        let journal = game.journal.find(j => j.name === journalName);
+        if (!journal) {
+            journal = await JournalEntry.create({ name: journalName });
+            if (!journal) {
+                ui.notifications.error("Failed to create journal entry.");
+                return;
+            }
+        }
+
+        // ── 2. Find or create the category (Foundry v13 embedded collection) ──
+        let category = journal.categories?.find(c => c.name === laneName);
+        if (!category) {
+            const cats = await journal.createEmbeddedDocuments("JournalEntryCategory", [{
+                name: laneName,
+            }]);
+            category = cats?.[0];
+            if (!category) {
+                ui.notifications.error("Failed to create journal category.");
+                return;
+            }
+        }
+
+        // ── 3. Create the journal page assigned to the category ───────────────
+        const pages = await journal.createEmbeddedDocuments("JournalEntryPage", [{
+            name:     pageTitle,
+            type:     "text",
+            category: category.id,
+        }]);
+        const page = pages?.[0];
+        if (!page) {
+            ui.notifications.error("Failed to create journal page.");
+            return;
+        }
+
+        // ── 4. Persist timeline dates to the new document's flags ─────────────
+        try {
+            await page.setFlag(MODULE_ID, "start-date", item.start);
+            if (item.end != null) await page.setFlag(MODULE_ID, "end-date", item.end);
+        } catch (e) {
+            log("VisTimelineRenderer: failed to set date flags on new journal page", e);
+        }
+
+        // ── 5. Link item to the new page and re-render ────────────────────────
+        item.uuid       = page.uuid;
+        item.entityType = "JournalEntryPage";
+
+        await this.render(d3.select(this._svgEl), this.graph);
+        ui.notifications.info(`Created journal page "${pageTitle}" in "${journalName} › ${laneName}".`);
     }
 
     // --------------------------------------------------------------------------
