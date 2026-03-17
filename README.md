@@ -50,7 +50,7 @@ Everything lives directly inside Foundry — no external tools.
 </details>
 
 <details>
-  <summary><strong>Geographic Map Mode (Leaflet)</strong></summary>
+  <summary><strong>Geographic Map Mode</strong></summary>
 
 ![Map](doc/map.png)
 </details>
@@ -80,7 +80,7 @@ A **Graph Type** defines the purpose of a graph and its rules:
 
 Graph Types let you offer “ready-to-use” experiences like *Vampire Relationship Map*, *Genealogy Tree*, or *Geographical Map*, while keeping a consistent data model across the module.
 
-### Graph Types
+#### Graph Types
 Templates defining:
 - allowed entities
 - relations
@@ -203,6 +203,15 @@ Placing Scenes, Journals, Actors, Items or free events on a temporal timeline wi
 - Keep labels in synch with the entities
 
 ![timeline example](doc/Orcish_History.png)
+
+### Common feature
+All the graph share some common features:
+- can import any graph type
+- can relink entities from imported graphs with entities of the current world (exact name matching)
+- can customize the background image.
+- export the graph to png
+- permission on the single graph
+
 ---
 
 ## Usage
