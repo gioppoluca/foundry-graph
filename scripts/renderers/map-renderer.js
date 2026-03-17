@@ -1561,4 +1561,26 @@ export class MapRenderer extends BaseRenderer {
     }
     return graphData;
   }
+
+  async getNonExistentEntities(graphData) {
+    const missing = [];
+    for (const marker of graphData?.markers ?? []) {
+      if (!marker.uuid) continue;
+      try {
+        const doc = await fromUuid(marker.uuid);
+        if (!doc) missing.push({ uuid: marker.uuid, label: marker.label, entityType: marker.type });
+      } catch (_) {
+        missing.push({ uuid: marker.uuid, label: marker.label, entityType: marker.type });
+      }
+    }
+    return missing;
+  }
+
+  replaceEntities(graphData, matchList) {
+    const uuidMap = new Map(matchList.map(m => [m.oldUuid, m.newUuid]));
+    for (const marker of graphData?.markers ?? []) {
+      if (marker.uuid && uuidMap.has(marker.uuid)) marker.uuid = uuidMap.get(marker.uuid);
+    }
+    return graphData;
+  }
 }

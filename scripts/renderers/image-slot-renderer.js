@@ -1184,6 +1184,28 @@ export class ImageSlotsRenderer extends BaseRenderer {
         return graph;
     }
 
+    async getNonExistentEntities(graphData) {
+        const missing = [];
+        for (const node of graphData?.nodes ?? []) {
+            if (!node.uuid) continue;
+            try {
+                const doc = await fromUuid(node.uuid);
+                if (!doc) missing.push({ uuid: node.uuid, label: node.label, entityType: node.type });
+            } catch (_) {
+                missing.push({ uuid: node.uuid, label: node.label, entityType: node.type });
+            }
+        }
+        return missing;
+    }
+
+    replaceEntities(graphData, matchList) {
+        const uuidMap = new Map(matchList.map(m => [m.oldUuid, m.newUuid]));
+        for (const node of graphData?.nodes ?? []) {
+            if (node.uuid && uuidMap.has(node.uuid)) node.uuid = uuidMap.get(node.uuid);
+        }
+        return graphData;
+    }
+
     async exportToPNG() {
         return await this.svgToCanvas({ scale: 3 });
     }

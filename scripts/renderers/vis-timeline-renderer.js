@@ -1658,4 +1658,27 @@ export class VisTimelineRenderer extends BaseRenderer {
             ui?.notifications?.info?.(t("Notifications.ExportFinished") ?? "Export complete.");
         }
     }
+
+    async getNonExistentEntities(graphData) {
+        const missing = [];
+        for (const item of graphData?.items ?? []) {
+            // Free events and already-converted items have no world UUID
+            if (!item.uuid || item.entityType === "FreeEvent") continue;
+            try {
+                const doc = await fromUuid(item.uuid);
+                if (!doc) missing.push({ uuid: item.uuid, label: item.title, entityType: item.entityType });
+            } catch (_) {
+                missing.push({ uuid: item.uuid, label: item.title, entityType: item.entityType });
+            }
+        }
+        return missing;
+    }
+
+    replaceEntities(graphData, matchList) {
+        const uuidMap = new Map(matchList.map(m => [m.oldUuid, m.newUuid]));
+        for (const item of graphData?.items ?? []) {
+            if (item.uuid && uuidMap.has(item.uuid)) item.uuid = uuidMap.get(item.uuid);
+        }
+        return graphData;
+    }
 }

@@ -74,6 +74,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       graphRelations: GraphDashboardV2.onGraphRelations,
       onCancelCreate: GraphDashboardV2.onCancelCreate,
       onImportGraph: GraphDashboardV2.onImportGraph,
+      graphReassign: GraphDashboardV2.onReassignGraph,
     }
   };
 
@@ -496,6 +497,126 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     };
 
     fileInput.click();
+  }
+
+  /**
+   * Batch entity-reassignment for imported graphs.
+   *
+   * 1. Collects every entity whose UUID can no longer be resolved.
+   * 2. Attempts an exact-name search inside the current world's collections.
+   * 3. Presents a confirmation dialog showing auto-matches and unmatched items.
+   * 4. On confirmation, applies the UUID substitutions and saves the graph.
+   */
+  static async onReassignGraph(event, _target) {
+    const graphId = event.target.dataset.id;
+    const api = game.modules.get("foundry-graph").api;
+    const graph = await api.getGraph(graphId);
+    if (!graph) return ui.notifications.warn(t("Errors.GraphNotFound") ?? "Graph not found.");
+
+    const renderer = api.getRenderer(graph.renderer ?? graph.graphType);
+    if (!renderer || typeof renderer.getNonExistentEntities !== "function") {
+      return ui.notifications.warn("This graph type does not support entity reassignment.");
+    }
+
+    const graphData = foundry.utils.deepClone(graph.data);
+    const missing = await renderer.getNonExistentEntities(graphData);
+
+    if (missing.length === 0) {
+      return ui.notifications.info(`All entities in "${graph.name}" are valid in this world.`);
+    }
+
+    // --- Try exact-name search in the appropriate world collection ---
+    const matched = [];
+    const unmatched = [];
+    for (const entry of missing) {
+      const found = GraphDashboardV2._findEntityByTypeAndName(entry.entityType, entry.label);
+      if (found) {
+        matched.push({ oldUuid: entry.uuid, newUuid: found.uuid, oldName: entry.label, newName: found.name, entityType: entry.entityType });
+      } else {
+        unmatched.push(entry);
+      }
+    }
+
+    // --- Build dialog HTML ---
+    let html = '<div class="fg-reassign-dialog" style="max-height:400px;overflow-y:auto;">';
+
+    if (matched.length > 0) {
+      html += `<h3>Auto-matched (${matched.length})</h3>`;
+      html += '<table style="width:100%;border-collapse:collapse;margin-bottom:8px;">'
+        + '<thead><tr><th style="text-align:left;padding:2px 6px;">Type</th>'
+        + '<th style="text-align:left;padding:2px 6px;">Old name</th>'
+        + '<th style="padding:2px 4px;">→</th>'
+        + '<th style="text-align:left;padding:2px 6px;">New entity</th></tr></thead><tbody>';
+      for (const m of matched) {
+        html += `<tr><td style="padding:2px 6px;">${m.entityType}</td>`
+          + `<td style="padding:2px 6px;">${m.oldName}</td>`
+          + `<td style="padding:2px 4px;text-align:center;">→</td>`
+          + `<td style="padding:2px 6px;">${m.newName}</td></tr>`;
+      }
+      html += '</tbody></table>';
+    }
+
+    if (unmatched.length > 0) {
+      html += `<h3>No match found (${unmatched.length})</h3>`;
+      html += '<table style="width:100%;border-collapse:collapse;">'
+        + '<thead><tr><th style="text-align:left;padding:2px 6px;">Type</th>'
+        + '<th style="text-align:left;padding:2px 6px;">Name</th></tr></thead><tbody>';
+      for (const u of unmatched) {
+        html += `<tr><td style="padding:2px 6px;">${u.entityType}</td>`
+          + `<td style="padding:2px 6px;">${u.label}</td></tr>`;
+      }
+      html += '</tbody></table>';
+    }
+
+    if (matched.length === 0) {
+      html += '<p>No automatic matches could be found. The entities above will remain unlinked.</p>';
+    }
+
+    html += '</div>';
+
+    const confirmed = await foundry.applications.api.DialogV2.confirm({
+      window: { title: `Reassign Entities — ${graph.name}` },
+      content: html,
+      yes: {
+        label: matched.length > 0 ? `Apply ${matched.length} match${matched.length > 1 ? "es" : ""}` : "OK",
+        icon: "fa-solid fa-check",
+        callback: () => true,
+      },
+      no: { label: "Cancel", icon: "fa-solid fa-times", callback: () => false },
+    });
+
+    if (!confirmed || matched.length === 0) return;
+
+    const updated = renderer.replaceEntities(graphData, matched);
+    graph.data = updated;
+    await api.upsertGraph(graph);
+    const word = matched.length > 1 ? "entities" : "entity";
+    ui.notifications.info(`Reassigned ${matched.length} ${word} in "${graph.name}".`);
+  }
+
+  /**
+   * Searches the current world's Foundry collections for an entity that matches
+   * the given type and exact name.
+   *
+   * @param {string} entityType  - e.g. "Actor", "Item", "Scene", "JournalEntryPage"
+   * @param {string} name
+   * @returns {foundry.abstract.Document|null}
+   */
+  static _findEntityByTypeAndName(entityType, name) {
+    if (!name) return null;
+    switch ((entityType ?? "").toLowerCase()) {
+      case "actor":            return game.actors.find(a => a.name === name) ?? null;
+      case "item":             return game.items.find(i => i.name === name) ?? null;
+      case "scene":            return game.scenes.find(s => s.name === name) ?? null;
+      case "journalentrypage": {
+        for (const journal of game.journal) {
+          const page = journal.pages.find(p => p.name === name);
+          if (page) return page;
+        }
+        return null;
+      }
+      default:                 return null;
+    }
   }
 
   /** Called after the HTML is rendered */

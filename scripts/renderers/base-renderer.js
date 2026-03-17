@@ -433,4 +433,34 @@ export class BaseRenderer {
     }
     return graphData;
   }
+
+  /**
+   * Returns every entity referenced in graphData whose Foundry document can no
+   * longer be resolved (e.g. the graph was imported from another world).
+   *
+   * Each renderer overrides this because only the renderer knows where UUIDs
+   * live inside its data structure.  The default returns [] so it is safe to
+   * call on any renderer that has not yet implemented this method.
+   *
+   * @param {Object} graphData  - Raw graph data (graph.data)
+   * @returns {Promise<Array<{uuid:string, label:string, entityType:string}>>}
+   */
+  async getNonExistentEntities(_graphData) {
+    return [];
+  }
+
+  /**
+   * Substitutes old UUIDs with new ones across the entire graph data.
+   *
+   * Each renderer overrides this because only the renderer knows every place a
+   * UUID might appear (nodes, links, persons keys, item groups, …).  The
+   * default is a no-op so it is safe to call on unimplemented renderers.
+   *
+   * @param {Object} graphData  - Raw graph data (graph.data) – mutated in place
+   * @param {Array<{oldUuid:string, newUuid:string}>} matchList
+   * @returns {Object}  - The same graphData with UUIDs replaced
+   */
+  replaceEntities(graphData, _matchList) {
+    return graphData;
+  }
 }

@@ -1047,4 +1047,45 @@ export class GenealogyRenderer extends BaseRenderer {
     }
     return graphData;
   }
+
+  async getNonExistentEntities(graphData) {
+    const missing = [];
+    for (const [uuid, person] of Object.entries(graphData?.persons ?? {})) {
+      try {
+        const doc = await fromUuid(uuid);
+        if (!doc) missing.push({ uuid, label: person.name, entityType: "Actor" });
+      } catch (_) {
+        missing.push({ uuid, label: person.name, entityType: "Actor" });
+      }
+    }
+    return missing;
+  }
+
+  replaceEntities(graphData, matchList) {
+    const uuidMap = new Map(matchList.map(m => [m.oldUuid, m.newUuid]));
+    const persons = graphData?.persons ?? {};
+
+    // Re-key persons object for each matched UUID
+    for (const [oldUuid, newUuid] of uuidMap) {
+      if (!Object.prototype.hasOwnProperty.call(persons, oldUuid)) continue;
+      persons[newUuid] = persons[oldUuid];
+      delete persons[oldUuid];
+    }
+
+    // Update start reference
+    if (graphData.start && uuidMap.has(graphData.start)) {
+      graphData.start = uuidMap.get(graphData.start);
+    }
+
+    // Update links — each link is [src, dst] where src/dst may be person UUIDs
+    const links = graphData?.links ?? [];
+    for (const link of links) {
+      if (Array.isArray(link)) {
+        if (uuidMap.has(link[0])) link[0] = uuidMap.get(link[0]);
+        if (uuidMap.has(link[1])) link[1] = uuidMap.get(link[1]);
+      }
+    }
+
+    return graphData;
+  }
 }

@@ -8,6 +8,7 @@
             "selectGraphType": "Select the type of graph to create",
             "manageRelations": "Manage Relations",
             "manageRelationsDisabled": "Relations are fixed for this graph type",
+            "reassignEntities": "Reassign entities of an imported graph",
             "permissions": "Manage Graph permissions"
         },
         "themes": {

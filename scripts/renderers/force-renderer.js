@@ -524,7 +524,6 @@ export class ForceRenderer extends BaseRenderer {
           .on("end", dragended)
       )
       .on("click", async (event, d) => {
-        ui.notifications.info(`Clicked node: ${d.label}`);
         if (this._linkingMode) {
           if (!this._linkSourceNode) {
             this._linkSourceNode = d;
@@ -1348,6 +1347,28 @@ export class ForceRenderer extends BaseRenderer {
     graph.data.links = cleanLinks;
 
     return graph;
+  }
+
+  async getNonExistentEntities(graphData) {
+    const missing = [];
+    for (const node of graphData?.nodes ?? []) {
+      if (!node.uuid) continue;
+      try {
+        const doc = await fromUuid(node.uuid);
+        if (!doc) missing.push({ uuid: node.uuid, label: node.label, entityType: node.type });
+      } catch (_) {
+        missing.push({ uuid: node.uuid, label: node.label, entityType: node.type });
+      }
+    }
+    return missing;
+  }
+
+  replaceEntities(graphData, matchList) {
+    const uuidMap = new Map(matchList.map(m => [m.oldUuid, m.newUuid]));
+    for (const node of graphData?.nodes ?? []) {
+      if (node.uuid && uuidMap.has(node.uuid)) node.uuid = uuidMap.get(node.uuid);
+    }
+    return graphData;
   }
 
   async exportToPNG() {

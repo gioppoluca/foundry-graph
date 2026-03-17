@@ -35,6 +35,8 @@
               data-tooltip="foundry-graph.tooltip.manageRelationsDisabled" {{/unless}}></button>
             <button type="button" class="icon fa-solid fa-user-lock" data-tooltip="foundry-graph.tooltip.permissions"
               data-action="graphPerms" data-id="{{this.id}}"></button>
+            <button type="button" class="icon fa-solid fa-link-slash" data-tooltip="foundry-graph.tooltip.reassignEntities"
+              data-action="graphReassign" data-id="{{this.id}}"></button>
           </td>
         </tr>
         {{/each}}
