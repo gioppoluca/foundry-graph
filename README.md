@@ -122,6 +122,7 @@ A diagram made of **nodes + links** on a 2D canvas. Nodes have manual positions 
 - Linking mode: enable “Link Nodes”, shift-click source → _drag_ → click target to create a relationship
 - Add custom labels at _source_ or _target_ positions
 - Relation styling: links can have color, width, and dashed/dotted styles depending on relation type
+- Keep labels in synch with the entities
 - Node actions:
   - Double-click opens the referenced document sheet
   - Deletion
@@ -147,7 +148,7 @@ A hierarchy layout driven by genealogy rules. Nodes must always be connected.
 Best for lineage, ancestry, bloodlines, structured “parent/child” trees.
 
 
-#### Map Renderer (Leaflet)
+#### Map Renderer
 **Concept**
 A Leaflet-powered map supporting either OpenStreetMap tiles or a raster background image.
 
@@ -159,6 +160,7 @@ A Leaflet-powered map supporting either OpenStreetMap tiles or a raster backgrou
 - Drag & drop documents to create markers
 - Move markers to update coordinates
 - Draw polygons, polylines, rectangles, circles
+- Keep labels in synch with the entities
 
 ![Map Editor](doc/GeoMapEditor.png)
 **Typical graph types**
@@ -186,14 +188,19 @@ Best for structured boards (havens, dashboards).
 
 #### Timeline Renderer
 **Concept**
-Placing Scenes, Journals, Actors or Items on a temporal timeline with different lanes
+Placing Scenes, Journals, Actors, Items or free events on a temporal timeline with different lanes. It is posible to define a complex timeline in a breeze
 
 **Key interactions**
 - Define relations as lanes
 - Drag & drop documents onto lanes (ALT-Drop for ranged element)
+- Move the sides of a ranged event to adjust the range of it
 - Select and Move the element on the timeline
 - Zoom in the timeline
+- ALT-left-click on a lane to create a free event
+- ALT-SHIFT-left-click on a lane to create a free ranged event
+- Radial menu to change the title of a free event or to convert the free event to a Journal with the same name of the graph, a category named after the lane and a page named as the event.
 - Double-click to open sheet
+- Keep labels in synch with the entities
 
 ![timeline example](doc/Orcish_History.png)
 ---
