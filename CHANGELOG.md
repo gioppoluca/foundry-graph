@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.5] - 2026-03-17
+### :sparkles: New Features
+- [`d4bc29f`](https://github.com/gioppoluca/foundry-graph/commit/d4bc29f923f3cf31e381fa8359bd8d7848efa0c9) - adding free events in the timeline and be able to convert them to Journal Pages after *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.9.4] - 2026-03-12
 ### :bug: Bug Fixes
 - [`e451856`](https://github.com/gioppoluca/foundry-graph/commit/e451856e15d35ef098bd129d71a1b8507df2fd8f) - css problem with compendium *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -256,3 +261,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.9.2]: https://github.com/gioppoluca/foundry-graph/compare/0.9.1...0.9.2
 [0.9.3]: https://github.com/gioppoluca/foundry-graph/compare/0.9.2...0.9.3
 [0.9.4]: https://github.com/gioppoluca/foundry-graph/compare/0.9.3...0.9.4
+[0.9.5]: https://github.com/gioppoluca/foundry-graph/compare/0.9.4...0.9.5
