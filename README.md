@@ -237,6 +237,14 @@ Workflow:
 5. Save
 
 ---
+## Macro
+It is possible to open a graph from a macro using this API call:
+
+```javascript
+await game.modules.get("foundry-graph").api.openGraphById("my-graph-id");
+```
+
+---
 
 ## Planned Features
 - cleanup and final release
