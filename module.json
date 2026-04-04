@@ -4,7 +4,7 @@
   "description": "Draw graphs of different styles",
   "version": "#{VERSION}#",
   "library": "false",
-  "compatibility": { "minimum": "13", "verified": "13" },
+  "compatibility": { "minimum": "13", "verified": "14", "maximum": "14" },
   "authors": [
     {
       "name": "Luca Gioppo",
