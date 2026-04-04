@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-04-04
+### :sparkles: New Features
+- [`3e53931`](https://github.com/gioppoluca/foundry-graph/commit/3e5393127b4ae1e51a17f2de25161c3d83b63960) - possible to open graph from macro *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`386a48b`](https://github.com/gioppoluca/foundry-graph/commit/386a48bc423dabce30e425de654e51e52cb15e92) - V14 check *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.9.6] - 2026-03-17
 ### :sparkles: New Features
 - [`eab2961`](https://github.com/gioppoluca/foundry-graph/commit/eab2961b18513f407db2e7a825c2e5c7a7a2d0fc) - now we can relink the imported entities with the ones in the world, if possible *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -268,3 +274,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.9.4]: https://github.com/gioppoluca/foundry-graph/compare/0.9.3...0.9.4
 [0.9.5]: https://github.com/gioppoluca/foundry-graph/compare/0.9.4...0.9.5
 [0.9.6]: https://github.com/gioppoluca/foundry-graph/compare/0.9.5...0.9.6
+[0.14.0]: https://github.com/gioppoluca/foundry-graph/compare/0.9.6...0.14.0
