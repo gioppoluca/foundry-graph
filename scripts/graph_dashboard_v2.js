@@ -2,7 +2,6 @@ import { GraphBuilder } from "./model/graph_builder.js";
 import { GraphRelationsDialog } from "./graph-relations-dialog.js";
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
-import { D3GraphApp } from "./d3-graph-app.js";
 import { GraphPermissionsDialog } from "./graph-permissions-dialog.js";
 import { log, t, tf } from "./constants.js";
 
@@ -260,16 +259,11 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     log(event)
     log(target)
     log(event.target.dataset.id)
-    const graph = await this.api.getGraph(event.target.dataset.id);
-    const mode = this.api.canEditById(event.target.dataset.id) ? "edit" : "view";
-    log("mode", mode)
-    const appData = {
-      graph: graph,
-      mode: mode,
-      onCloseCallback: () => this.render(false)
-    };
-    log("graphData", appData)
-    await new D3GraphApp(appData).render(true);
+    const graphId = event.target.dataset.id;
+    log(graphId)
+    await this.api.openGraphById(graphId, {
+       onCloseCallback: () => this.render(false)
+    });
   }
 
 

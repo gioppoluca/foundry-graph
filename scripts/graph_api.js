@@ -8,6 +8,7 @@ import { MapRenderer } from "./renderers/map-renderer.js";
 import { migrateGraph } from "./model/graph_migrations.js";
 import { TimelineRenderer } from "./renderers/timeline-renderer.js";
 import { VisTimelineRenderer } from "./renderers/vis-timeline-renderer.js";
+import { D3GraphApp } from "./d3-graph-app.js";
 
 const LEVELS = foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS; // { NONE:0, LIMITED:1, OBSERVER:2, OWNER:3 }
 const DEFAULT_STORAGE_ROOT = "foundry-graph"; // Data/foundry-graph/<worldId>/
@@ -103,6 +104,32 @@ export class GraphApi {
         if (show) await this.dashboard.render(true);
         return this.dashboard;
     }
+
+
+    async openGraphById(graphId, { mode = null, force = false, onCloseCallback = null } = {}) {
+        const graph = await this.getGraph(graphId);
+        if (!graph) {
+            ui.notifications.warn(`Graph "${graphId}" not found.`);
+            return null;
+        }
+
+        if (!force && !this.canOpen(graph)) {
+            ui.notifications.warn(`You do not have permission to open graph "${graph.name}".`);
+            return null;
+        }
+
+        const finalMode = mode ?? (this.canEdit(graph) ? "edit" : "view");
+
+        const app = new D3GraphApp({
+            graph,
+            mode: finalMode,
+            onCloseCallback
+        });
+
+        await app.render(true);
+        return app;
+    }
+
 
     /**
      * Placeholder – adapt to your original structure.
