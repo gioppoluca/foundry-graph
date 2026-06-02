@@ -175,7 +175,7 @@ export class BaseRenderer {
   }
 
 
-  async svgToCanvas({ scale = 3 } = {}) {
+  async svgToCanvas({ scale = 3, destination = "download" } = {}) {
     // 1) Grab the SVG element
     const svgElement = document.querySelector("#d3-graph");
     if (!svgElement) {
@@ -362,42 +362,80 @@ export class BaseRenderer {
       const serializer = new XMLSerializer();
       const svgStr = serializer.serializeToString(svgClone);
 
-      // 7) Filename from graph name
+      // todo
+
+      //      const rawName = this?.graph?.name || this?._graphName || "graph";
+      // const safeName = String(rawName).trim().replace(/[^a-z0-9-_]+/g, "_");
       const rawName = this?.graph?.name || this?._graphName || "graph";
       const safeName = String(rawName).trim().replace(/[^\w.-]+/g, "_");
 
-      // 8) Rasterize to high-res PNG (scale = DPR by default)
-      const pixelRatio = Number.isFinite(scale) ? Math.max(1, scale) : (window.devicePixelRatio || 1);
+      // ====== PHASE 7: RASTERIZE (now delegated) ======
+      const pngBlob = await this._rasterizeSVGToBlob(svgStr, exportW, exportH, scale);
 
-      const svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
-      const url = URL.createObjectURL(svgBlob);
+      console.log("destination:", destination);
+      // ====== PHASE 8: ROUTE TO DESTINATION ======
+      if (destination === "download") {
+        // Keep existing download behavior EXACTLY as-is
+        const pngUrl = URL.createObjectURL(pngBlob);
+        try {
+          const a = document.createElement("a");
+          a.download = `${safeName}.png`;
+          a.href = pngUrl;
+          a.click();
+        } finally {
+          URL.revokeObjectURL(pngUrl);
+        }
+        return null; // Download doesn't return a path
 
-      try {
-        const img = new Image();
-        img.decoding = "async";
-        img.src = url;
-        await img.decode();
-
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(exportW * pixelRatio);
-        canvas.height = Math.round(exportH * pixelRatio);
-        log("drawimage export dimensions", exportX, exportY, exportW, exportH, canvas.width, canvas.height)
-
-        const ctx = canvas.getContext("2d");
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        ctx.scale(pixelRatio, pixelRatio);
-        ctx.drawImage(img, 0, 0, exportW, exportH);
-
-        const pngUrl = canvas.toDataURL("image/png");
-        const a = document.createElement("a");
-        a.download = `${safeName}.png`;
-        a.href = pngUrl;
-        a.click();
-      } finally {
-        log("error create image")
-        URL.revokeObjectURL(url);
+      } else if (destination === "data-folder") {
+        // NEW: Upload to Foundry's world data folder
+        const path = await this.savePNGToDataFolder(pngBlob, safeName, {
+          subfolder: "graphs",
+          overwrite: true
+        });
+        log("Saved PNG to data folder:", path);
+        return path;
       }
+
+      // todo
+      /*
+            // 7) Filename from graph name
+            const rawName = this?.graph?.name || this?._graphName || "graph";
+            const safeName = String(rawName).trim().replace(/[^\w.-]+/g, "_");
+      
+            // 8) Rasterize to high-res PNG (scale = DPR by default)
+            const pixelRatio = Number.isFinite(scale) ? Math.max(1, scale) : (window.devicePixelRatio || 1);
+      
+            const svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
+            const url = URL.createObjectURL(svgBlob);
+      
+            try {
+              const img = new Image();
+              img.decoding = "async";
+              img.src = url;
+              await img.decode();
+      
+              const canvas = document.createElement("canvas");
+              canvas.width = Math.round(exportW * pixelRatio);
+              canvas.height = Math.round(exportH * pixelRatio);
+              log("drawimage export dimensions", exportX, exportY, exportW, exportH, canvas.width, canvas.height)
+      
+              const ctx = canvas.getContext("2d");
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = "high";
+              ctx.scale(pixelRatio, pixelRatio);
+              ctx.drawImage(img, 0, 0, exportW, exportH);
+      
+              const pngUrl = canvas.toDataURL("image/png");
+              const a = document.createElement("a");
+              a.download = `${safeName}.png`;
+              a.href = pngUrl;
+              a.click();
+            } finally {
+              log("error create image")
+              URL.revokeObjectURL(url);
+            }
+            */
     } catch (err) {
       log(t("Errors.ExportFailed"), err);
       ui?.notifications?.error?.(t("Errors.ExportFailed"));
@@ -462,5 +500,135 @@ export class BaseRenderer {
    */
   replaceEntities(graphData, _matchList) {
     return graphData;
+  }
+
+  // scripts/renderers/base-renderer.js
+
+  /**
+   * INTERNAL: Rasterize prepared SVG string to PNG Blob
+   * @param {string} svgString - Serialized SVG markup
+   * @param {number} exportWidth - Width in SVG units
+   * @param {number} exportHeight - Height in SVG units  
+   * @param {number} scale - Pixel ratio multiplier (default: devicePixelRatio)
+   * @returns {Promise<Blob>} PNG blob ready for upload or download
+   * @private
+   */
+  async _rasterizeSVGToBlob(svgString, exportWidth, exportHeight, scale = window.devicePixelRatio || 1) {
+    const pixelRatio = Math.max(1, Number(scale));
+
+    const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+
+    try {
+      const img = new Image();
+      img.decoding = "async";
+      img.src = url;
+      await img.decode();
+
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(exportWidth * pixelRatio);
+      canvas.height = Math.round(exportHeight * pixelRatio);
+
+      const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.scale(pixelRatio, pixelRatio);
+      ctx.drawImage(img, 0, 0, exportWidth, exportHeight);
+
+      return new Promise((resolve, reject) => {
+        canvas.toBlob(
+          (blob) => blob ? resolve(blob) : reject(new Error("Canvas toBlob failed")),
+          "image/png"
+        );
+      });
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  /**
+ * Upload a PNG Blob to Foundry's data folder for the current world
+ * @param {Blob} pngBlob - The PNG image blob
+ * @param {string} baseFileName - Filename without extension
+ * @param {Object} options - Upload options
+ * @param {string} [options.subfolder='graphs'] - Subfolder within world data
+ * @param {boolean} [options.overwrite=false] - Allow overwriting existing files
+ * @returns {Promise<string>} The relative path to the saved file (e.g., "worlds/my-world/graphs/my-graph.png")
+ * @private
+ */
+  async savePNGToDataFolder(pngBlob, baseFileName, { subfolder = "graphs", overwrite = false } = {}) {
+    const worldName = game.world.id;
+    const safeName = baseFileName.replace(/[^a-z0-9-_]/gi, "_");
+    const fileName = `${safeName}.png`;
+
+    // ✅ Correct path format for Foundry FilePicker API
+    // Use forward slashes, no leading slash
+    const relativePath = `worlds/${worldName}/${subfolder}`;
+    const targetPath = `${relativePath}/${fileName}`;
+
+    if (!game.user.isGM) {
+      ui.notifications.warn("Only GM can save data at the world-level.");
+      return;
+    }
+
+    try {
+      // ✅ Ensure target directory exists using FilePicker API
+      await this.ensureDirectoryExists(relativePath);
+
+      // ✅ Use Foundry's FileHelpers for upload (v13+)
+      // Note: FileHelpers expects a File or Blob and a target path
+      //
+
+
+      const file = new File([pngBlob], fileName, { type: "image/png" });
+      const result = await foundry.applications.apps.FilePicker.implementation.upload("data", relativePath, file, {}, { notify: true });
+      if (!result?.path) {
+        throw new Error(`Upload failed: ${result?.error || "Unknown server error"}`);
+      }
+
+      log(`✓ Graph image saved to: ${result.path}`);
+      return result.path;
+
+    } catch (err) {
+      log("❌ FileHelpers upload failed:", err);
+
+      // 🔁 Fallback: Try alternative upload method if FileHelpers fails
+      // This handles edge cases where FileHelpers might not be available
+      try {
+        log("🔄 Attempting fallback upload via FilePicker...");
+        //return await this._fallbackUpload(pngBlob, targetPath, { overwrite });
+      } catch (fallbackErr) {
+        log("❌ Fallback upload also failed:", fallbackErr);
+        throw new Error(
+          `Failed to save graph to data folder: ${err.message}. ` +
+          `Fallback also failed: ${fallbackErr.message}`
+        );
+      }
+    }
+  }
+  /**
+ * Ensure a directory exists in Foundry's data folder
+ * @param {string} dirPath - Relative path like "worlds/my-world/graphs"
+ * @private
+ */
+  async ensureDirectoryExists(dirPath) {
+    try {
+      // Browse the directory - Foundry will auto-create if it doesn't exist
+      // when we attempt to upload, but this ensures it's accessible
+      await foundry.applications.apps.FilePicker.implementation.browse("data", dirPath, { recursive: false });
+      log(`✓ Directory verified: ${dirPath}`);
+    } catch (err) {
+      // If browse fails, try to create the directory explicitly
+      log(`⚠ Directory browse failed, attempting creation: ${dirPath}`, err);
+
+      try {
+        // FilePicker.createDirectory is the proper way to create folders
+        await foundry.applications.apps.FilePicker.implementation.createDirectory("data", dirPath);
+        log(`✓ Directory created: ${dirPath}`);
+      } catch (createErr) {
+        // Some Foundry setups auto-create on upload, so we'll let the upload attempt proceed
+        log(`⚠ Could not pre-create directory (may auto-create on upload): ${dirPath}`, createErr);
+      }
+    }
   }
 }

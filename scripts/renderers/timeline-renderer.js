@@ -29,7 +29,7 @@ export class TimelineRenderer extends BaseRenderer {
     this._root = null;
     this._laneWidth = 180; // left label area
     this._margin = { top: 30, right: 20, bottom: 30, left: 10 };
-    
+
     // Zoom and pan state
     this._zoom = null;
     this._container = null;
@@ -65,6 +65,11 @@ export class TimelineRenderer extends BaseRenderer {
     // Return true if you want to keep the button as an alternative
     return false;
   }
+
+  get isSaveNewSceneVisible() {
+    return false;
+  }
+
 
   static hasEntity(graphData, uuid) {
     return !!graphData?.items?.some(i => i.uuid === uuid);
@@ -234,13 +239,13 @@ export class TimelineRenderer extends BaseRenderer {
     const parentRect = parentNode.getBoundingClientRect();
     const viewportWidth = parentRect.width || 800;
     const viewportHeight = parentRect.height || 600;
-    
+
     const bgW = Number.isFinite(this.graph?.background?.width) ? this.graph.background.width : (this.graph.width || 800);
     const bgH = Number.isFinite(this.graph?.background?.height) ? this.graph.background.height : (this.graph.height || 600);
-    
+
     // Calculate scale to fit the background into the viewport
     const scale = Math.min(viewportWidth / bgW, viewportHeight / bgH, 1);
-    
+
     const transform = d3.zoomIdentity.scale(scale);
     this._svg.transition().duration(500).call(this._zoom.transform, transform);
   }
@@ -276,27 +281,27 @@ export class TimelineRenderer extends BaseRenderer {
     // Set SVG to the full background image dimensions
     // This allows it to overflow the container naturally
     svg.style("width", null)
-//      .style("height", null)
+      //      .style("height", null)
       .style("display", "block")
       .attr("width", bgW)
-//      .attr("height", bgH)
+      //      .attr("height", bgH)
       .attr("viewBox", `0 0 ${bgW} ${bgH}`);
-    
+
     svg.selectAll("*").remove();
 
     // Create a container group for zoom/pan transformations
     this._container = svg.append("g").attr("class", "timeline-container");
-    
+
     // Set up zoom behavior
     this._zoom = d3.zoom()
       .scaleExtent([0.1, 10])  // Allow zoom from 10% to 1000%
       .on("zoom", (event) => {
         this._container.attr("transform", event.transform);
       });
-    
+
     // Apply zoom to svg
     svg.call(this._zoom);
-    
+
     // Start with a fit-to-viewport initial transform if background is larger than default size
     const parentRect = parentNode.getBoundingClientRect();
     if (parentRect.width > 0 && parentRect.height > 0 && (bgW > parentRect.width || bgH > parentRect.height)) {
@@ -384,9 +389,9 @@ export class TimelineRenderer extends BaseRenderer {
 
     // Force the SVG to the full size of the background/content
     svg.style("width", `${totalSvgWidth}px`)
-//      .style("height", `${totalContentHeight}px`)
+      //      .style("height", `${totalContentHeight}px`)
       .attr("width", totalSvgWidth)
-//      .attr("height", totalContentHeight)
+      //      .attr("height", totalContentHeight)
       .attr("viewBox", `0 0 ${totalSvgWidth} ${totalContentHeight}`);
 
     // axis
@@ -732,7 +737,7 @@ export class TimelineRenderer extends BaseRenderer {
 
     // Now create the dialog with the rendered templates
     const dialog = DialogV2.wait({
-      window: { 
+      window: {
         title: `Edit Dates: ${item.title}`,
         resizable: true
       },
@@ -753,7 +758,7 @@ export class TimelineRenderer extends BaseRenderer {
           callback: (event, button, dialog) => {
             const form = dialog.element.querySelector("form");
             const formData = new FormData(form);
-            
+
             const startDateValue = formData.get("start-date");
             const endDateValue = formData.get("end-date");
 
@@ -762,9 +767,9 @@ export class TimelineRenderer extends BaseRenderer {
               return false; // Don't close dialog
             }
 
-            return { 
-              startDate: Number(startDateValue), 
-              endDate: endDateValue && endDateValue !== "" ? Number(endDateValue) : null 
+            return {
+              startDate: Number(startDateValue),
+              endDate: endDateValue && endDateValue !== "" ? Number(endDateValue) : null
             };
           }
         },
@@ -780,7 +785,7 @@ export class TimelineRenderer extends BaseRenderer {
         try {
           // Update document flags
           await doc.setFlag(MODULE_ID, "start-date", result.startDate);
-          
+
           if (result.endDate !== null) {
             await doc.setFlag(MODULE_ID, "end-date", result.endDate);
           } else {
@@ -797,7 +802,7 @@ export class TimelineRenderer extends BaseRenderer {
 
           // Re-render
           await this.render(this._svg, this.graph);
-          
+
           ui.notifications.info(`Dates updated for "${item.title}"`);
         } catch (e) {
           log("TimelineRenderer: failed to update dates", e);

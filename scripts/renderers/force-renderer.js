@@ -45,6 +45,11 @@ export class ForceRenderer extends BaseRenderer {
     return true;
   }
 
+  get isSaveNewSceneVisible() {
+    return true;
+  }
+
+
   initializeGraphData() {
     return {
       nodes: [],
@@ -126,7 +131,7 @@ export class ForceRenderer extends BaseRenderer {
     log("ForceRenderer.render", svg, this.graph, ctx);
     if (!this._svg) this._svg = svg;
 
-    
+
     if (!this._zoomBehavior) {
       // FIRST RENDER: Set up persistent elements
       log("ForceRenderer: First render, setting up zoom.");
@@ -1371,8 +1376,8 @@ export class ForceRenderer extends BaseRenderer {
     return graphData;
   }
 
-  async exportToPNG() {
-    return await this.svgToCanvas({ scale: 3 });
+  async exportToPNG({ scale = 3, destination = "download" } = {}) {
+    return await this.svgToCanvas({ scale, destination });
   }
 
 }

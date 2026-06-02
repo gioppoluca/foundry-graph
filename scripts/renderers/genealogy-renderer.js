@@ -149,6 +149,10 @@ export class GenealogyRenderer extends BaseRenderer {
     return true;
   }
 
+  get isSaveNewSceneVisible() {
+    return false;
+  }
+
   initializeGraphData() {
     return {
       "start": "",
@@ -708,8 +712,8 @@ export class GenealogyRenderer extends BaseRenderer {
     return graph;
   }
 
-  async exportToPNG() {
-    return await this.svgToCanvas({ scale: 3 });
+  async exportToPNG({ scale = 3, destination = "download" } = {}) {
+    return await this.svgToCanvas({ scale, destination });
   }
 
   // ─── MOVE / REPARENT FEATURE ──────────────────────────────────────────────────

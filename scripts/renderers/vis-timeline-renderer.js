@@ -324,6 +324,9 @@ export class VisTimelineRenderer extends BaseRenderer {
     // they are meaningless for a timeline view.
     get isLinkNodesVisible() { return false; }
     get isRelationSelectVisible() { return false; }
+    get isSaveNewSceneVisible() {
+        return false;
+    }
 
     get instructions() {
         return `
@@ -956,15 +959,15 @@ export class VisTimelineRenderer extends BaseRenderer {
             : null;
 
         const item = {
-            id:         `tl-${foundry.utils.randomID(8)}`,
-            uuid:       null,
+            id: `tl-${foundry.utils.randomID(8)}`,
+            uuid: null,
             title,
             entityType: "FreeEvent",
-            group:      groupId,
-            start:      clickTimeSec,
-            end:        endSec,
-            color:      null,
-            img:        null,
+            group: groupId,
+            start: clickTimeSec,
+            end: endSec,
+            color: null,
+            img: null,
         };
 
         this.graph.data.items.push(item);
@@ -1161,8 +1164,8 @@ export class VisTimelineRenderer extends BaseRenderer {
      */
     async _convertFreeEventToJournal(item) {
         const journalName = this.graph.name || "Timeline";
-        const laneName    = this._resolveLaneName(item.group);
-        const pageTitle   = item.title;
+        const laneName = this._resolveLaneName(item.group);
+        const pageTitle = item.title;
 
         const confirmed = await DialogV2.confirm({
             window: { title: "Convert to Journal Page" },
@@ -1203,8 +1206,8 @@ export class VisTimelineRenderer extends BaseRenderer {
 
         // ── 3. Create the journal page assigned to the category ───────────────
         const pages = await journal.createEmbeddedDocuments("JournalEntryPage", [{
-            name:     pageTitle,
-            type:     "text",
+            name: pageTitle,
+            type: "text",
             category: category.id,
         }]);
         const page = pages?.[0];
@@ -1222,7 +1225,7 @@ export class VisTimelineRenderer extends BaseRenderer {
         }
 
         // ── 5. Link item to the new page and re-render ────────────────────────
-        item.uuid       = page.uuid;
+        item.uuid = page.uuid;
         item.entityType = "JournalEntryPage";
 
         await this.render(d3.select(this._svgEl), this.graph);
@@ -1423,7 +1426,7 @@ export class VisTimelineRenderer extends BaseRenderer {
      *
      * @param {{ scale?: number }} [options]
      */
-    async exportToPNG({ scale = 3 } = {}) {
+    async exportToPNG({ scale = 3, destination = "download" } = {}) {
         if (!this._container || !this._timeline) {
             ui?.notifications?.warn?.("Timeline is not ready for export yet.");
             return;

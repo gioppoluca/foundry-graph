@@ -84,6 +84,10 @@ export class ImageSlotsRenderer extends BaseRenderer {
         return false;
     }
 
+    get isSaveNewSceneVisible() {
+        return true;
+    }
+
     initializeGraphData() {
         return {
             nodes: [],
@@ -1206,8 +1210,8 @@ export class ImageSlotsRenderer extends BaseRenderer {
         return graphData;
     }
 
-    async exportToPNG() {
-        return await this.svgToCanvas({ scale: 3 });
+    async exportToPNG({ scale = 3, destination = "download" } = {}) {
+        return await this.svgToCanvas({ scale, destination });
     }
 
 }

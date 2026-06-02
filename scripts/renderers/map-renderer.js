@@ -19,6 +19,11 @@ async function fromUuidSafe(uuid) {
 export class MapRenderer extends BaseRenderer {
   static ID = "map";
 
+  get isSaveNewSceneVisible() {
+    return true;
+  }
+
+
   constructor() {
     super();
     // this._leaflet = null;
@@ -1295,10 +1300,10 @@ export class MapRenderer extends BaseRenderer {
   }
 
 
-  async exportToPNG({ scale = 3 } = {}) {
+  async exportToPNG({ scale = 3, destination = "download" } = {}) {
     if (!this._map || !this._mapDiv) {
       ui?.notifications?.warn?.("Map is not ready for export yet");
-      return;
+      return null;
     }
 
     // UX: show busy cursor
@@ -1337,19 +1342,41 @@ export class MapRenderer extends BaseRenderer {
       // 3) Markers (our SVG divIcons)
       await this._drawMarkerSvgsToCanvas(ctx, container, containerRect);
 
-      // Download
       const safeName = String(this.graph?.name ?? "map").replace(/[^a-z0-9_-]+/gi, "_");
-      const a = document.createElement("a");
-      a.download = `${safeName}.png`;
-      a.href = canvas.toDataURL("image/png");
-      a.click();
 
-      ui?.notifications?.info?.("Map export complete");
+      if (destination === "download") {
+        const a = document.createElement("a");
+        a.download = `${safeName}.png`;
+        a.href = canvas.toDataURL("image/png");
+        a.click();
+        ui?.notifications?.info?.("Map export complete");
+        return null;
+      }
+
+      if (destination === "data-folder") {
+        const pngBlob = await new Promise((resolve, reject) => {
+          canvas.toBlob(
+            blob => blob ? resolve(blob) : reject(new Error("Canvas toBlob failed")),
+            "image/png"
+          );
+        });
+
+        const path = await this.savePNGToDataFolder(pngBlob, safeName, {
+          subfolder: "graphs",
+          overwrite: true
+        });
+        log("Saved map PNG to data folder:", path);
+        ui?.notifications?.info?.("Map export complete");
+        return path;
+      }
+
+      throw new Error(`Unsupported export destination: ${destination}`);
     } catch (e) {
       log("MapRenderer.exportPng failed", e);
       ui?.notifications?.error?.(
         "Map export failed (often due to tile CORS restrictions). If you use online tiles, prefer a CORS-enabled tile source or local/offline tiles."
       );
+      return null;
     } finally {
       _root.style.cursor = _prevCursor || "";
     }
@@ -1583,4 +1610,5 @@ export class MapRenderer extends BaseRenderer {
     }
     return graphData;
   }
+
 }
