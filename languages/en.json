@@ -43,6 +43,7 @@
         "Buttons": {
             "ExportSvg": "Export Graph",
             "ExportScene": "Export to Scene",
+            "ExportScaledScene": "Export to Scene (scaled)",
             "LinkNodes": "Link Nodes",
             "DeleteClean": "Delete & Cleanup",
             "Save": "Save",

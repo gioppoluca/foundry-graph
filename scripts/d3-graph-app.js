@@ -33,6 +33,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       saveAction: D3GraphApp._saveGraph,
       exportAction: D3GraphApp.exportDownload,
       exportSceneAction: D3GraphApp.exportToScene,
+      exportScaledSceneAction: D3GraphApp.exportToScaledScene,
       linkNodes: D3GraphApp.toggleLinkingMode
 
     },
@@ -55,6 +56,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.api = game.modules.get(MODULE_ID)?.api;
     this.graph = foundry.utils.deepClone(options.graph || {});
     this.renderer = this.api.getRenderer(options.graph?.renderer);
+    this.renderer?.setScaledSceneAvailabilityChangeHandler?.(() => this._syncScaledSceneButtonState());
     log("D3GraphApp.constructor renderer", this.renderer)
     // just once we remove fix the window accordingly to the need of the renderer
     log("D3GraphApp.constructor", options, this.renderer)
@@ -82,6 +84,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       relationsSelect.addEventListener("change", (e) => this._onRelationsChange(e));
     }
     this._drawGraph(); // fresh
+    this._syncScaledSceneButtonState();
   }
 
   _onRelationsChange(event) {
@@ -110,7 +113,9 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       instructions: this.renderer?.instructions || "No instructions available",
       isLinkNodesVisible: this.renderer?.isLinkNodesVisible ?? true,
       isRelationSelectVisible: this.renderer?.isRelationSelectVisible ?? true,
-      isSaveNewSceneVisible: this.renderer?.isSaveNewSceneVisible ?? false
+      isSaveNewSceneVisible: this.renderer?.isSaveNewSceneVisible ?? false,
+      isSaveNewSceneScaledVisible: this.renderer?.isSaveNewSceneScaledVisible ?? false,
+      isSaveNewSceneScaledEnabled: this._isSaveNewSceneScaledEnabled()
     };
   }
 
@@ -167,6 +172,23 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.renderer.render(svg, this.graph)
   }
 
+  _isSaveNewSceneScaledEnabled() {
+    return typeof this.renderer?.isSaveNewSceneScaledEnabled === "function"
+      ? this.renderer.isSaveNewSceneScaledEnabled()
+      : false;
+  }
+
+  _syncScaledSceneButtonState() {
+    const button = this.element?.querySelector?.("#export-scaled-scene-btn");
+    if (!button) return;
+
+    const enabled = this._isSaveNewSceneScaledEnabled();
+    button.disabled = !enabled;
+    button.title = enabled
+      ? ""
+      : "Scaled scene export is available only when the map is close enough to the provider native max zoom.";
+  }
+
   async _onClose(options) {
     log("D3GraphApp._onClose | Running disposers");
 
@@ -194,6 +216,54 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     console.log("Export Download clicked", { event, target, application });
     console.log(this)
     await this.svgToCanvas({ scale: 3, destination: "download" });
+  }
+
+  static async exportToScaledScene(event, target, application) {
+    event?.preventDefault?.();
+
+    if (!this._isSaveNewSceneScaledEnabled()) {
+      ui.notifications.warn("Scaled scene export is available only when the map is close enough to the provider native max zoom.");
+      return;
+    }
+
+    const scaleInfo = this.renderer?.getScaledSceneScaleInfo?.();
+    if (!scaleInfo) {
+      ui.notifications.warn("Scaled scene export is not available for this renderer.");
+      return;
+    }
+
+    console.log("[foundry-graph] Scaled scene scale info", scaleInfo);
+
+    if (!scaleInfo.ok) {
+      const scaleText = Number.isFinite(scaleInfo.scale) ? ` Scale: ${scaleInfo.scale.toFixed(2)}.` : "";
+      ui.notifications.warn(`Scaled scene check failed: ${scaleInfo.reason}.${scaleText}`);
+      return;
+    }
+
+    try {
+      ui.notifications.info(
+        `Saving scaled scene image. Scale: ${scaleInfo.scale.toFixed(2)}; grid: ${scaleInfo.finalGridSize.toFixed(2)} px / ${scaleInfo.feetPerSquare} ft.`
+      );
+
+      const filePath = await this.svgToCanvas({
+        scale: scaleInfo.scale,
+        destination: "data-folder"
+      });
+
+      if (!filePath) {
+        ui.notifications.warn("Scaled scene export did not return a saved image path.");
+        return;
+      }
+
+      await this._createSceneFromGraphImage(filePath, {
+        gridSize: scaleInfo.finalGridSize,
+        gridDistance: scaleInfo.feetPerSquare,
+        gridUnits: "ft"
+      });
+    } catch (err) {
+      console.error("Scaled scene export failed:", err);
+      ui.notifications.error("Failed to create scaled scene from map image");
+    }
   }
 
   // Add a new export button handler in your renderer class
@@ -248,10 +318,13 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
    * @returns {Promise<Scene>}
    * @private
    */
-  async _createSceneFromGraphImage(imagePath) {
+  async _createSceneFromGraphImage(imagePath, options = {}) {
     const graph = this.graph;
 
     const texture = await loadTexture(imagePath);
+    const gridSize = options.gridSize ?? 100;
+    const gridDistance = options.gridDistance ?? 1;
+    const gridUnits = options.gridUnits ?? "units";
 
     const sceneData = {
       name: `${graph.name} - Map`,
@@ -266,9 +339,9 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
       grid: {
         type: CONST.GRID_TYPES.SQUARE,
-        size: 100,
-        distance: 1,
-        units: "units"
+        size: gridSize,
+        distance: gridDistance,
+        units: gridUnits
       }
     };
 

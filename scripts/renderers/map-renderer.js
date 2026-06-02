@@ -19,17 +19,13 @@ async function fromUuidSafe(uuid) {
 export class MapRenderer extends BaseRenderer {
   static ID = "map";
 
-  get isSaveNewSceneVisible() {
-    return true;
-  }
-
-
   constructor() {
     super();
     // this._leaflet = null;
     this._map = null;
     this._mapDiv = null;
     this._markersLayer = null;
+    this._baseTileLayer = null;
     this._leafletMarkers = new Map(); // markerId -> Leaflet marker
     this._geomanLayer = null;
     // Label scaling config
@@ -53,6 +49,107 @@ export class MapRenderer extends BaseRenderer {
     this.isLinkNodesVisible = false;
     this.isRelationSelectVisible = false;
     this.instructions = "Drop Actors/Scenes/Items/Journal pages on the map to create markers. Drag markers to reposition. Right-click a marker to radial menu.";
+  }
+
+  get isSaveNewSceneVisible() {
+    return true;
+  }
+
+  get isSaveNewSceneScaledVisible() {
+    return true;
+  }
+
+  isSaveNewSceneScaledEnabled() {
+    return this.getScaledSceneZoomInfo().enabled;
+  }
+
+  getScaledSceneZoomInfo() {
+    if (!this._map || !this._baseTileLayer) {
+      return { enabled: false, reason: "map-not-ready" };
+    }
+
+    const currentZoom = Number(this._map.getZoom?.());
+    const maxNativeZoom = this._getLayerMaxNativeZoom();
+    if (!Number.isFinite(currentZoom) || !Number.isFinite(maxNativeZoom)) {
+      return { enabled: false, reason: "zoom-unavailable", currentZoom, maxNativeZoom };
+    }
+
+    const minimumCompatibleZoom = maxNativeZoom - 1;
+    return {
+      enabled: currentZoom >= minimumCompatibleZoom && currentZoom <= maxNativeZoom,
+      currentZoom,
+      maxNativeZoom,
+      minimumCompatibleZoom
+    };
+  }
+
+  getScaledSceneScaleInfo({ minGridSize = 20, feetPerSquare = 5, maxScale = 4 } = {}) {
+    const zoomInfo = this.getScaledSceneZoomInfo();
+    if (!zoomInfo.enabled) {
+      return {
+        ok: false,
+        status: "error",
+        reason: zoomInfo.reason ?? "zoom-not-compatible",
+        zoomInfo
+      };
+    }
+
+    const center = this._map?.getCenter?.();
+    const latitude = Number(center?.lat);
+    const exportZoom = Number(zoomInfo.maxNativeZoom);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(exportZoom)) {
+      return {
+        ok: false,
+        status: "error",
+        reason: "scale-input-unavailable",
+        latitude,
+        exportZoom,
+        zoomInfo
+      };
+    }
+
+    const latitudeRadians = latitude * Math.PI / 180;
+    const metersPerPixel = 156543.03392 * Math.cos(latitudeRadians) / Math.pow(2, exportZoom);
+    const feetPerPixel = metersPerPixel * 3.28084;
+    const nativePixelsPerSquare = feetPerSquare / feetPerPixel;
+    const scale = Math.max(1, minGridSize / nativePixelsPerSquare);
+    const finalGridSize = nativePixelsPerSquare * scale;
+
+    const result = {
+      ok: scale <= maxScale,
+      status: scale <= maxScale ? "ok" : "error",
+      reason: scale <= maxScale ? null : "scale-too-high",
+      scale,
+      maxScale,
+      minGridSize,
+      feetPerSquare,
+      finalGridSize,
+      nativePixelsPerSquare,
+      feetPerPixel,
+      metersPerPixel,
+      latitude,
+      exportZoom,
+      zoomInfo
+    };
+
+    return result;
+  }
+
+  _getLayerMaxNativeZoom() {
+    const layerOptions = this._baseTileLayer?.options ?? {};
+    const candidates = [
+      layerOptions.maxNativeZoom,
+      layerOptions.maxZoom,
+      this._map?.getMaxZoom?.()
+    ];
+
+    for (const value of candidates) {
+      const zoom = Number(value);
+      if (Number.isFinite(zoom)) return zoom;
+    }
+
+    return Number.NaN;
   }
 
   initializeGraphData(_graph) {
@@ -154,6 +251,7 @@ export class MapRenderer extends BaseRenderer {
 
     this._map = null;
     this._markersLayer = null;
+    this._baseTileLayer = null;
     this._geomanLayer = null;
     this._leafletMarkers.clear();
 
@@ -461,8 +559,9 @@ export class MapRenderer extends BaseRenderer {
         }
       } else {
         // OpenStreetMap tiles (default)
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        this._baseTileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 19,
+          maxNativeZoom: 19,
           crossOrigin: "anonymous",
           attribution: "&copy; OpenStreetMap contributors"
         }).addTo(this._map);
@@ -557,7 +656,10 @@ export class MapRenderer extends BaseRenderer {
   _bindLabelZoomHandler() {
     if (!this._map) return;
     if (this._onMapZoomEnd) return;
-    this._onMapZoomEnd = () => this._refreshAllGeomanLabelStyles();
+    this._onMapZoomEnd = () => {
+      this._refreshAllGeomanLabelStyles();
+      this._notifyScaledSceneAvailabilityChanged();
+    };
     this._map.on("zoom", this._onMapZoomEnd);
     this._map.on("zoomend", this._onMapZoomEnd);
   }
@@ -1303,7 +1405,7 @@ export class MapRenderer extends BaseRenderer {
   async exportToPNG({ scale = 3, destination = "download" } = {}) {
     if (!this._map || !this._mapDiv) {
       ui?.notifications?.warn?.("Map is not ready for export yet");
-      return null;
+      return;
     }
 
     // UX: show busy cursor
@@ -1343,40 +1445,40 @@ export class MapRenderer extends BaseRenderer {
       await this._drawMarkerSvgsToCanvas(ctx, container, containerRect);
 
       const safeName = String(this.graph?.name ?? "map").replace(/[^a-z0-9_-]+/gi, "_");
-
-      if (destination === "download") {
-        const a = document.createElement("a");
-        a.download = `${safeName}.png`;
-        a.href = canvas.toDataURL("image/png");
-        a.click();
-        ui?.notifications?.info?.("Map export complete");
-        return null;
-      }
+      const pngBlob = await new Promise((resolve, reject) => {
+        canvas.toBlob(
+          blob => blob ? resolve(blob) : reject(new Error("Canvas toBlob failed")),
+          "image/png"
+        );
+      });
 
       if (destination === "data-folder") {
-        const pngBlob = await new Promise((resolve, reject) => {
-          canvas.toBlob(
-            blob => blob ? resolve(blob) : reject(new Error("Canvas toBlob failed")),
-            "image/png"
-          );
-        });
-
         const path = await this.savePNGToDataFolder(pngBlob, safeName, {
           subfolder: "graphs",
           overwrite: true
         });
-        log("Saved map PNG to data folder:", path);
         ui?.notifications?.info?.("Map export complete");
         return path;
       }
 
-      throw new Error(`Unsupported export destination: ${destination}`);
+      // Download
+      const pngUrl = URL.createObjectURL(pngBlob);
+      try {
+        const a = document.createElement("a");
+        a.download = `${safeName}.png`;
+        a.href = pngUrl;
+        a.click();
+      } finally {
+        URL.revokeObjectURL(pngUrl);
+      }
+
+      ui?.notifications?.info?.("Map export complete");
+      return null;
     } catch (e) {
       log("MapRenderer.exportPng failed", e);
       ui?.notifications?.error?.(
         "Map export failed (often due to tile CORS restrictions). If you use online tiles, prefer a CORS-enabled tile source or local/offline tiles."
       );
-      return null;
     } finally {
       _root.style.cursor = _prevCursor || "";
     }
@@ -1610,5 +1712,4 @@ export class MapRenderer extends BaseRenderer {
     }
     return graphData;
   }
-
 }

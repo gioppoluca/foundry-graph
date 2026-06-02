@@ -21,6 +21,10 @@
     {{#if isSaveNewSceneVisible}}
     <button data-action="exportSceneAction" id="export-scene-btn">🖼 {{localize "foundry-graph.Buttons.ExportScene"}}</button>
     {{/if}}
+    {{#if isSaveNewSceneScaledVisible}}
+    <button data-action="exportScaledSceneAction" id="export-scaled-scene-btn" {{#unless isSaveNewSceneScaledEnabled}}disabled
+      title="Scaled scene export is available only when the map is close enough to the provider native max zoom."{{/unless}}>🗺 {{localize "foundry-graph.Buttons.ExportScaledScene"}}</button>
+    {{/if}}
     <button data-action="saveAction" id="save-btn" {{#unless isEdit}}disabled
       title='{{localize "foundry-graph.Window.ViewOnlyMode"}}' {{/unless}}>💾 {{localize
       "foundry-graph.Buttons.Save"}}</button>

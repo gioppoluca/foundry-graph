@@ -74,6 +74,44 @@ export class BaseRenderer {
   }
 
 
+  get isSaveNewSceneVisible() {
+    return false;
+  }
+
+  get isSaveNewSceneScaledVisible() {
+    return false;
+  }
+
+
+  /**
+   * Whether this renderer exposes the scaled scene export action.
+   * Renderers that cannot produce a higher-resolution map export keep this false.
+   */
+  get isSaveNewSceneScaledVisible() {
+    return false;
+  }
+
+  /**
+   * Whether the scaled scene export action is currently usable.
+   * This can depend on renderer runtime state, for example the current map zoom.
+   */
+  isSaveNewSceneScaledEnabled() {
+    return false;
+  }
+
+  /**
+   * Optional callback used by renderer-specific UI state changes.
+   * The D3 app uses this to refresh button enabled/disabled state without
+   * re-rendering the whole graph.
+   */
+  setScaledSceneAvailabilityChangeHandler(callback) {
+    this._scaledSceneAvailabilityChanged = typeof callback === "function" ? callback : null;
+  }
+
+  _notifyScaledSceneAvailabilityChanged() {
+    try { this._scaledSceneAvailabilityChanged?.(); } catch (_e) { /* ignore */ }
+  }
+
   // ========================================================================
   // Radial menu helper (used by renderers on right-click).
   // Renderers call this with screen coordinates so it works regardless of zoom.
