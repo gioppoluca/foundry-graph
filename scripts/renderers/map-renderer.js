@@ -96,7 +96,8 @@ export class MapRenderer extends BaseRenderer {
 
     const center = this._map?.getCenter?.();
     const latitude = Number(center?.lat);
-    const exportZoom = Number(zoomInfo.maxNativeZoom);
+    //const exportZoom = Number(zoomInfo.maxNativeZoom);
+    const exportZoom = Number(zoomInfo.currentZoom);
 
     if (!Number.isFinite(latitude) || !Number.isFinite(exportZoom)) {
       return {
@@ -134,6 +135,109 @@ export class MapRenderer extends BaseRenderer {
     };
 
     return result;
+  }
+
+  /**
+   * Retrieve visible OSM building footprints and convert them to Foundry wall data
+   * for the scaled scene export.
+   *
+   * This method only returns wall document data. It does not create or update any Scene.
+   * Coordinates are based on the current visible Leaflet viewport and multiplied by the
+   * same export scale used for the scaled scene image.
+   *
+   * @param {Object} scaleInfo - Result from getScaledSceneScaleInfo().
+   * @returns {Promise<Array<Object>>} Foundry Wall document data.
+   */
+  async getScaledSceneWallData(scaleInfo) {
+    if (!this._map || !scaleInfo?.ok) return [];
+
+    const bounds = this._map.getBounds?.();
+    if (!bounds) return [];
+
+    const scale = Number(scaleInfo.scale);
+    if (!Number.isFinite(scale) || scale <= 0) return [];
+
+    const south = bounds.getSouth();
+    const west = bounds.getWest();
+    const north = bounds.getNorth();
+    const east = bounds.getEast();
+
+    if (![south, west, north, east].every(Number.isFinite)) return [];
+
+    const elements = await this._fetchVisibleOsmBuildings({ south, west, north, east });
+    const walls = [];
+
+    for (const element of elements) {
+      const geometry = Array.isArray(element?.geometry) ? element.geometry : [];
+      if (geometry.length < 2) continue;
+
+      for (let i = 0; i < geometry.length; i++) {
+        const a = geometry[i];
+        const b = geometry[(i + 1) % geometry.length];
+        if (!a || !b) continue;
+
+        const p1 = this._latLngToScaledScenePoint(a.lat, a.lon, scale);
+        const p2 = this._latLngToScaledScenePoint(b.lat, b.lon, scale);
+        if (!p1 || !p2) continue;
+
+        // Skip degenerate segments.
+        if (p1.x === p2.x && p1.y === p2.y) continue;
+
+        walls.push(this._buildFoundryWallData(p1, p2));
+      }
+    }
+
+    return walls;
+  }
+
+  async _fetchVisibleOsmBuildings({ south, west, north, east }) {
+    const query = `
+[out:json][timeout:25];
+(
+  way["building"](${south},${west},${north},${east});
+);
+out geom;
+`;
+
+    const response = await fetch("https://overpass-api.de/api/interpreter", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        "Accept": "application/json"
+      },
+      body: new URLSearchParams({ data: query })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Overpass building query failed: HTTP ${response.status}`);
+    }
+
+    const json = await response.json();
+    return Array.isArray(json?.elements) ? json.elements : [];
+  }
+
+  _latLngToScaledScenePoint(lat, lng, scale) {
+    const nLat = Number(lat);
+    const nLng = Number(lng);
+    if (!Number.isFinite(nLat) || !Number.isFinite(nLng)) return null;
+
+    const point = this._map?.latLngToContainerPoint?.([nLat, nLng]);
+    if (!point) return null;
+
+    return {
+      x: Math.round(point.x * scale),
+      y: Math.round(point.y * scale)
+    };
+  }
+
+  _buildFoundryWallData(p1, p2) {
+    return {
+      c: [p1.x, p1.y, p2.x, p2.y],
+      move: CONST.WALL_MOVEMENT_TYPES.NORMAL,
+      sight: CONST.WALL_SENSE_TYPES.NORMAL,
+      sound: CONST.WALL_SENSE_TYPES.NORMAL,
+      light: CONST.WALL_SENSE_TYPES.NORMAL
+    };
   }
 
   _getLayerMaxNativeZoom() {

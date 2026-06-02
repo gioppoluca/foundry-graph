@@ -245,6 +245,14 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         `Saving scaled scene image. Scale: ${scaleInfo.scale.toFixed(2)}; grid: ${scaleInfo.finalGridSize.toFixed(2)} px / ${scaleInfo.feetPerSquare} ft.`
       );
 
+      let wallData = null
+      try {
+        wallData = await this.renderer?.getScaledSceneWallData?.(scaleInfo);
+        log("[foundry-graph] Scaled scene wall data", wallData);
+      } catch (wallErr) {
+        log("[foundry-graph] Failed to retrieve scaled scene wall data", wallErr);
+      }
+
       const filePath = await this.svgToCanvas({
         scale: scaleInfo.scale,
         destination: "data-folder"
@@ -255,11 +263,15 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         return;
       }
 
-      await this._createSceneFromGraphImage(filePath, {
+      const scene = await this._createSceneFromGraphImage(filePath, {
         gridSize: scaleInfo.finalGridSize,
         gridDistance: scaleInfo.feetPerSquare,
         gridUnits: "ft"
       });
+
+      if (Array.isArray(wallData) && wallData.length > 0) {
+        await scene.createEmbeddedDocuments("Wall", wallData);
+      }
     } catch (err) {
       console.error("Scaled scene export failed:", err);
       ui.notifications.error("Failed to create scaled scene from map image");
