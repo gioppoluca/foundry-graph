@@ -99,6 +99,32 @@ export const GRAPH_TYPES = {
           "maxBoundsPadding": 0.1,
           "layersControl": "checkbox",
           "attribution": "Toril GIS data by Geospatial Grimoire",
+          "rasterOverlays": [
+            {
+              "id": "terrain-relief",
+              "group": "Terrain",
+              "label": "Elevation Relief",
+              "url": "modules/foundry-graph/assets/maps/toril-gis/rasters/toril_relief_4096.png",
+              "bounds": [[-90, -180], [90, 180]],
+              "order": 62,
+              "opacity": 0.28,
+              "blendMode": "overlay",
+              "enabled": false,
+              "className": "fg-map-raster-relief"
+            },
+            {
+              "id": "terrain-hillshade",
+              "group": "Terrain",
+              "label": "Hillshade",
+              "url": "modules/foundry-graph/assets/maps/toril-gis/rasters/toril_hillshade_4096.png",
+              "bounds": [[-90, -180], [90, 180]],
+              "order": 65,
+              "opacity": 0.42,
+              "blendMode": "multiply",
+              "enabled": false,
+              "className": "fg-map-raster-hillshade"
+            }
+          ],
           "crsDefinition": {
             "format": "precomputed-leaflet",
             "wktUrl": "modules/foundry-graph/assets/maps/toril-gis/crs/toril_gcs.wkt",

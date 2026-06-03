@@ -8,10 +8,12 @@ export class MapGeoJsonOperator extends BaseMapOperator {
   async createMap(container, { graph, center = null, zoom = null } = {}) {
     this.graph = graph ?? this.renderer?.graph ?? null;
     this._geoJsonLayers = new Map();
+    this._rasterOverlays = new Map();
     this._layerIdsByLayer = new Map();
     this._layerIdsByLeafletId = new Map();
     this._layerControl = null;
     this._enabledLayerIds = new Set(this._getInitialEnabledLayerIds(this.graph));
+    this._enabledRasterOverlayIds = new Set(this._getInitialEnabledRasterOverlayIds(this.graph));
 
     const crs = this._createLeafletCrs();
     const minZoom = this._numberOrDefault(this.mapSource?.minZoom, 1);
@@ -23,7 +25,9 @@ export class MapGeoJsonOperator extends BaseMapOperator {
       crs: this.mapSource?.crs ?? null,
       leafletCrs: this.mapSource?.leafletCrs ?? null,
       layerCount: Array.isArray(this.mapSource?.layers) ? this.mapSource.layers.length : 0,
+      rasterOverlayCount: Array.isArray(this.mapSource?.rasterOverlays) ? this.mapSource.rasterOverlays.length : 0,
       enabledLayerIds: Array.from(this._enabledLayerIds),
+      enabledRasterOverlayIds: Array.from(this._enabledRasterOverlayIds),
       center,
       zoom
     });
@@ -80,7 +84,9 @@ export class MapGeoJsonOperator extends BaseMapOperator {
       currentCenter: map.getCenter?.(),
       currentZoom: map.getZoom?.(),
       enabledLayerIds: Array.from(this._enabledLayerIds),
-      loadedLayerIds: Array.from(this._geoJsonLayers.keys())
+      enabledRasterOverlayIds: Array.from(this._enabledRasterOverlayIds),
+      loadedLayerIds: Array.from(this._geoJsonLayers.keys()),
+      loadedRasterOverlayIds: Array.from(this._rasterOverlays.keys()).filter(id => this._rasterOverlays.get(id)?.loaded === true)
     });
 
     return map;
@@ -95,14 +101,17 @@ export class MapGeoJsonOperator extends BaseMapOperator {
     delete data.image;
 
     data.enabledGeoJsonLayerIds = Array.from(this._enabledLayerIds ?? []);
+    data.enabledRasterOverlayIds = Array.from(this._enabledRasterOverlayIds ?? []);
     data.geoJson = {
       crs: this.mapSource?.crs ?? null,
       leafletCrs: this.mapSource?.leafletCrs ?? null,
-      enabledLayerIds: data.enabledGeoJsonLayerIds
+      enabledLayerIds: data.enabledGeoJsonLayerIds,
+      enabledRasterOverlayIds: data.enabledRasterOverlayIds
     };
 
     this._log("getGraphMapData", {
       enabledLayerIds: data.enabledGeoJsonLayerIds,
+      enabledRasterOverlayIds: data.enabledRasterOverlayIds,
       crs: data.geoJson.crs,
       leafletCrs: data.geoJson.leafletCrs
     });
@@ -136,9 +145,11 @@ export class MapGeoJsonOperator extends BaseMapOperator {
     try { this._layerControl?.remove?.(); } catch (_e) { /* ignore */ }
     this._layerControl = null;
     this._geoJsonLayers = null;
+    this._rasterOverlays = null;
     this._layerIdsByLayer = null;
     this._layerIdsByLeafletId = null;
     this._enabledLayerIds = null;
+    this._enabledRasterOverlayIds = null;
     super.teardown();
   }
 
@@ -189,6 +200,7 @@ export class MapGeoJsonOperator extends BaseMapOperator {
 
   async _loadConfiguredLayers(map) {
     const layers = this._getOrderedConfiguredLayers();
+    const rasterOverlays = this._getOrderedRasterOverlayDefs();
     const overlays = {};
 
     for (const layerDef of layers) {
@@ -223,6 +235,41 @@ export class MapGeoJsonOperator extends BaseMapOperator {
       } catch (e) {
         this._log("layer registration failed", { id, url: layerDef?.url ?? null, error: e });
         ui?.notifications?.warn?.(`Could not register GeoJSON layer '${layerDef?.label ?? id}'. Check the layer configuration.`);
+      }
+    }
+
+    for (const overlayDef of rasterOverlays) {
+      const id = String(overlayDef?.id ?? "").trim();
+      if (!id) continue;
+
+      try {
+        this._prepareLayerPane(map, overlayDef);
+
+        const layer = this.L.layerGroup();
+        const leafletId = this.L.Util.stamp(layer);
+        this._rasterOverlays.set(id, {
+          layer,
+          layerDef: this._clone(overlayDef),
+          loaded: false,
+          loadingPromise: null,
+          rasterLayer: null
+        });
+        this._layerIdsByLayer.set(layer, id);
+        this._layerIdsByLeafletId.set(leafletId, id);
+
+        const label = this._formatControlLabel(overlayDef);
+        overlays[label] = layer;
+
+        if (this._enabledRasterOverlayIds.has(id)) {
+          layer.addTo(map);
+          await this._ensureRasterOverlayLoaded(id, map);
+          this._log("raster overlay enabled and loaded", { id, label, url: overlayDef.url });
+        } else {
+          this._log("raster overlay registered as lazy disabled overlay", { id, label, url: overlayDef.url });
+        }
+      } catch (e) {
+        this._log("raster overlay registration failed", { id, url: overlayDef?.url ?? null, error: e });
+        ui?.notifications?.warn?.(`Could not register raster overlay '${overlayDef?.label ?? id}'. Check the overlay configuration.`);
       }
     }
 
@@ -283,6 +330,103 @@ export class MapGeoJsonOperator extends BaseMapOperator {
 
   _getLayerOrder(layerDef) {
     return this._numberOrDefault(layerDef?.order, 100);
+  }
+
+  _getOrderedRasterOverlayDefs() {
+    const overlays = Array.isArray(this.mapSource?.rasterOverlays) ? this.mapSource.rasterOverlays : [];
+    return [...overlays].sort((a, b) => this._getLayerOrder(a) - this._getLayerOrder(b));
+  }
+
+  async _ensureRasterOverlayLoaded(id, map = this.map) {
+    const entry = this._rasterOverlays?.get?.(id);
+    if (!entry) return null;
+    if (entry.loaded) return entry.rasterLayer;
+    if (entry.loadingPromise) return entry.loadingPromise;
+
+    entry.loadingPromise = this._loadRasterOverlayIntoLayerGroup(entry, map)
+      .catch(error => {
+        entry.loadError = error;
+        this._log("lazy raster overlay load failed", {
+          id,
+          url: entry.layerDef?.url ?? null,
+          error
+        });
+        ui?.notifications?.warn?.(`Could not load raster overlay '${entry.layerDef?.label ?? id}'. Check that the file exists in module assets.`);
+        throw error;
+      })
+      .finally(() => {
+        entry.loadingPromise = null;
+      });
+
+    return entry.loadingPromise;
+  }
+
+  async _loadRasterOverlayIntoLayerGroup(entry, map = this.map) {
+    const layerDef = entry?.layerDef ?? {};
+    const id = String(layerDef?.id ?? "").trim();
+    const url = String(layerDef?.url ?? "").trim();
+    if (!url) throw new Error("Raster overlay url is required.");
+
+    const bounds = this._getLayerBounds(layerDef);
+    if (!bounds) throw new Error("Raster overlay bounds are required.");
+
+    this._log("lazy raster overlay load start", { id, url, bounds: this._boundsToArray(bounds) });
+
+    const pane = this._prepareLayerPane(map, layerDef);
+    const options = {
+      pane,
+      opacity: this._numberOrDefault(layerDef?.opacity, 0.35),
+      interactive: layerDef?.interactive === true,
+      className: String(layerDef?.className ?? "").trim() || undefined
+    };
+
+    const rasterLayer = this.L.imageOverlay(url, bounds, options);
+    rasterLayer.on("load", () => this._applyRasterOverlayDomStyle(rasterLayer, layerDef));
+    rasterLayer.addTo(entry.layer);
+    this._applyRasterOverlayDomStyle(rasterLayer, layerDef);
+
+    entry.rasterLayer = rasterLayer;
+    entry.loaded = true;
+    entry.loadError = null;
+
+    this._log("lazy raster overlay load done", {
+      id,
+      opacity: options.opacity,
+      pane,
+      order: this._getLayerOrder(layerDef),
+      blendMode: this._getRasterBlendMode(layerDef) || null
+    });
+    return rasterLayer;
+  }
+
+  _applyRasterOverlayDomStyle(rasterLayer, layerDef) {
+    const image = rasterLayer?.getElement?.();
+    if (!image?.style) return;
+
+    const blendMode = this._getRasterBlendMode(layerDef);
+    if (blendMode) image.style.mixBlendMode = blendMode;
+
+    image.style.pointerEvents = layerDef?.interactive === true ? "auto" : "none";
+
+    const imageRendering = String(layerDef?.imageRendering ?? "").trim();
+    if (imageRendering) image.style.imageRendering = imageRendering;
+
+    this._log("raster overlay DOM style applied", {
+      id: layerDef?.id ?? null,
+      blendMode: blendMode || null,
+      pointerEvents: image.style.pointerEvents,
+      opacity: rasterLayer?.options?.opacity ?? null
+    });
+  }
+
+  _getRasterBlendMode(layerDef) {
+    const configured = String(layerDef?.blendMode ?? "").trim();
+    if (configured) return configured;
+
+    const id = String(layerDef?.id ?? "").toLowerCase();
+    if (id.includes("hillshade")) return "multiply";
+    if (id.includes("relief")) return "overlay";
+    return "";
   }
 
   async _createGeoJsonFeatureLayer(layerDef, map) {
@@ -705,11 +849,23 @@ export class MapGeoJsonOperator extends BaseMapOperator {
         return;
       }
 
+      const type = this._getConfiguredOverlayType(id);
+      if (type === "raster") {
+        this._enabledRasterOverlayIds.add(id);
+        this._log("raster overlay enabled", { id, enabledRasterOverlayIds: Array.from(this._enabledRasterOverlayIds) });
+        this._ensureRasterOverlayLoaded(id, map).then(() => {
+          this._log("raster overlay lazy load completed", { id });
+        }).catch(_e => {
+          // The loader already logs and warns; keep the checkbox state so the user can retry by toggling.
+        });
+        return;
+      }
+
       this._enabledLayerIds.add(id);
-      this._log("overlay enabled", { id, enabledLayerIds: Array.from(this._enabledLayerIds) });
+      this._log("geojson overlay enabled", { id, enabledLayerIds: Array.from(this._enabledLayerIds) });
 
       this._ensureGeoJsonLayerLoaded(id, map).then(() => {
-        this._log("overlay lazy load completed", { id });
+        this._log("geojson overlay lazy load completed", { id });
       }).catch(_e => {
         // The loader already logs and warns; keep the checkbox state so the user can retry by toggling.
       });
@@ -722,8 +878,15 @@ export class MapGeoJsonOperator extends BaseMapOperator {
         return;
       }
 
+      const type = this._getConfiguredOverlayType(id);
+      if (type === "raster") {
+        this._enabledRasterOverlayIds.delete(id);
+        this._log("raster overlay disabled", { id, enabledRasterOverlayIds: Array.from(this._enabledRasterOverlayIds) });
+        return;
+      }
+
       this._enabledLayerIds.delete(id);
-      this._log("overlay disabled", { id, enabledLayerIds: Array.from(this._enabledLayerIds) });
+      this._log("geojson overlay disabled", { id, enabledLayerIds: Array.from(this._enabledLayerIds) });
     });
   }
 
@@ -739,6 +902,12 @@ export class MapGeoJsonOperator extends BaseMapOperator {
     return this._layerIdsByLeafletId?.get?.(leafletId) ?? null;
   }
 
+  _getConfiguredOverlayType(id) {
+    if (this._rasterOverlays?.has?.(id)) return "raster";
+    if (this._geoJsonLayers?.has?.(id)) return "geojson";
+    return "unknown";
+  }
+
   _refreshEnabledLayerIdsFromMap() {
     if (!this.map || !this._geoJsonLayers) return;
 
@@ -747,8 +916,14 @@ export class MapGeoJsonOperator extends BaseMapOperator {
       if (entry?.layer && this.map.hasLayer(entry.layer)) enabled.push(id);
     }
 
+    const enabledRaster = [];
+    for (const [id, entry] of this._rasterOverlays?.entries?.() ?? []) {
+      if (entry?.layer && this.map.hasLayer(entry.layer)) enabledRaster.push(id);
+    }
+
     this._enabledLayerIds = new Set(enabled);
-    this._log("enabled layers refreshed from map", { enabledLayerIds: enabled });
+    this._enabledRasterOverlayIds = new Set(enabledRaster);
+    this._log("enabled layers refreshed from map", { enabledLayerIds: enabled, enabledRasterOverlayIds: enabledRaster });
   }
 
   _getInitialEnabledLayerIds(graph) {
@@ -764,6 +939,21 @@ export class MapGeoJsonOperator extends BaseMapOperator {
     return configuredLayers
       .filter(layer => layer?.enabled === true)
       .map(layer => String(layer.id));
+  }
+
+  _getInitialEnabledRasterOverlayIds(graph) {
+    const configuredOverlays = Array.isArray(this.mapSource?.rasterOverlays) ? this.mapSource.rasterOverlays : [];
+    const saved = graph?.data?.map?.enabledRasterOverlayIds ?? graph?.data?.map?.geoJson?.enabledRasterOverlayIds;
+
+    if (Array.isArray(saved)) {
+      const configuredIds = new Set(configuredOverlays.map(l => String(l?.id ?? "").trim()).filter(Boolean));
+      const filtered = saved.map(id => String(id)).filter(id => configuredIds.has(id));
+      if (filtered.length > 0 || saved.length === 0) return filtered;
+    }
+
+    return configuredOverlays
+      .filter(overlay => overlay?.enabled === true)
+      .map(overlay => String(overlay.id));
   }
 
   _getSavedOrDefaultView({ center, zoom, bounds } = {}) {
@@ -788,7 +978,15 @@ export class MapGeoJsonOperator extends BaseMapOperator {
   }
 
   _getConfiguredBounds() {
-    const b = this.mapSource?.bounds;
+    return this._boundsFromArray(this.mapSource?.bounds);
+  }
+
+  _getLayerBounds(layerDef) {
+    return this._boundsFromArray(layerDef?.bounds) ?? this._getConfiguredBounds();
+  }
+
+  _boundsFromArray(value) {
+    const b = value;
     if (!Array.isArray(b) || b.length < 2) return null;
 
     const sw = b[0];
