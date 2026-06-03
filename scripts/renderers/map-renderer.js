@@ -7,6 +7,30 @@ const { DialogV2 } = foundry.applications.api;
 import { BaseRenderer } from "./base-renderer.js";
 import { log, safeUUID } from "../constants.js";
 
+const MAP_BASE_LAYERS = {
+  street: {
+    id: "street",
+    label: "Street",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    options: {
+      maxZoom: 19,
+      maxNativeZoom: 19,
+      crossOrigin: "anonymous",
+      attribution: "&copy; OpenStreetMap contributors"
+    }
+  },
+  satellite: {
+    id: "satellite",
+    label: "Satellite",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    options: {
+      maxZoom: 19,
+      maxNativeZoom: 19,
+      crossOrigin: "anonymous",
+      attribution: "Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community"
+    }
+  }
+};
 
 async function fromUuidSafe(uuid) {
   try {
@@ -26,6 +50,9 @@ export class MapRenderer extends BaseRenderer {
     this._mapDiv = null;
     this._markersLayer = null;
     this._baseTileLayer = null;
+    this._baseLayers = null;
+    this._baseLayerControl = null;
+    this._activeBaseLayerData = null;
     this._leafletMarkers = new Map(); // markerId -> Leaflet marker
     this._geomanLayer = null;
     // Label scaling config
@@ -209,7 +236,10 @@ out geom;
     });
 
     if (!response.ok) {
-      throw new Error(`Overpass building query failed: HTTP ${response.status}`);
+      //throw new Error(`Overpass building query failed: HTTP ${response.status}, ${response.statusText}, ${await response.text()}`);
+      log(`Overpass building query failed: HTTP ${response.status}, ${response.statusText}, ${await response.text()}`);
+      ui?.notifications?.warn?.("Failed to retrieve building data from OpenStreetMap. Scaled scene walls will be missing. Probably a temporary issue with the Overpass API, but if it persists you may want to check your network connection.");
+      return [];
     }
 
     const json = await response.json();
@@ -234,9 +264,9 @@ out geom;
     return {
       c: [p1.x, p1.y, p2.x, p2.y],
       move: CONST.WALL_MOVEMENT_TYPES.NORMAL,
-      sight: CONST.WALL_SENSE_TYPES.NORMAL,
-      sound: CONST.WALL_SENSE_TYPES.NORMAL,
-      light: CONST.WALL_SENSE_TYPES.NORMAL
+      sight: CONST.WALL_SENSE_TYPES.LIMITED,
+      sound: CONST.WALL_SENSE_TYPES.LIMITED,
+      light: CONST.WALL_SENSE_TYPES.LIMITED
     };
   }
 
@@ -256,11 +286,105 @@ out geom;
     return Number.NaN;
   }
 
+  _cloneBaseLayerData(layerData) {
+    return foundry.utils.deepClone(layerData ?? MAP_BASE_LAYERS.street);
+  }
+
+  _sanitizeBaseLayerData(layerData) {
+    const fallback = MAP_BASE_LAYERS.street;
+    const id = String(layerData?.id ?? fallback.id);
+    const label = String(layerData?.label ?? fallback.label);
+    const url = String(layerData?.url ?? fallback.url);
+    const sourceOptions = layerData?.options ?? {};
+
+    return {
+      id,
+      label,
+      url,
+      options: {
+        maxZoom: Number.isFinite(sourceOptions.maxZoom) ? sourceOptions.maxZoom : fallback.options.maxZoom,
+        maxNativeZoom: Number.isFinite(sourceOptions.maxNativeZoom) ? sourceOptions.maxNativeZoom : fallback.options.maxNativeZoom,
+        crossOrigin: sourceOptions.crossOrigin ?? fallback.options.crossOrigin,
+        attribution: String(sourceOptions.attribution ?? fallback.options.attribution),
+        detectRetina: true,
+        crossOrigin: true
+      }
+    };
+  }
+
+  _getInitialBaseLayerData(graph) {
+    const savedLayer = graph?.data?.map?.baseLayer;
+    if (savedLayer?.url) return this._sanitizeBaseLayerData(savedLayer);
+
+    const savedId = graph?.data?.map?.baseLayerId;
+    if (savedId && MAP_BASE_LAYERS[savedId]) return this._cloneBaseLayerData(MAP_BASE_LAYERS[savedId]);
+
+    return this._cloneBaseLayerData(MAP_BASE_LAYERS.street);
+  }
+
+  _getSelectableBaseLayerData(initialBaseLayerData) {
+    const layers = Object.values(MAP_BASE_LAYERS).map(layer => this._cloneBaseLayerData(layer));
+    const activeId = initialBaseLayerData?.id;
+    const index = layers.findIndex(layer => layer.id === activeId);
+
+    if (index >= 0) layers[index] = this._cloneBaseLayerData(initialBaseLayerData);
+    else layers.unshift(this._cloneBaseLayerData(initialBaseLayerData));
+
+    return layers;
+  }
+
+  _createBaseTileLayer(L, layerData) {
+    const cleanLayerData = this._sanitizeBaseLayerData(layerData);
+    const layer = L.tileLayer(cleanLayerData.url, cleanLayerData.options);
+    layer.__fgBaseLayerData = cleanLayerData;
+    return layer;
+  }
+
+  _addBaseLayerControl(L, initialBaseLayerData) {
+    const layersByLabel = {};
+    let activeLayer = null;
+
+    for (const layerData of this._getSelectableBaseLayerData(initialBaseLayerData)) {
+      const layer = this._createBaseTileLayer(L, layerData);
+      layersByLabel[layerData.label] = layer;
+
+      if (layerData.id === initialBaseLayerData.id) {
+        activeLayer = layer;
+      }
+    }
+
+    activeLayer ??= layersByLabel[MAP_BASE_LAYERS.street.label] ?? Object.values(layersByLabel)[0];
+    this._baseLayers = layersByLabel;
+    this._baseTileLayer = activeLayer;
+    this._activeBaseLayerData = this._cloneBaseLayerData(activeLayer.__fgBaseLayerData);
+    this._baseTileLayer.addTo(this._map);
+
+    this._baseLayerControl = L.control.layers(layersByLabel, null, {
+      position: "topright",
+      collapsed: false
+    }).addTo(this._map);
+
+    this._map.on("baselayerchange", (event) => {
+      if (!event?.layer?.__fgBaseLayerData) return;
+
+      this._baseTileLayer = event.layer;
+      this._activeBaseLayerData = this._cloneBaseLayerData(event.layer.__fgBaseLayerData);
+
+      if (this.graph?.data) {
+        this.graph.data.map = this.graph.data.map ?? { center: [0, 0], zoom: 2 };
+        this.graph.data.map.baseLayer = this._cloneBaseLayerData(this._activeBaseLayerData);
+      }
+
+      this._notifyScaledSceneAvailabilityChanged();
+    });
+  }
+
   initializeGraphData(_graph) {
     return {
       map: {
         center: [0, 0],
-        zoom: 2
+        zoom: 2,
+        baseLayer: this._cloneBaseLayerData(MAP_BASE_LAYERS.street)
       },
       markers: [],
       geoman: { type: "FeatureCollection", features: [] }
@@ -309,6 +433,8 @@ out geom;
       }
     }
 
+    data.map.baseLayer = this._cloneBaseLayerData(this._activeBaseLayerData ?? MAP_BASE_LAYERS.street);
+
     // Persist Leaflet-Geoman layers
     try {
       const fc = this._serializeGeoman();
@@ -356,6 +482,9 @@ out geom;
     this._map = null;
     this._markersLayer = null;
     this._baseTileLayer = null;
+    this._baseLayers = null;
+    this._baseLayerControl = null;
+    this._activeBaseLayerData = null;
     this._geomanLayer = null;
     this._leafletMarkers.clear();
 
@@ -662,14 +791,14 @@ out geom;
           this._map.setView(center, zoom);
         }
       } else {
-        // OpenStreetMap tiles (default)
-        this._baseTileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom: 19,
-          maxNativeZoom: 19,
-          crossOrigin: "anonymous",
-          attribution: "&copy; OpenStreetMap contributors"
-        }).addTo(this._map);
+        const initialBaseLayerData = this._getInitialBaseLayerData(graph);
+        this._addBaseLayerControl(L, initialBaseLayerData);
         this._map.setView(center, zoom);
+
+        if (this.graph?.data) {
+          this.graph.data.map = this.graph.data.map ?? { center: [0, 0], zoom: 2 };
+          this.graph.data.map.baseLayer = this._cloneBaseLayerData(this._activeBaseLayerData);
+        }
       }
 
       // Markers group
