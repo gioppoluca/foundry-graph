@@ -249,7 +249,17 @@ await game.modules.get("foundry-graph").api.openGraphById("my-graph-id");
 ## Planned Features
 - cleanup and final release
   
+## Attribution & Intellectual Property
 
+### Geospatial Data
+The GeoJSON data layers used in this project were obtained from or built using resources provided by [Geospatial Grimoire](https://www.geospatial-grimoire.com/) / [Toril GIS](https://github.com/geospatial-grimoire). This project appreciates their work in mapping and georeferencing imaginary worlds.
+
+### Wizards of the Coast Fan Content Policy
+This project incorporates trademarks and/or copyrights concerned with the Forgotten Realms setting, which are the property of Wizards of the Coast LLC. 
+
+This project is unofficial Fan Content permitted under the Wizards of the Coast Fan Content Policy. It is not approved or endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. © Wizards of the Coast LLC. 
+
+This repository is strictly non-commercial and is shared freely with the D&D and cartography community under these same terms.
 
 
 ## Changelog
