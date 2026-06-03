@@ -6,6 +6,7 @@ const { DialogV2 } = foundry.applications.api;
 
 import { BaseRenderer } from "./base-renderer.js";
 import { log, safeUUID } from "../constants.js";
+import { createMapOperator } from "./map-operators/map-operator-registry.js";
 
 const MAP_BASE_LAYERS = {
   street: {
@@ -53,6 +54,7 @@ export class MapRenderer extends BaseRenderer {
     this._baseLayers = null;
     this._baseLayerControl = null;
     this._activeBaseLayerData = null;
+    this._mapOperator = null;
     this._leafletMarkers = new Map(); // markerId -> Leaflet marker
     this._geomanLayer = null;
     // Label scaling config
@@ -76,6 +78,74 @@ export class MapRenderer extends BaseRenderer {
     this.isLinkNodesVisible = false;
     this.isRelationSelectVisible = false;
     this.instructions = "Drop Actors/Scenes/Items/Journal pages on the map to create markers. Drag markers to reposition. Right-click a marker to radial menu.";
+  }
+
+  _getMapOperatorThemeData(graph = this.graph) {
+    const themeData = graph?.["theme-data"];
+    if (themeData?.mapSource?.operator) return foundry.utils.deepClone(themeData);
+
+    return this._getLegacyEarthThemeData();
+  }
+
+  _getLegacyEarthThemeData() {
+    return {
+      id: "earth",
+      label: "Earth Map",
+      mapSource: {
+        operator: "earth",
+        type: "tile",
+        crs: "earth",
+        defaultBaseLayerId: "street",
+        baseLayers: Object.values(MAP_BASE_LAYERS).map(layer => foundry.utils.deepClone(layer)),
+        search: {
+          type: "nominatim",
+          url: "https://nominatim.openstreetmap.org/search",
+          limit: 5
+        },
+        scaledScene: {
+          enabled: true,
+          scaleMode: "webMercator",
+          minGridSize: 20,
+          feetPerSquare: 5,
+          maxScale: 4,
+          minimumZoomOffsetFromMaxNative: 1
+        },
+        walls: {
+          enabled: true,
+          type: "osm-buildings",
+          overpassUrl: "https://overpass-api.de/api/interpreter"
+        }
+      }
+    };
+  }
+
+  _ensureMapOperator(L, graph = this.graph) {
+    const themeData = this._getMapOperatorThemeData(graph);
+    const operatorId = String(themeData?.mapSource?.operator ?? "earth");
+
+    try {
+      if (!this._mapOperator || this._mapOperator.id !== operatorId) {
+        log("MapRenderer: creating map operator", {
+          operatorId,
+          themeId: themeData?.id ?? null,
+          mapSourceType: themeData?.mapSource?.type ?? null
+        });
+        this._mapOperator?.teardown?.();
+        this._mapOperator = createMapOperator({ renderer: this, L, themeData });
+      } else {
+        log("MapRenderer: reusing map operator", {
+          operatorId,
+          themeId: themeData?.id ?? null,
+          mapSourceType: themeData?.mapSource?.type ?? null
+        });
+        this._mapOperator.configure({ renderer: this, L, themeData });
+      }
+    } catch (e) {
+      log("MapRenderer: failed to create map operator", e);
+      this._mapOperator = null;
+    }
+
+    return this._mapOperator;
   }
 
   get isSaveNewSceneVisible() {
@@ -479,6 +549,8 @@ out geom;
       // ignore
     }
 
+    this._mapOperator?.teardown?.();
+    this._mapOperator = null;
     this._map = null;
     this._markersLayer = null;
     this._baseTileLayer = null;
@@ -570,6 +642,39 @@ out geom;
       // ignore
     }
     this._resizeRaf = null;
+  }
+
+  _scheduleInitialMapSizeRefresh({ center, zoom } = {}) {
+    const c0 = Number(center?.[0]);
+    const c1 = Number(center?.[1]);
+    const z = Number(zoom);
+    const canRestoreView = Number.isFinite(c0) && Number.isFinite(c1) && Number.isFinite(z);
+
+    setTimeout(() => {
+      const map = this._map;
+      if (!map) return;
+
+      try {
+        map.invalidateSize?.({ pan: false });
+        log("MapRenderer: initial invalidateSize completed", { restoreView: canRestoreView, center: [c0, c1], zoom: z });
+      } catch (e) {
+        log("MapRenderer: initial invalidateSize failed", e);
+      }
+
+      // Leaflet can keep a slightly wrong pixel origin if setView happened before
+      // the Foundry window/map div reached its final size. Restore the persisted
+      // view immediately after the first invalidate to avoid the left-shift on reopen.
+      if (canRestoreView) {
+        try {
+          map.setView([c0, c1], z, { animate: false });
+          log("MapRenderer: restored initial view after size refresh", { center: [c0, c1], zoom: z });
+        } catch (e) {
+          log("MapRenderer: failed to restore initial view after size refresh", e);
+        }
+      }
+
+      try { this._refreshAllGeomanLabelStyles(); } catch (_e) { /* ignore */ }
+    }, 50);
   }
 
   _buildSearchControl(L) {
@@ -672,60 +777,41 @@ out geom;
 
     const L = globalThis.L;
     log("MapRenderer: Leaflet loaded", L);
+    this._ensureMapOperator(L, graph);
+
+    let createdMapThisRender = false;
+    let initialCenterForSizeRefresh = null;
+    let initialZoomForSizeRefresh = null;
 
     if (!this._map) {
       // Initialize map
       const d = graph?.data ?? this.initializeGraphData(graph);
       const center = Array.isArray(d?.map?.center) ? d.map.center : [0, 0];
       const zoom = Number.isFinite(d?.map?.zoom) ? d.map.zoom : 2;
+      createdMapThisRender = true;
+      initialCenterForSizeRefresh = center;
+      initialZoomForSizeRefresh = zoom;
 
-      /*
-      this._map = L.map(this._mapDiv, {
-        zoomControl: true,
-        attributionControl: true
-      }).setView(center, zoom);
-      */
-      // ------------------------------------------------------------
-      // Base layer selection:
-      // 1) If graph.background.image is empty -> OpenStreetMap tiles
-      // 2) If present:
-      //    a) raster image -> CRS.Simple + imageOverlay
-      //    b) anything else (georeferenced formats, unknown) -> NOT IMPLEMENTED -> fallback to OSM
-      // ------------------------------------------------------------
-      const bgUrl = this._getBackgroundRasterUrl(graph);
-      const hasBg = Boolean(bgUrl);
-      const isRaster = hasBg && this._isRasterImageUrl(bgUrl);
-
-      let useRaster = false;
-      if (!hasBg) {
-        useRaster = false;
-      } else if (isRaster) {
-        useRaster = true;
-      } else {
-        // Not implemented yet (e.g. shp/geotiff/mbtiles/anything else)
-        useRaster = false;
-        try {
-          ui?.notifications?.warn?.("Background map format not supported yet; falling back to OpenStreetMap.");
-        } catch (_e) { /* ignore */ }
+      if (!this._mapOperator) {
+        log("MapRenderer.render: no map operator available; map creation aborted");
+        return;
       }
 
-      // Update user instructions depending on mode
-      this.instructions = useRaster
-        ? "Drop Actors/Scenes/Items/Journal pages on the background to create markers. Drag markers to reposition. Right-click a marker to radial menu. (Background image mode: coordinates are local/pixel-like, not real lat/lng.)"
-        : "Drop Actors/Scenes/Items/Journal pages on the map to create markers. Drag markers to reposition. Right-click a marker to radial menu.";
+      log("MapRenderer.render: creating map through operator", {
+        operatorId: this._mapOperator.id,
+        operatorType: this._mapOperator.type,
+        center,
+        zoom
+      });
 
-      const mapOptions = {
-        zoomControl: true,
-        attributionControl: true,
-        ...(useRaster ? {
-          crs: L.CRS.Simple,
-          // Reasonable defaults for typical battlemaps / diagrams
-          minZoom: -5,
-          maxZoom: 6
-        } : {})
-      };
+      this._map = await this._mapOperator.createMap(this._mapDiv, { graph, center, zoom });
+      this.instructions = this._mapOperator.getInstructions?.() ?? this.instructions;
 
-      this._map = L.map(this._mapDiv, mapOptions);
+      log("MapRenderer.render: operator map created", {
+        operatorId: this._mapOperator.id,
+        hasMap: Boolean(this._map),
+        currentZoom: this._map?.getZoom?.()
+      });
 
       // --- Geoman persistence group (must exist BEFORE load/bind) ---
       try {
@@ -750,77 +836,14 @@ out geom;
           cutPolygon: false,
           removalMode: true,
         });
-      }
-
-      // OSM tiles
-      /*
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        crossOrigin: "anonymous",
-        attribution: "&copy; OpenStreetMap contributors"
-      }).addTo(this._map);
-      */
-      if (useRaster) {
-        // Raster image base (non-georeferenced)
-        try {
-          const size = await this._getBackgroundRasterSize(graph, bgUrl);
-          if (!size?.width || !size?.height) {
-            log("MapRenderer: background image configured but failed to load/measure", bgUrl);
-            // Fallback: still set a view so map is usable
-            this._map.setView(center, zoom);
-          } else {
-            // CRS.Simple uses [y, x] as [lat, lng] in a local coordinate space
-            const bounds = [[0, 0], [size.height, size.width]];
-            L.imageOverlay(bgUrl, bounds, { interactive: false }).addTo(this._map);
-
-            // Constrain panning to image area with a small padding
-            const b = L.latLngBounds(bounds);
-            this._map.setMaxBounds(b.pad(0.15));
-
-            // If there is a stored center/zoom, keep it. Otherwise fit to image.
-            const c0 = Number(center?.[0]);
-            const c1 = Number(center?.[1]);
-            if (Number.isFinite(c0) && Number.isFinite(c1)) {
-              this._map.setView(center, zoom);
-            } else {
-              this._map.fitBounds(b);
-            }
-          }
-        } catch (e) {
-          log("MapRenderer: failed to init raster background; falling back to view only", e);
-          this._map.setView(center, zoom);
-        }
+        log("MapRenderer: Geoman controls added");
       } else {
-        const initialBaseLayerData = this._getInitialBaseLayerData(graph);
-        this._addBaseLayerControl(L, initialBaseLayerData);
-        this._map.setView(center, zoom);
-
-        if (this.graph?.data) {
-          this.graph.data.map = this.graph.data.map ?? { center: [0, 0], zoom: 2 };
-          this.graph.data.map.baseLayer = this._cloneBaseLayerData(this._activeBaseLayerData);
-        }
+        log("MapRenderer: Geoman controls not available on map");
       }
 
       // Markers group
       this._markersLayer = L.layerGroup().addTo(this._map);
-
-      // Search control
-      /*
-      try {
-        this._buildSearchControl(L).addTo(this._map);
-      } catch (e) {
-        log("MapRenderer: failed to add search control", e);
-      }
-        */
-      // Search control only makes sense for georeferenced maps
-      if (!useRaster) {
-        try {
-          this._buildSearchControl(L).addTo(this._map);
-        } catch (e) {
-          log("MapRenderer: failed to add search control", e);
-        }
-      }
-
+      log("MapRenderer: marker layer group created");
 
       // Leaflet-Geoman: load persisted layers and bind events so edits are saved.
       try {
@@ -854,6 +877,7 @@ out geom;
       this._startResizeObserver();
     }
 
+
     // Sync markers
     this._syncMarkers();
 
@@ -870,10 +894,18 @@ out geom;
       log("MapRenderer.render: failed to serialize geoman", e);
     }
 
-    // Fix sizing if rendered in a new window
+    // Fix sizing if rendered in a new window. On first creation, restore the
+    // persisted view after the delayed size refresh to avoid a small left-shift
+    // when reopening saved graphs. On later re-renders, only invalidate size.
     try {
-      //setTimeout(() => this._map?.invalidateSize?.(), 50);
-      setTimeout(() => this._map?.invalidateSize?.({ pan: false }), 50);
+      if (createdMapThisRender) {
+        this._scheduleInitialMapSizeRefresh({
+          center: initialCenterForSizeRefresh,
+          zoom: initialZoomForSizeRefresh
+        });
+      } else {
+        setTimeout(() => this._map?.invalidateSize?.({ pan: false }), 50);
+      }
     } catch (_e) {
       // ignore
     }
@@ -885,6 +917,64 @@ out geom;
   // ---------------------------------------------------------------------------
   // Leaflet-Geoman persistence
   // ---------------------------------------------------------------------------
+
+  _getCurrentMapZoom(fallback = 0) {
+    const z = Number(this._map?.getZoom?.());
+    return Number.isFinite(z) ? z : fallback;
+  }
+
+  _defaultLabelHideBelowZoom(refZoom) {
+    const z = Number(refZoom);
+    if (!Number.isFinite(z)) return null;
+    return Math.max(0, z - 2);
+  }
+
+  _normalizeGeomanLabelZoomData(value, fallbackRefZoom = null) {
+    const refZoom = Number(value?.refZoom ?? value?.zoom ?? fallbackRefZoom);
+    if (!Number.isFinite(refZoom)) return null;
+
+    const explicitHideBelowZoom = Number(value?.hideBelowZoom ?? value?.minVisibleZoom);
+    const hideBelowZoom = Number.isFinite(explicitHideBelowZoom)
+      ? explicitHideBelowZoom
+      : this._defaultLabelHideBelowZoom(refZoom);
+
+    return {
+      refZoom,
+      hideBelowZoom
+    };
+  }
+
+  _ensureGeomanLabelZoomData(layer, fallbackRefZoom = null) {
+    if (!layer) return null;
+
+    const source = layer.__fgLabelZoom ?? layer.feature?.properties?.__fgLabelZoom;
+    const normalized = this._normalizeGeomanLabelZoomData(source, fallbackRefZoom);
+    if (!normalized) return null;
+
+    try { layer.__fgLabelZoom = normalized; } catch (_e) { /* ignore */ }
+    try {
+      if (layer.feature?.properties) layer.feature.properties.__fgLabelZoom = normalized;
+    } catch (_e) { /* ignore */ }
+
+    return normalized;
+  }
+
+  _setGeomanLabelZoomData(layer, refZoom = this._getCurrentMapZoom(this._labelRefZoom ?? 0)) {
+    if (!layer) return null;
+
+    const normalized = this._normalizeGeomanLabelZoomData(null, refZoom);
+    if (!normalized) return null;
+
+    try { layer.__fgLabelZoom = normalized; } catch (_e) { /* ignore */ }
+    try {
+      layer.feature = layer.feature ?? { type: "Feature", properties: {} };
+      layer.feature.properties = layer.feature.properties ?? {};
+      layer.feature.properties.__fgLabelZoom = normalized;
+    } catch (_e) { /* ignore */ }
+
+    log("MapRenderer: label zoom metadata set", normalized);
+    return normalized;
+  }
 
   _bindLabelZoomHandler() {
     if (!this._map) return;
@@ -899,24 +989,27 @@ out geom;
 
   _refreshAllGeomanLabelStyles() {
     if (!this._map || !this._geomanLayer) return;
-    const z = this._map.getZoom();
-    const refZ = (this._labelRefZoom === null || this._labelRefZoom === undefined) ? z : this._labelRefZoom;
-    const hide = (this._labelHideBelowZoom !== null && this._labelHideBelowZoom !== undefined)
-      ? (z <= this._labelHideBelowZoom)
-      : false;
-
-    // Zoom in => slightly larger labels, but capped at max (so they don't cover details)
-    // Zoom out => smaller labels (until hidden by rule above)
-    const dz = (z - refZ);
-    const scale = Math.pow(this._labelGrowFactor, dz);
-    const px = Math.max(this._labelMinPx, Math.min(this._labelMaxPx, Math.round(this._labelRefPx * scale)));
-
+    const z = this._getCurrentMapZoom(0);
+    const globalRefZ = (this._labelRefZoom === null || this._labelRefZoom === undefined) ? z : this._labelRefZoom;
+    const globalHideBelowZoom = (this._labelHideBelowZoom !== null && this._labelHideBelowZoom !== undefined)
+      ? this._labelHideBelowZoom
+      : this._defaultLabelHideBelowZoom(globalRefZ);
 
     for (const layer of this._geomanLayer.getLayers?.() ?? []) {
       const tt = layer?.getTooltip?.();
       if (!tt) continue;
-      //const el = tt.getElement?.();
-      //if (!el) continue;
+
+      const labelZoom = this._ensureGeomanLabelZoomData(layer, globalRefZ);
+      const refZ = Number.isFinite(labelZoom?.refZoom) ? labelZoom.refZoom : globalRefZ;
+      const hideBelowZoom = Number.isFinite(labelZoom?.hideBelowZoom) ? labelZoom.hideBelowZoom : globalHideBelowZoom;
+      const hide = Number.isFinite(hideBelowZoom) ? (z <= hideBelowZoom) : false;
+
+      // Zoom in => slightly larger labels, but capped at max (so they don't cover details).
+      // Zoom out => smaller labels, then hidden according to the label's own creation zoom.
+      const dz = (z - refZ);
+      const scale = Math.pow(this._labelGrowFactor, dz);
+      const px = Math.max(this._labelMinPx, Math.min(this._labelMaxPx, Math.round(this._labelRefPx * scale)));
+
       let el = tt.getElement?.();
       // Tooltip DOM may not exist yet; force an update so Leaflet creates it.
       if (!el) {
@@ -924,6 +1017,7 @@ out geom;
         el = tt.getElement?.();
       }
       if (!el) continue;
+
       el.style.fontSize = `${px}px`;
       el.style.display = hide ? "none" : "";
     }
@@ -947,8 +1041,10 @@ out geom;
         opacity: 0.9,
         className: "fg-geoman-label"
       });
+      this._ensureGeomanLabelZoomData(layer, this._getCurrentMapZoom(this._labelRefZoom ?? 0));
       // Ensure the tooltip is anchored to the current geometry center
       this._refreshGeomanLabelPosition(layer);
+      this._refreshAllGeomanLabelStyles();
     } catch (e) {
       log("MapRenderer: failed to bind tooltip label", e);
     }
@@ -1081,6 +1177,7 @@ out geom;
             }
 
             targetLayer.__fgLabel = trimmed;
+            this._setGeomanLabelZoomData(targetLayer, this._getCurrentMapZoom(this._labelRefZoom ?? 0));
             this._applyGeomanLabel(targetLayer, targetLayer.__fgLabel);
             log("MapRenderer: onCreate - label applied:", trimmed,
               "layer in group:", this._geomanLayer?.hasLayer?.(targetLayer));
@@ -1209,12 +1306,19 @@ out geom;
     if (!trimmed) {
       // Remove label
       try { layer.__fgLabel = null; } catch (_e) { /* ignore */ }
+      try { layer.__fgLabelZoom = null; } catch (_e) { /* ignore */ }
+      try {
+        if (layer.feature?.properties) delete layer.feature.properties.__fgLabelZoom;
+      } catch (_e) { /* ignore */ }
       try {
         if (layer.getTooltip?.()) layer.unbindTooltip?.();
       } catch (_e) { /* ignore */ }
     } else {
       // Set/update label
       layer.__fgLabel = trimmed;
+      if (!layer.__fgLabelZoom && !layer.feature?.properties?.__fgLabelZoom) {
+        this._setGeomanLabelZoomData(layer, this._getCurrentMapZoom(this._labelRefZoom ?? 0));
+      }
       this._applyGeomanLabel(layer, trimmed);
     }
 
@@ -1300,8 +1404,11 @@ out geom;
       const lbl = layer.__fgLabel ?? layer.feature?.properties?.label ?? feature.properties.label;
       if (lbl && String(lbl).trim().length > 0) {
         feature.properties.label = String(lbl).trim();
+        const labelZoom = this._ensureGeomanLabelZoomData(layer, this._getCurrentMapZoom(this._labelRefZoom ?? 0));
+        if (labelZoom) feature.properties.__fgLabelZoom = labelZoom;
       } else {
         delete feature.properties.label;
+        delete feature.properties.__fgLabelZoom;
       }
 
       // Preserve basic style so we can restore visuals on load.
@@ -1370,6 +1477,11 @@ out geom;
         const lbl = child?.feature?.properties?.label;
         if (lbl && String(lbl).trim().length > 0) {
           child.__fgLabel = String(lbl).trim();
+          const labelZoom = this._normalizeGeomanLabelZoomData(
+            child?.feature?.properties?.__fgLabelZoom,
+            this._getCurrentMapZoom(this._labelRefZoom ?? 0)
+          );
+          if (labelZoom) child.__fgLabelZoom = labelZoom;
           this._applyGeomanLabel(child, child.__fgLabel);
           this._refreshGeomanLabelPosition(child);
         }

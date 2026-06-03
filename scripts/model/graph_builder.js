@@ -12,6 +12,7 @@ export class GraphBuilder {
         nodeLabelColor = "#000000",
         background = {},
         theme = null,
+        themeData = null,
         relations = [],
         userId = game.userId,
     } = {}) {
@@ -21,6 +22,7 @@ export class GraphBuilder {
         // --- Resolve theme + base background from graph-type metadata
         const themes = Array.isArray(typeCfg.themes) ? typeCfg.themes : null;
         let chosenThemeId = theme;
+        let chosenThemeData = themeData ? foundry.utils.deepClone(themeData) : null;
         let themeBackground = typeCfg.background || {};
 
         if (themes && themes.length > 0) {
@@ -29,6 +31,7 @@ export class GraphBuilder {
             chosenThemeId = selectedTheme.id;
             // theme element is "like background": it can be used directly
             themeBackground = selectedTheme;
+            if (!chosenThemeData) chosenThemeData = foundry.utils.deepClone(selectedTheme);
         }
 
         this._g = {
@@ -51,6 +54,7 @@ export class GraphBuilder {
                 ...background
             },
             theme: chosenThemeId ?? null,
+            "theme-data": chosenThemeData,
             allowedEntities: JSON_graph_types[graphType]?.allowedEntities || [],
             permissions: {
                 default: foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE,
@@ -98,6 +102,8 @@ export class GraphBuilder {
             width: g.width ?? 800,
             height: g.height ?? 600,
             background: g.background,
+            theme: g.theme,
+            themeData: g["theme-data"],
             relations: g.relations,
         });
         // permissions

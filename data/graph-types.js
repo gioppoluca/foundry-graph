@@ -3,7 +3,62 @@ export const GRAPH_TYPES = {
     "id": "osm-world-map",
     "name": "Geographical Map",
     "description": "A Leaflet (OpenStreetMap or Raster) map that stores draggable markers (Actors/Scenes/Items/Journal pages) with real-world coordinates.",
-    "themes": [],
+    "themes": [
+      {
+        "id": "earth",
+        "label": "Earth Map",
+        "width": 800,
+        "height": 600,
+        "mapSource": {
+          "operator": "earth",
+          "type": "tile",
+          "crs": "earth",
+          "defaultBaseLayerId": "street",
+          "baseLayers": [
+            {
+              "id": "street",
+              "label": "Street",
+              "url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+              "options": {
+                "maxZoom": 19,
+                "maxNativeZoom": 19,
+                "crossOrigin": "anonymous",
+                "attribution": "&copy; OpenStreetMap contributors"
+              }
+            },
+            {
+              "id": "satellite",
+              "label": "Satellite",
+              "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+              "options": {
+                "maxZoom": 19,
+                "maxNativeZoom": 19,
+                "crossOrigin": "anonymous",
+                "attribution": "Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community"
+              }
+            }
+          ],
+          "search": {
+            "type": "nominatim",
+            "url": "https://nominatim.openstreetmap.org/search",
+            "limit": 5
+          },
+          "scaledScene": {
+            "enabled": true,
+            "scaleMode": "webMercator",
+            "minGridSize": 20,
+            "feetPerSquare": 5,
+            "maxScale": 4,
+            "minimumZoomOffsetFromMaxNative": 1
+          },
+          "walls": {
+            "enabled": true,
+            "type": "osm-buildings",
+            "overpassUrl": "https://overpass-api.de/api/interpreter"
+          }
+        }
+      }
+    ],
     "icon": "modules/foundry-graph/img/icons/icon-geographical-map.webp",
     "renderer": "map",
     "color": "#4639f7",
