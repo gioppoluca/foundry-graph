@@ -57,6 +57,27 @@ export const GRAPH_TYPES = {
             "overpassUrl": "https://overpass-api.de/api/interpreter"
           }
         }
+      },
+      {
+        "id": "custom-image",
+        "label": "Custom Image Map",
+        "width": 800,
+        "height": 600,
+        "mapSource": {
+          "operator": "image",
+          "type": "image",
+          "crs": "simple",
+          "imageFrom": "background",
+          "minZoom": -5,
+          "maxZoom": 5,
+          "maxBoundsPadding": 0.25,
+          "scaledScene": {
+            "enabled": false
+          },
+          "walls": {
+            "enabled": false
+          }
+        }
       }
     ],
     "icon": "modules/foundry-graph/img/icons/icon-geographical-map.webp",

@@ -55,30 +55,40 @@ export class MapEarthOperator extends BaseMapOperator {
   getGraphMapData(currentMapData = {}) {
     const data = this._clone(currentMapData ?? {});
     data.baseLayer = this._cloneBaseLayerData(this._activeBaseLayerData ?? this._getDefaultBaseLayerData());
+    this._log("getGraphMapData", {
+      baseLayerId: data.baseLayer?.id ?? null,
+      baseLayerLabel: data.baseLayer?.label ?? null
+    });
     return data;
   }
 
   getScaledSceneZoomInfo() {
     if (!this.map || !this._baseTileLayer) {
-      return { enabled: false, reason: "map-not-ready" };
+      const result = { enabled: false, reason: "map-not-ready" };
+      this._log("scaled-zoom-info", result);
+      return result;
     }
 
     const currentZoom = Number(this.map.getZoom?.());
     const maxNativeZoom = this._getLayerMaxNativeZoom();
     if (!Number.isFinite(currentZoom) || !Number.isFinite(maxNativeZoom)) {
-      return { enabled: false, reason: "zoom-unavailable", currentZoom, maxNativeZoom };
+      const result = { enabled: false, reason: "zoom-unavailable", currentZoom, maxNativeZoom };
+      this._log("scaled-zoom-info", result);
+      return result;
     }
 
     const scaledScene = this.mapSource?.scaledScene ?? {};
     const offset = Number(scaledScene.minimumZoomOffsetFromMaxNative ?? 1);
     const minimumCompatibleZoom = maxNativeZoom - (Number.isFinite(offset) ? offset : 1);
 
-    return {
+    const result = {
       enabled: scaledScene.enabled !== false && currentZoom >= minimumCompatibleZoom && currentZoom <= maxNativeZoom,
       currentZoom,
       maxNativeZoom,
       minimumCompatibleZoom
     };
+    this._log("scaled-zoom-info", result);
+    return result;
   }
 
   getScaledSceneScaleInfo(options = {}) {
@@ -119,7 +129,7 @@ export class MapEarthOperator extends BaseMapOperator {
     const scale = Math.max(1, minGridSize / nativePixelsPerSquare);
     const finalGridSize = nativePixelsPerSquare * scale;
 
-    return {
+    const result = {
       ok: scale <= maxScale,
       status: scale <= maxScale ? "ok" : "error",
       reason: scale <= maxScale ? null : "scale-too-high",
@@ -135,27 +145,76 @@ export class MapEarthOperator extends BaseMapOperator {
       exportZoom,
       zoomInfo
     };
+
+    this._log("scaled-scale-info", {
+      ok: result.ok,
+      status: result.status,
+      reason: result.reason,
+      scale: result.scale,
+      finalGridSize: result.finalGridSize,
+      nativePixelsPerSquare: result.nativePixelsPerSquare,
+      latitude: result.latitude,
+      exportZoom: result.exportZoom
+    });
+    return result;
   }
 
   async getScaledSceneWallData(scaleInfo) {
-    if (!this.map || !scaleInfo?.ok) return [];
-    if (this.mapSource?.walls?.enabled === false) return [];
+    this._log("walls:start", {
+      scaleOk: Boolean(scaleInfo?.ok),
+      scale: scaleInfo?.scale ?? null,
+      wallsConfig: this.mapSource?.walls ?? null
+    });
+
+    if (!this.map) {
+      this._log("walls:skipped-map-not-ready");
+      return [];
+    }
+
+    if (!scaleInfo?.ok) {
+      this._log("walls:skipped-scale-not-ok", scaleInfo);
+      return [];
+    }
+
+    const wallsConfig = this.mapSource?.walls ?? {};
+    if (wallsConfig.enabled === false) {
+      this._log("walls:disabled-by-theme");
+      return [];
+    }
+
+    if (wallsConfig.type && wallsConfig.type !== "osm-buildings") {
+      this._log("walls:unsupported-type", wallsConfig.type);
+      return [];
+    }
 
     const bounds = this.map.getBounds?.();
-    if (!bounds) return [];
+    if (!bounds) {
+      this._log("walls:skipped-bounds-unavailable");
+      return [];
+    }
 
     const scale = Number(scaleInfo.scale);
-    if (!Number.isFinite(scale) || scale <= 0) return [];
+    if (!Number.isFinite(scale) || scale <= 0) {
+      this._log("walls:skipped-invalid-scale", scaleInfo?.scale);
+      return [];
+    }
 
     const south = bounds.getSouth();
     const west = bounds.getWest();
     const north = bounds.getNorth();
     const east = bounds.getEast();
 
-    if (![south, west, north, east].every(Number.isFinite)) return [];
+    if (![south, west, north, east].every(Number.isFinite)) {
+      this._log("walls:skipped-invalid-bounds", { south, west, north, east });
+      return [];
+    }
+
+    this._log("walls:query-bounds", { south, west, north, east });
 
     const elements = await this._fetchVisibleOsmBuildings({ south, west, north, east });
     const walls = [];
+
+    this._log("walls:osm-elements", { count: elements.length });
 
     for (const element of elements) {
       const geometry = Array.isArray(element?.geometry) ? element.geometry : [];
@@ -176,6 +235,7 @@ export class MapEarthOperator extends BaseMapOperator {
       }
     }
 
+    this._log("walls:done", { count: walls.length });
     return walls;
   }
 
@@ -445,7 +505,7 @@ export class MapEarthOperator extends BaseMapOperator {
   async _fetchVisibleOsmBuildings({ south, west, north, east }) {
     const overpassUrl = String(this.mapSource?.walls?.overpassUrl ?? "");
     if (!overpassUrl) {
-      log("MapEarthOperator: missing mapSource.walls.overpassUrl; no walls retrieved");
+      this._log("walls:missing-overpass-url");
       return [];
     }
 
@@ -457,14 +517,23 @@ export class MapEarthOperator extends BaseMapOperator {
 out geom;
 `;
 
-    const response = await fetch(overpassUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-        "Accept": "application/json"
-      },
-      body: new URLSearchParams({ data: query })
-    });
+    this._log("walls:fetch-overpass", { overpassUrl });
+
+    let response;
+    try {
+      response = await fetch(overpassUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "Accept": "application/json"
+        },
+        body: new URLSearchParams({ data: query })
+      });
+    } catch (e) {
+      log("MapEarthOperator: Overpass building query failed", e);
+      ui?.notifications?.warn?.("Failed to retrieve building data from OpenStreetMap. Scaled scene walls will be missing. Probably a temporary issue with the Overpass API, but if it persists you may want to check your network connection.");
+      return [];
+    }
 
     if (!response.ok) {
       log(`Overpass building query failed: HTTP ${response.status}, ${response.statusText}, ${await response.text()}`);
@@ -473,7 +542,9 @@ out geom;
     }
 
     const json = await response.json();
-    return Array.isArray(json?.elements) ? json.elements : [];
+    const elements = Array.isArray(json?.elements) ? json.elements : [];
+    this._log("walls:overpass-response", { elementCount: elements.length });
+    return elements;
   }
 
   _latLngToScaledScenePoint(lat, lng, scale) {

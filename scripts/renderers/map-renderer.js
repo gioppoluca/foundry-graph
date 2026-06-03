@@ -84,6 +84,12 @@ export class MapRenderer extends BaseRenderer {
     const themeData = graph?.["theme-data"];
     if (themeData?.mapSource?.operator) return foundry.utils.deepClone(themeData);
 
+    // Backward compatibility for old raster/image map graphs created before
+    // map operators and theme-data existed. New graphs should carry their own
+    // theme-data and should not rely on this fallback.
+    const backgroundImage = (typeof graph?.background?.image === "string") ? graph.background.image.trim() : "";
+    if (backgroundImage) return this._getLegacyImageThemeData();
+
     return this._getLegacyEarthThemeData();
   }
 
@@ -115,6 +121,24 @@ export class MapRenderer extends BaseRenderer {
           type: "osm-buildings",
           overpassUrl: "https://overpass-api.de/api/interpreter"
         }
+      }
+    };
+  }
+
+  _getLegacyImageThemeData() {
+    return {
+      id: "custom-image",
+      label: "Custom Image Map",
+      mapSource: {
+        operator: "image",
+        type: "image",
+        crs: "simple",
+        imageFrom: "background",
+        minZoom: -5,
+        maxZoom: 5,
+        maxBoundsPadding: 0.25,
+        scaledScene: { enabled: false },
+        walls: { enabled: false }
       }
     };
   }
@@ -161,300 +185,107 @@ export class MapRenderer extends BaseRenderer {
   }
 
   getScaledSceneZoomInfo() {
-    if (!this._map || !this._baseTileLayer) {
-      return { enabled: false, reason: "map-not-ready" };
+    if (!this._mapOperator) {
+      log("MapRenderer.getScaledSceneZoomInfo: no map operator available");
+      return { enabled: false, reason: "map-operator-not-ready" };
     }
 
-    const currentZoom = Number(this._map.getZoom?.());
-    const maxNativeZoom = this._getLayerMaxNativeZoom();
-    if (!Number.isFinite(currentZoom) || !Number.isFinite(maxNativeZoom)) {
-      return { enabled: false, reason: "zoom-unavailable", currentZoom, maxNativeZoom };
+    try {
+      const result = this._mapOperator.getScaledSceneZoomInfo();
+      log("MapRenderer.getScaledSceneZoomInfo: operator result", {
+        operatorId: this._mapOperator.id,
+        operatorType: this._mapOperator.type,
+        enabled: Boolean(result?.enabled),
+        reason: result?.reason ?? null,
+        currentZoom: result?.currentZoom ?? null,
+        maxNativeZoom: result?.maxNativeZoom ?? null
+      });
+      return result;
+    } catch (e) {
+      log("MapRenderer.getScaledSceneZoomInfo: operator failed", e);
+      return { enabled: false, reason: "map-operator-error" };
     }
-
-    const minimumCompatibleZoom = maxNativeZoom - 1;
-    return {
-      enabled: currentZoom >= minimumCompatibleZoom && currentZoom <= maxNativeZoom,
-      currentZoom,
-      maxNativeZoom,
-      minimumCompatibleZoom
-    };
   }
 
-  getScaledSceneScaleInfo({ minGridSize = 20, feetPerSquare = 5, maxScale = 4 } = {}) {
-    const zoomInfo = this.getScaledSceneZoomInfo();
-    if (!zoomInfo.enabled) {
+  getScaledSceneScaleInfo(options = {}) {
+    if (!this._mapOperator) {
+      log("MapRenderer.getScaledSceneScaleInfo: no map operator available");
       return {
         ok: false,
         status: "error",
-        reason: zoomInfo.reason ?? "zoom-not-compatible",
-        zoomInfo
+        reason: "map-operator-not-ready",
+        zoomInfo: this.getScaledSceneZoomInfo()
       };
     }
 
-    const center = this._map?.getCenter?.();
-    const latitude = Number(center?.lat);
-    //const exportZoom = Number(zoomInfo.maxNativeZoom);
-    const exportZoom = Number(zoomInfo.currentZoom);
-
-    if (!Number.isFinite(latitude) || !Number.isFinite(exportZoom)) {
+    try {
+      const result = this._mapOperator.getScaledSceneScaleInfo(options);
+      log("MapRenderer.getScaledSceneScaleInfo: operator result", {
+        operatorId: this._mapOperator.id,
+        operatorType: this._mapOperator.type,
+        ok: Boolean(result?.ok),
+        status: result?.status ?? null,
+        reason: result?.reason ?? null,
+        scale: result?.scale ?? null,
+        finalGridSize: result?.finalGridSize ?? null
+      });
+      return result;
+    } catch (e) {
+      log("MapRenderer.getScaledSceneScaleInfo: operator failed", e);
       return {
         ok: false,
         status: "error",
-        reason: "scale-input-unavailable",
-        latitude,
-        exportZoom,
-        zoomInfo
+        reason: "map-operator-error",
+        zoomInfo: this.getScaledSceneZoomInfo()
       };
     }
-
-    const latitudeRadians = latitude * Math.PI / 180;
-    const metersPerPixel = 156543.03392 * Math.cos(latitudeRadians) / Math.pow(2, exportZoom);
-    const feetPerPixel = metersPerPixel * 3.28084;
-    const nativePixelsPerSquare = feetPerSquare / feetPerPixel;
-    const scale = Math.max(1, minGridSize / nativePixelsPerSquare);
-    const finalGridSize = nativePixelsPerSquare * scale;
-
-    const result = {
-      ok: scale <= maxScale,
-      status: scale <= maxScale ? "ok" : "error",
-      reason: scale <= maxScale ? null : "scale-too-high",
-      scale,
-      maxScale,
-      minGridSize,
-      feetPerSquare,
-      finalGridSize,
-      nativePixelsPerSquare,
-      feetPerPixel,
-      metersPerPixel,
-      latitude,
-      exportZoom,
-      zoomInfo
-    };
-
-    return result;
   }
 
   /**
-   * Retrieve visible OSM building footprints and convert them to Foundry wall data
-   * for the scaled scene export.
+   * Retrieve scaled-scene wall data through the active map operator.
    *
-   * This method only returns wall document data. It does not create or update any Scene.
-   * Coordinates are based on the current visible Leaflet viewport and multiplied by the
-   * same export scale used for the scaled scene image.
+   * The renderer does not know how to retrieve map-source-specific wall data.
+   * Earth maps use the Earth operator/Overpass path; non-Earth operators can
+   * return an empty array or implement their own source-specific logic later.
    *
    * @param {Object} scaleInfo - Result from getScaledSceneScaleInfo().
    * @returns {Promise<Array<Object>>} Foundry Wall document data.
    */
   async getScaledSceneWallData(scaleInfo) {
-    if (!this._map || !scaleInfo?.ok) return [];
-
-    const bounds = this._map.getBounds?.();
-    if (!bounds) return [];
-
-    const scale = Number(scaleInfo.scale);
-    if (!Number.isFinite(scale) || scale <= 0) return [];
-
-    const south = bounds.getSouth();
-    const west = bounds.getWest();
-    const north = bounds.getNorth();
-    const east = bounds.getEast();
-
-    if (![south, west, north, east].every(Number.isFinite)) return [];
-
-    const elements = await this._fetchVisibleOsmBuildings({ south, west, north, east });
-    const walls = [];
-
-    for (const element of elements) {
-      const geometry = Array.isArray(element?.geometry) ? element.geometry : [];
-      if (geometry.length < 2) continue;
-
-      for (let i = 0; i < geometry.length; i++) {
-        const a = geometry[i];
-        const b = geometry[(i + 1) % geometry.length];
-        if (!a || !b) continue;
-
-        const p1 = this._latLngToScaledScenePoint(a.lat, a.lon, scale);
-        const p2 = this._latLngToScaledScenePoint(b.lat, b.lon, scale);
-        if (!p1 || !p2) continue;
-
-        // Skip degenerate segments.
-        if (p1.x === p2.x && p1.y === p2.y) continue;
-
-        walls.push(this._buildFoundryWallData(p1, p2));
-      }
-    }
-
-    return walls;
-  }
-
-  async _fetchVisibleOsmBuildings({ south, west, north, east }) {
-    const query = `
-[out:json][timeout:25];
-(
-  way["building"](${south},${west},${north},${east});
-);
-out geom;
-`;
-
-    const response = await fetch("https://overpass-api.de/api/interpreter", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-        "Accept": "application/json"
-      },
-      body: new URLSearchParams({ data: query })
-    });
-
-    if (!response.ok) {
-      //throw new Error(`Overpass building query failed: HTTP ${response.status}, ${response.statusText}, ${await response.text()}`);
-      log(`Overpass building query failed: HTTP ${response.status}, ${response.statusText}, ${await response.text()}`);
-      ui?.notifications?.warn?.("Failed to retrieve building data from OpenStreetMap. Scaled scene walls will be missing. Probably a temporary issue with the Overpass API, but if it persists you may want to check your network connection.");
+    if (!this._mapOperator) {
+      log("MapRenderer.getScaledSceneWallData: no map operator available");
       return [];
     }
 
-    const json = await response.json();
-    return Array.isArray(json?.elements) ? json.elements : [];
-  }
+    try {
+      log("MapRenderer.getScaledSceneWallData: delegating to operator", {
+        operatorId: this._mapOperator.id,
+        operatorType: this._mapOperator.type,
+        scaleOk: Boolean(scaleInfo?.ok),
+        scale: scaleInfo?.scale ?? null
+      });
 
-  _latLngToScaledScenePoint(lat, lng, scale) {
-    const nLat = Number(lat);
-    const nLng = Number(lng);
-    if (!Number.isFinite(nLat) || !Number.isFinite(nLng)) return null;
+      const walls = await this._mapOperator.getScaledSceneWallData(scaleInfo);
+      const result = Array.isArray(walls) ? walls : [];
 
-    const point = this._map?.latLngToContainerPoint?.([nLat, nLng]);
-    if (!point) return null;
+      log("MapRenderer.getScaledSceneWallData: operator returned walls", {
+        operatorId: this._mapOperator.id,
+        count: result.length
+      });
 
-    return {
-      x: Math.round(point.x * scale),
-      y: Math.round(point.y * scale)
-    };
-  }
-
-  _buildFoundryWallData(p1, p2) {
-    return {
-      c: [p1.x, p1.y, p2.x, p2.y],
-      move: CONST.WALL_MOVEMENT_TYPES.NORMAL,
-      sight: CONST.WALL_SENSE_TYPES.LIMITED,
-      sound: CONST.WALL_SENSE_TYPES.LIMITED,
-      light: CONST.WALL_SENSE_TYPES.LIMITED
-    };
-  }
-
-  _getLayerMaxNativeZoom() {
-    const layerOptions = this._baseTileLayer?.options ?? {};
-    const candidates = [
-      layerOptions.maxNativeZoom,
-      layerOptions.maxZoom,
-      this._map?.getMaxZoom?.()
-    ];
-
-    for (const value of candidates) {
-      const zoom = Number(value);
-      if (Number.isFinite(zoom)) return zoom;
+      return result;
+    } catch (e) {
+      log("MapRenderer.getScaledSceneWallData: operator failed", e);
+      ui?.notifications?.warn?.("Failed to retrieve scaled scene wall data. The scene image can still be exported, but walls will be missing.");
+      return [];
     }
-
-    return Number.NaN;
-  }
-
-  _cloneBaseLayerData(layerData) {
-    return foundry.utils.deepClone(layerData ?? MAP_BASE_LAYERS.street);
-  }
-
-  _sanitizeBaseLayerData(layerData) {
-    const fallback = MAP_BASE_LAYERS.street;
-    const id = String(layerData?.id ?? fallback.id);
-    const label = String(layerData?.label ?? fallback.label);
-    const url = String(layerData?.url ?? fallback.url);
-    const sourceOptions = layerData?.options ?? {};
-
-    return {
-      id,
-      label,
-      url,
-      options: {
-        maxZoom: Number.isFinite(sourceOptions.maxZoom) ? sourceOptions.maxZoom : fallback.options.maxZoom,
-        maxNativeZoom: Number.isFinite(sourceOptions.maxNativeZoom) ? sourceOptions.maxNativeZoom : fallback.options.maxNativeZoom,
-        crossOrigin: sourceOptions.crossOrigin ?? fallback.options.crossOrigin,
-        attribution: String(sourceOptions.attribution ?? fallback.options.attribution),
-        detectRetina: true,
-        crossOrigin: true
-      }
-    };
-  }
-
-  _getInitialBaseLayerData(graph) {
-    const savedLayer = graph?.data?.map?.baseLayer;
-    if (savedLayer?.url) return this._sanitizeBaseLayerData(savedLayer);
-
-    const savedId = graph?.data?.map?.baseLayerId;
-    if (savedId && MAP_BASE_LAYERS[savedId]) return this._cloneBaseLayerData(MAP_BASE_LAYERS[savedId]);
-
-    return this._cloneBaseLayerData(MAP_BASE_LAYERS.street);
-  }
-
-  _getSelectableBaseLayerData(initialBaseLayerData) {
-    const layers = Object.values(MAP_BASE_LAYERS).map(layer => this._cloneBaseLayerData(layer));
-    const activeId = initialBaseLayerData?.id;
-    const index = layers.findIndex(layer => layer.id === activeId);
-
-    if (index >= 0) layers[index] = this._cloneBaseLayerData(initialBaseLayerData);
-    else layers.unshift(this._cloneBaseLayerData(initialBaseLayerData));
-
-    return layers;
-  }
-
-  _createBaseTileLayer(L, layerData) {
-    const cleanLayerData = this._sanitizeBaseLayerData(layerData);
-    const layer = L.tileLayer(cleanLayerData.url, cleanLayerData.options);
-    layer.__fgBaseLayerData = cleanLayerData;
-    return layer;
-  }
-
-  _addBaseLayerControl(L, initialBaseLayerData) {
-    const layersByLabel = {};
-    let activeLayer = null;
-
-    for (const layerData of this._getSelectableBaseLayerData(initialBaseLayerData)) {
-      const layer = this._createBaseTileLayer(L, layerData);
-      layersByLabel[layerData.label] = layer;
-
-      if (layerData.id === initialBaseLayerData.id) {
-        activeLayer = layer;
-      }
-    }
-
-    activeLayer ??= layersByLabel[MAP_BASE_LAYERS.street.label] ?? Object.values(layersByLabel)[0];
-    this._baseLayers = layersByLabel;
-    this._baseTileLayer = activeLayer;
-    this._activeBaseLayerData = this._cloneBaseLayerData(activeLayer.__fgBaseLayerData);
-    this._baseTileLayer.addTo(this._map);
-
-    this._baseLayerControl = L.control.layers(layersByLabel, null, {
-      position: "topright",
-      collapsed: false
-    }).addTo(this._map);
-
-    this._map.on("baselayerchange", (event) => {
-      if (!event?.layer?.__fgBaseLayerData) return;
-
-      this._baseTileLayer = event.layer;
-      this._activeBaseLayerData = this._cloneBaseLayerData(event.layer.__fgBaseLayerData);
-
-      if (this.graph?.data) {
-        this.graph.data.map = this.graph.data.map ?? { center: [0, 0], zoom: 2 };
-        this.graph.data.map.baseLayer = this._cloneBaseLayerData(this._activeBaseLayerData);
-      }
-
-      this._notifyScaledSceneAvailabilityChanged();
-    });
   }
 
   initializeGraphData(_graph) {
     return {
       map: {
         center: [0, 0],
-        zoom: 2,
-        baseLayer: this._cloneBaseLayerData(MAP_BASE_LAYERS.street)
+        zoom: 2
       },
       markers: [],
       geoman: { type: "FeatureCollection", features: [] }
@@ -503,7 +334,18 @@ out geom;
       }
     }
 
-    data.map.baseLayer = this._cloneBaseLayerData(this._activeBaseLayerData ?? MAP_BASE_LAYERS.street);
+    if (this._mapOperator) {
+      try {
+        data.map = this._mapOperator.getGraphMapData(data.map);
+        log("MapRenderer.getGraphData: map data enriched by operator", {
+          operatorId: this._mapOperator.id,
+          operatorType: this._mapOperator.type,
+          hasBaseLayer: Boolean(data.map?.baseLayer)
+        });
+      } catch (e) {
+        log("MapRenderer.getGraphData: operator failed to enrich map data", e);
+      }
+    }
 
     // Persist Leaflet-Geoman layers
     try {
@@ -675,77 +517,6 @@ out geom;
 
       try { this._refreshAllGeomanLabelStyles(); } catch (_e) { /* ignore */ }
     }, 50);
-  }
-
-  _buildSearchControl(L) {
-    const Search = L.Control.extend({
-      options: { position: "topright" },
-      onAdd: () => {
-        const container = L.DomUtil.create("div", "leaflet-control fg-leaflet-search");
-        container.innerHTML = `
-          <div class="fg-leaflet-search-row">
-            <input class="fg-leaflet-search-input" type="text" placeholder="Search (Nominatim)…" />
-            <button class="fg-leaflet-search-btn" type="button" title="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
-          </div>
-          <div class="fg-leaflet-search-results"></div>
-        `;
-
-        L.DomEvent.disableClickPropagation(container);
-        L.DomEvent.disableScrollPropagation(container);
-
-        const input = container.querySelector(".fg-leaflet-search-input");
-        const button = container.querySelector(".fg-leaflet-search-btn");
-        const results = container.querySelector(".fg-leaflet-search-results");
-
-        const doSearch = async () => {
-          const q = (input?.value ?? "").trim();
-          results.innerHTML = "";
-          if (!q) return;
-
-          try {
-            // Nominatim usage policy: send a User-Agent; Foundry runs in browser so we can't set UA,
-            // but we can set an Accept-Language and keep requests light.
-            const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}`;
-            const res = await fetch(url, {
-              headers: { "Accept": "application/json" }
-            });
-            const json = await res.json();
-            const items = Array.isArray(json) ? json : [];
-            if (items.length === 0) {
-              results.innerHTML = `<div class="fg-leaflet-search-empty">No results</div>`;
-              return;
-            }
-
-            for (const it of items) {
-              const row = document.createElement("div");
-              row.className = "fg-leaflet-search-item";
-              row.textContent = it.display_name;
-              row.addEventListener("click", () => {
-                const lat = Number(it.lat);
-                const lng = Number(it.lon);
-                if (Number.isFinite(lat) && Number.isFinite(lng)) {
-                  this._map?.setView([lat, lng], Math.max(this._map.getZoom(), 12), { animate: true });
-                }
-                results.innerHTML = "";
-              });
-              results.appendChild(row);
-            }
-          } catch (e) {
-            log("MapRenderer.search failed", e);
-            results.innerHTML = `<div class="fg-leaflet-search-empty">Search failed</div>`;
-          }
-        };
-
-        button?.addEventListener("click", doSearch);
-        input?.addEventListener("keydown", (ev) => {
-          if (ev.key === "Enter") doSearch();
-        });
-
-        return container;
-      }
-    });
-
-    return new Search();
   }
 
   // ---------------------------------------------------------------------------
@@ -1968,58 +1739,6 @@ out geom;
         URL.revokeObjectURL(url);
       }
     }
-  }
-
-  _isRasterImageUrl(url) {
-    if (!url) return false;
-    const u = url.toLowerCase().split("?")[0].split("#")[0];
-
-    // data URL (common when users embed)
-    if (u.startsWith("data:image/")) return true;
-
-    // typical raster formats you want to support now
-    return (
-      u.endsWith(".png") ||
-      u.endsWith(".webp") ||
-      u.endsWith(".jpg") ||
-      u.endsWith(".jpeg") ||
-      u.endsWith(".gif") ||
-      u.endsWith(".bmp") ||
-      u.endsWith(".avif") ||
-      u.endsWith(".svg")  // optional: if you want to treat svg as an "image background"
-    );
-  }
-
-  /**
- * Return the background raster URL if configured on the graph.
- * Graph config uses the same background model as the SVG renderers.
- */
-  _getBackgroundRasterUrl(graph) {
-    const bg = graph?.background;
-    const img = (typeof bg?.image === "string") ? bg.image.trim() : "";
-    return img ? img : null;
-  }
-
-  /**
-   * Best-effort: obtain raster pixel dimensions.
-   * 1) Prefer graph.background.width/height if both are valid numbers.
-   * 2) Otherwise, load the image to read naturalWidth/naturalHeight.
-   */
-  async _getBackgroundRasterSize(graph, url) {
-    const bg = graph?.background;
-    const w = Number(bg?.width);
-    const h = Number(bg?.height);
-    if (Number.isFinite(w) && w > 0 && Number.isFinite(h) && h > 0) {
-      return { width: w, height: h };
-    }
-
-    // Load to measure
-    return await new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve({ width: img.naturalWidth || img.width, height: img.naturalHeight || img.height });
-      img.onerror = () => resolve(null);
-      img.src = url;
-    });
   }
 
   async syncLabels(graphData) {
