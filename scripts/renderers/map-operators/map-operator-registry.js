@@ -1,10 +1,12 @@
 import { log } from "../../constants.js";
 import { MapEarthOperator } from "./map-earth-operator.js";
 import { MapImageOperator } from "./map-image-operator.js";
+import { MapGeoJsonOperator } from "./map-geojson-operator.js";
 
 const MAP_OPERATOR_REGISTRY = {
   earth: MapEarthOperator,
-  image: MapImageOperator
+  image: MapImageOperator,
+  geojson: MapGeoJsonOperator
 };
 
 export function createMapOperator({ renderer, L, themeData } = {}) {
