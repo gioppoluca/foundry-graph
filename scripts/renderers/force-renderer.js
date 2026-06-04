@@ -1,6 +1,6 @@
 import { log, safeUUID, MODULE_ID } from "../constants.js";
 import { BaseRenderer } from "./base-renderer.js";
-const { DialogV2 } = foundry.applications.api;
+const DialogV2 = foundry?.applications?.api?.DialogV2;
 
 export class ForceRenderer extends BaseRenderer {
   static ID = "force";
@@ -69,6 +69,8 @@ export class ForceRenderer extends BaseRenderer {
         label: n.label,
         type: n.type,
         img: n.img,
+        symbolId: n.symbolId,
+        size: n.size,
         status: Array.isArray(n.status) ? n.status : (n.status == null ? [] : [n.status]),
         x: n.x,
         y: n.y,
@@ -80,8 +82,8 @@ export class ForceRenderer extends BaseRenderer {
       links: (this.graph?.data?.links ?? []).map(l => ({
         // CRITICAL FIX: Store only the ID of the source and target nodes
         id: l.id,
-        source: l.source.id,
-        target: l.target.id,
+        source: typeof l.source === "object" ? l.source.id : l.source,
+        target: typeof l.target === "object" ? l.target.id : l.target,
         // --- copy other link properties ---
         relationId: l.relationId,
         label: l.label,
@@ -90,7 +92,10 @@ export class ForceRenderer extends BaseRenderer {
         color: l.color,
         style: l.style,
         noArrow: l.noArrow === true || l.noArrow === "true",
-        strokeWidth: l.strokeWidth
+        strokeWidth: l.strokeWidth,
+        glow: l.glow === true || l.glow === "true",
+        glowWidth: l.glowWidth,
+        glowOpacity: l.glowOpacity
       }))
     };
   }
@@ -215,6 +220,9 @@ export class ForceRenderer extends BaseRenderer {
       return st.includes("hidden");
     };
 
+    const isSymbolNode = (node) => node?.type === "Symbol";
+    const getNodeSize = (node) => Number(node?.size) || 64;
+
     // Utility: links may contain endpoints as node objects (after d3.forceLink)
     // or as raw node ids (persisted format). Always normalize when comparing.
     const getEndpointId = (endpoint) => (typeof endpoint === "object" ? endpoint?.id : endpoint);
@@ -289,18 +297,44 @@ export class ForceRenderer extends BaseRenderer {
     merge.append("feMergeNode").attr("in", "offsetBlur");
     merge.append("feMergeNode").attr("in", "SourceGraphic");
 
+    if (defs.select("#fg-link-glow").empty()) {
+      const glowFilter = defs.append("filter")
+        .attr("id", "fg-link-glow")
+        .attr("x", "-60%")
+        .attr("y", "-60%")
+        .attr("width", "220%")
+        .attr("height", "220%");
+      glowFilter.append("feGaussianBlur")
+        .attr("in", "SourceGraphic")
+        .attr("stdDeviation", "4");
+    }
+
+    const linkStrokeDash = (d) => {
+      if (d.style === "dashed") return "4 4";
+      if (d.style === "dotted") return "2 4";
+      return "0";
+    };
+
     // --- All other elements go inside the 'zoomLayer' ---
+    const linkGlow = zoomLayer.append("g")
+      .attr("class", "links-glow")
+      .selectAll("line")
+      .data(renderGraph.data.links, d => d.id)
+      .join("line")
+      .attr("stroke", d => d.color || "#000")
+      .style("stroke-dasharray", linkStrokeDash)
+      .attr("stroke-width", d => d.glowWidth || Math.max((d.strokeWidth || 2) * 3, 7))
+      .attr("stroke-opacity", d => (d.glow === true || d.glow === "true") ? (d.glowOpacity ?? 0.55) : 0)
+      .attr("filter", "url(#fg-link-glow)")
+      .attr("pointer-events", "none");
+
     const link = zoomLayer.append("g")
       .attr("stroke-opacity", 0.8)
       .selectAll("line")
       .data(renderGraph.data.links, d => d.id)
       .join("line")
       .attr("stroke", d => d.color || "#000")  // fallback if color is missing
-      .style("stroke-dasharray", d => {
-        if (d.style === "dashed") return "4 4";
-        if (d.style === "dotted") return "2 4";
-        return "0";
-      })
+      .style("stroke-dasharray", linkStrokeDash)
       .attr("stroke-width", d => d.strokeWidth || 2)
       .attr("marker-end", d => {
         const noArrow = d.noArrow === true || d.noArrow === "true";
@@ -519,9 +553,9 @@ export class ForceRenderer extends BaseRenderer {
       .join("image")
       .attr("xlink:href", d => d.img)
       .attr("filter", d => isHidden(d) ? "url(#fg-blur)" : null)
-      .attr("width", 64)
-      .attr("height", 64)
-      .attr("clip-path", "circle(32px at center)")
+      .attr("width", d => getNodeSize(d))
+      .attr("height", d => getNodeSize(d))
+      .attr("clip-path", d => isSymbolNode(d) ? null : `circle(${getNodeSize(d) / 2}px at center)`)
       .call(
         d3.drag()
           .on("start", dragstarted)
@@ -538,10 +572,12 @@ export class ForceRenderer extends BaseRenderer {
             const target = d;
 
             // Prevent self-links or duplicate links
-            const alreadyLinked = renderGraph.data.links.some(l =>
-              (l.source.id === source.id && l.target.id === target.id) ||
-              (l.source.id === target.id && l.target.id === source.id)
-            );
+            const alreadyLinked = renderGraph.data.links.some(l => {
+              const sourceId = getEndpointId(l.source);
+              const targetId = getEndpointId(l.target);
+              return (sourceId === source.id && targetId === target.id) ||
+                (sourceId === target.id && targetId === source.id);
+            });
             if (!alreadyLinked && source.id !== target.id) {
               const relation = this.relation
               if (!relation) {
@@ -559,7 +595,10 @@ export class ForceRenderer extends BaseRenderer {
                 color: relation.color,
                 style: relation.style,
                 noArrow: relation?.noArrow || false,
-                strokeWidth: relation.strokeWidth
+                strokeWidth: relation.strokeWidth,
+                glow: relation?.glow === true || relation?.glow === "true",
+                glowWidth: relation?.glowWidth,
+                glowOpacity: relation?.glowOpacity
               });
               this.render();
               ui.notifications.info(`Linked ${source.label} → ${target.label} (${relation.label})`);
@@ -593,7 +632,7 @@ export class ForceRenderer extends BaseRenderer {
       .selectAll("circle")
       .data(renderGraph.data.nodes, d => d.id)
       .join("circle")
-      .attr("r", 32)
+      .attr("r", d => getNodeSize(d) / 2)
       .attr("fill", "#808080")
       .attr("opacity", d => (getOverlaySymbol(d) ? 0.55 : 0))
       .attr("pointer-events", "none");
@@ -605,7 +644,7 @@ export class ForceRenderer extends BaseRenderer {
       .join("text")
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "middle")
-      .attr("font-size", 28)
+      .attr("font-size", d => Math.max(18, getNodeSize(d) * 0.44))
       .attr("fill", "#ffffff")
       .attr("opacity", d => (getOverlaySymbol(d) ? 1 : 0))
       .attr("pointer-events", "none")
@@ -803,9 +842,15 @@ export class ForceRenderer extends BaseRenderer {
         .attr("x2", d => d.target.x)
         .attr("y2", d => d.target.y);
 
+      linkGlow
+        .attr("x1", d => d.source.x)
+        .attr("y1", d => d.source.y)
+        .attr("x2", d => d.target.x)
+        .attr("y2", d => d.target.y);
+
       node
-        .attr("x", d => d.x - 32)
-        .attr("y", d => d.y - 32);
+        .attr("x", d => d.x - getNodeSize(d) / 2)
+        .attr("y", d => d.y - getNodeSize(d) / 2);
 
       linkLabels
         .attr("x", d => (d.source.x + d.target.x) / 2)
@@ -858,7 +903,7 @@ export class ForceRenderer extends BaseRenderer {
 
       nodeLabels
         .attr("x", d => d.x)
-        .attr("y", d => d.y + 42); // 32 (half icon) + 10 spacing
+        .attr("y", d => d.y + getNodeSize(d) / 2 + 10);
 
       nodeOverlayCircle
         .attr("cx", d => d.x)
@@ -947,10 +992,12 @@ export class ForceRenderer extends BaseRenderer {
           const source = d;
 
           // Check for existing links
-          const alreadyLinked = renderGraph.data.links.some(l =>
-            (l.source.id === source.id && l.target.id === target.id) ||
-            (l.source.id === target.id && l.target.id === source.id)
-          );
+          const alreadyLinked = renderGraph.data.links.some(l => {
+            const sourceId = getEndpointId(l.source);
+            const targetId = getEndpointId(l.target);
+            return (sourceId === source.id && targetId === target.id) ||
+              (sourceId === target.id && targetId === source.id);
+          });
 
           if (!alreadyLinked) {
             const relation = self.relation;
@@ -969,7 +1016,10 @@ export class ForceRenderer extends BaseRenderer {
                 color: relation.color,
                 style: relation.style,
                 noArrow: relation?.noArrow || false,
-                strokeWidth: relation.strokeWidth
+                strokeWidth: relation.strokeWidth,
+                glow: relation?.glow === true || relation?.glow === "true",
+                glowWidth: relation?.glowWidth,
+                glowOpacity: relation?.glowOpacity
               });
               self.render(); // Redraw graph
               ui.notifications.info(`Linked ${source.label} → ${target.label} (${relation.label})`);
@@ -991,18 +1041,23 @@ export class ForceRenderer extends BaseRenderer {
   }
 
 
-  addNode(graph, { id, label, type, img, uuid, x, y }) {
-    log("ForceRenderer.addNode", graph, id, label, type, img, uuid, x, y);
+  addNode(graph, { id, label, type, img, uuid, symbolId, size, x, y, fx, fy }) {
+    const nx = x ?? fx;
+    const ny = y ?? fy;
+    log("ForceRenderer.addNode", graph, id, label, type, img, uuid, nx, ny);
     this.graph.data.nodes.push({
       id: id,
-      uuid: uuid,
+      uuid: uuid ?? null,
       label: label,
       type: type,
       img: img,
-      x: x,
-      y: y,
-      fx: x,
-      fy: y,
+      symbolId: symbolId,
+      size: size,
+      status: [],
+      x: nx,
+      y: ny,
+      fx: nx,
+      fy: ny,
       vx: 0,
       vy: 0
     });
@@ -1044,40 +1099,57 @@ export class ForceRenderer extends BaseRenderer {
     }
     const isHidden = nodeData.status.includes("hidden");
 
+    const items = [
+      {
+        id: "toggleHidden",
+        label: isHidden ? `Show to players (${label})` : `Hide from players (${label})`,
+        icon: isHidden ? "fa-solid fa-eye" : "fa-solid fa-eye-slash",
+        onClick: async () => {
+          const st = Array.isArray(nodeData.status) ? [...nodeData.status] : [];
+          const idx = st.indexOf("hidden");
+          if (idx >= 0) st.splice(idx, 1); else st.push("hidden");
+          nodeData.status = st;
+          this.render();
+        }
+      }
+    ];
+
+    if (nodeData.type === "Symbol") {
+      items.push({
+        id: "rename",
+        label: `Rename (${label})`,
+        icon: "fa-solid fa-pen-to-square",
+        onClick: async () => {
+          const newLabel = await this._promptSymbolName(label, "Rename Symbol");
+          if (!newLabel) return;
+          nodeData.label = newLabel;
+          this.render();
+        }
+      });
+    }
+
+    items.push({
+      id: "delete",
+      label: `Delete (${label})`,
+      icon: "fa-solid fa-trash",
+      onClick: async () => {
+        const confirmed = await this._confirm(`Delete node "${label}"?`);
+        if (!confirmed) return;
+
+        this.graph.data.nodes = this.graph.data.nodes.filter(n => n.id !== nodeData.id);
+        this.graph.data.links = this.graph.data.links.filter(l => {
+          const sourceId = typeof l.source === "object" ? l.source.id : l.source;
+          const targetId = typeof l.target === "object" ? l.target.id : l.target;
+          return sourceId !== nodeData.id && targetId !== nodeData.id;
+        });
+        this.render();
+      }
+    });
+
     this._showRadialMenu({
       clientX: event.clientX,
       clientY: event.clientY,
-      items: [
-        {
-          id: "toggleHidden",
-          label: isHidden ? `Show to players (${label})` : `Hide from players (${label})`,
-          icon: isHidden ? "fa-solid fa-eye" : "fa-solid fa-eye-slash",
-          onClick: async () => {
-            const st = Array.isArray(nodeData.status) ? [...nodeData.status] : [];
-            const idx = st.indexOf("hidden");
-            if (idx >= 0) st.splice(idx, 1); else st.push("hidden");
-            nodeData.status = st;
-            this.render();
-          }
-        },
-        {
-          id: "delete",
-          label: `Delete (${label})`,
-          icon: "fa-solid fa-trash",
-          onClick: async () => {
-            const confirmed = await DialogV2.confirm({ content: `Delete node "${label}"?` });
-            if (!confirmed) return;
-
-            this.graph.data.nodes = this.graph.data.nodes.filter(n => n.id !== nodeData.id);
-            this.graph.data.links = this.graph.data.links.filter(l => {
-              const sourceId = typeof l.source === "object" ? l.source.id : l.source;
-              const targetId = typeof l.target === "object" ? l.target.id : l.target;
-              return sourceId !== nodeData.id && targetId !== nodeData.id;
-            });
-            this.render();
-          }
-        }
-      ]
+      items
     });
   }
   /*
@@ -1094,7 +1166,7 @@ export class ForceRenderer extends BaseRenderer {
       */
 
   async _openEditLinkLabelsDialog(linkData) {
-    const { DialogV2 } = foundry.applications.api;
+    const DialogV2 = foundry?.applications?.api?.DialogV2;
     const { StringField } = foundry.data.fields;
     console.log("linkData in edit dialog:", linkData);
     // Build 2 form groups using Foundry fields (stable + consistent with DialogV2)
@@ -1188,9 +1260,7 @@ export class ForceRenderer extends BaseRenderer {
           icon: "fa-solid fa-trash",
           onClick: async () => {
             this._closeRadialMenu?.();
-            const confirmed = await DialogV2.confirm({
-              content: `Delete link from "${src}" to "${tgt}"?`,
-            });
+            const confirmed = await this._confirm(`Delete link from "${src}" to "${tgt}"?`);
             if (!confirmed) return;
             this.graph.data.links = this.graph.data.links.filter(l => l !== linkData);
             this.render();
@@ -1200,38 +1270,145 @@ export class ForceRenderer extends BaseRenderer {
     });
   }
 
-  async _onDrop(event) {
-    log("_onDrop")
-    log(event)
-    const data = TextEditor.getDragEventData(event);
-    log(data)
-    const allowed = this.graph?.allowedEntities;
-    if (Array.isArray(allowed) && allowed.length > 0 && !allowed.includes(data.type)) {
-      ui.notifications.warn(`You cannot add a ${data.type} on this graph type.`);
-      return;
+  async _confirm(content) {
+    if (DialogV2?.confirm) {
+      return await DialogV2.confirm({ content });
     }
-    // Get mouse position relative to SVG
 
-    // 1. Get the <g> element that is being transformed by zoom
+    return await new Promise(resolve => {
+      new Dialog({
+        title: "Confirm",
+        content,
+        buttons: {
+          yes: { label: "Yes", callback: () => resolve(true) },
+          no: { label: "No", callback: () => resolve(false) }
+        },
+        default: "no",
+        close: () => resolve(false)
+      }).render(true);
+    });
+  }
+
+  async _promptSymbolName(initialValue, title = "Name Symbol") {
+    const escaped = foundry.utils.escapeHTML?.(initialValue ?? "") ?? String(initialValue ?? "");
+    const content = `<form class="fg-symbol-name-form">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" name="name" value="${escaped}" autofocus>
+      </div>
+    </form>`;
+
+    if (DialogV2?.prompt) {
+      const result = await DialogV2.prompt({
+        window: { title },
+        content,
+        ok: {
+          label: "OK",
+          callback: (event, button) => {
+            const obj = new FormDataExtended(button.form).object;
+            return String(obj.name ?? "").trim();
+          }
+        },
+        rejectClose: false
+      });
+      return result || null;
+    }
+
+    if (Dialog?.prompt) {
+      const result = await Dialog.prompt({
+        title,
+        content,
+        label: "OK",
+        callback: (html) => String(html[0]?.querySelector?.("input[name='name']")?.value ?? "").trim(),
+        rejectClose: false
+      });
+      return result || null;
+    }
+
+    return String(initialValue ?? "").trim() || null;
+  }
+
+  _getSymbolDropData(event) {
+    const transfer = event?.dataTransfer;
+    if (!transfer) return null;
+
+    const raw = transfer.getData("application/json") || transfer.getData("text/plain");
+    if (!raw) return null;
+
+    try {
+      const data = JSON.parse(raw);
+      return data?.type === "foundry-graph.symbol" ? data : null;
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  _getNextSymbolName(symbol) {
+    const base = String(symbol?.defaultName || symbol?.label || symbol?.id || "Symbol").trim();
+    const symbolId = symbol?.id;
+    const count = (this.graph?.data?.nodes ?? []).filter(n => n.type === "Symbol" && n.symbolId === symbolId).length + 1;
+    return `${base} ${String(count).padStart(2, "0")}`;
+  }
+
+  async _onDrop(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    log("_onDrop", event);
+
+    // 1. Get the <g> element that is being transformed by zoom.
     const zoomLayerNode = this._svg.select("g.zoom-layer").node();
     if (!zoomLayerNode) {
       log("Could not find zoom layer!");
       return;
     }
 
-    // 2. Use d3.pointer() to get coordinates relative to the zoom layer
-    //    This automatically accounts for the current pan and zoom.
+    // 2. Use d3.pointer() to get coordinates relative to the zoom layer.
     const [x, y] = d3.pointer(event, zoomLayerNode);
-    // ==========================================================
-
     log("Drop position (transformed):", x, y);
-    // Add new node
+
+    const symbolDrop = this._getSymbolDropData(event);
+    if (symbolDrop) {
+      const symbol = (this.graph?.symbols ?? []).find(s => s.id === symbolDrop.symbolId);
+      if (!symbol) {
+        ui.notifications.warn(`Unknown symbol: ${symbolDrop.symbolId}`);
+        return;
+      }
+
+      const label = await this._promptSymbolName(this._getNextSymbolName(symbol));
+      if (!label) return;
+
+      this.addNode(this.graph, {
+        id: safeUUID(),
+        uuid: null,
+        label,
+        type: "Symbol",
+        symbolId: symbol.id,
+        img: symbol.img,
+        size: symbol.size || 64,
+        x,
+        y
+      });
+
+      ui.notifications.info(`Added symbol: ${label}`);
+      this.render();
+      return;
+    }
+
+    const data = TextEditor.getDragEventData(event);
+    log(data);
+    if (!data?.type) return;
+
+    const allowed = this.graph?.allowedEntities;
+    if (Array.isArray(allowed) && allowed.length > 0 && !allowed.includes(data.type)) {
+      ui.notifications.warn(`You cannot add a ${data.type} on this graph type.`);
+      return;
+    }
+
     const newId = safeUUID();
 
     // Handle different data types
     switch (data.type) {
-      // write your cases
-      case "Actor":
+      case "Actor": {
         const actor = await fromUuid(data.uuid);
         if (!actor) {
           ui.notifications.warn("Could not find actor");
@@ -1242,17 +1419,18 @@ export class ForceRenderer extends BaseRenderer {
           id: newId,
           uuid: data.uuid,
           label: actor.name,
-          type: 'Actor',
+          type: "Actor",
           img: actor.img,
-          x: x,
-          y: y
+          x,
+          y
         });
 
         ui.notifications.info(`Added node for actor: ${actor.name}`);
         break;
-      case 'JournalEntryPage':
+      }
+      case "JournalEntryPage": {
         const page = await fromUuid(data.uuid);
-        log(page)
+        log(page);
         if (!page) {
           ui.notifications.warn("Could not find page");
           return;
@@ -1263,16 +1441,17 @@ export class ForceRenderer extends BaseRenderer {
           id: newId,
           uuid: data.uuid,
           label: page.name,
-          type: 'JournalEntryPage',
+          type: "JournalEntryPage",
           img: customIcon || `modules/${MODULE_ID}/img/journal.png`,
-          x: x,
-          y: y
+          x,
+          y
         });
         ui.notifications.info(`Added node for page: ${page.name}`);
         break;
-      case 'Scene':
+      }
+      case "Scene": {
         const scene = await fromUuid(data.uuid);
-        log(scene)
+        log(scene);
         if (!scene) {
           ui.notifications.warn("Could not find scene");
           return;
@@ -1282,16 +1461,17 @@ export class ForceRenderer extends BaseRenderer {
           id: newId,
           uuid: data.uuid,
           label: scene.name,
-          type: 'Scene',
+          type: "Scene",
           img: "modules/foundry-graph/img/mappin.png",
-          fx: x,
-          fy: y
+          x,
+          y
         });
         ui.notifications.info(`Added node for scene: ${scene.name}`);
         break;
-      case 'Item':
+      }
+      case "Item": {
         const item = await fromUuid(data.uuid);
-        log(item)
+        log(item);
         if (!item) {
           ui.notifications.warn("Could not find item");
           return;
@@ -1301,19 +1481,19 @@ export class ForceRenderer extends BaseRenderer {
           id: newId,
           uuid: data.uuid,
           label: item.name,
-          type: 'Item',
+          type: "Item",
           img: item.img,
-          fx: x,
-          fy: y
+          x,
+          y
         });
         ui.notifications.info(`Added node for item: ${item.name}`);
         break;
-
+      }
       default:
         break;
-
     }
-    log(this.graph)
+
+    log(this.graph);
     this.render();
 
   }

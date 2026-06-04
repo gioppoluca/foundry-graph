@@ -1,4 +1,10 @@
 import { GRAPH_SCHEMA_VERSION, safeUUID } from "../constants.js";
+
+function getEnabledThemes(typeCfg) {
+  const themes = Array.isArray(typeCfg?.themes) ? typeCfg.themes : [];
+  return themes.filter(theme => theme?.enabled !== false);
+}
+
 export function migrateGraph(graph, graphTypes = {}) {
   // Defensive copy if you prefer immutability
   const g = graph;
@@ -18,8 +24,8 @@ export function migrateGraph(graph, graphTypes = {}) {
       // Ensure theme exists for graphs that predate "themes"
       if (!g.theme) {
         const typeCfg = graphTypes[g.graphType] ?? {};
-        const themes = Array.isArray(typeCfg.themes) ? typeCfg.themes : null;
-        if (themes && themes.length > 0) {
+        const themes = getEnabledThemes(typeCfg);
+        if (themes.length > 0) {
           g.theme = themes[0].id;
         } else {
           g.theme = null; // unknown / legacy
@@ -57,6 +63,12 @@ export function migrateGraph(graph, graphTypes = {}) {
     if (!Array.isArray(g.allowedEntities) && Array.isArray(gt?.allowedEntities)) {
       g.allowedEntities = gt.allowedEntities;
     }
+  }
+
+  // Backfill graph-level symbols from the graph type definition.
+  // Symbols are static palette entries, separate from Foundry document entities.
+  if (!Array.isArray(g.symbols) && Array.isArray(gt?.symbols)) {
+    g.symbols = gt.symbols.map(s => ({ ...s }));
   }
 
   // Backfill link.noArrow from relations if missing

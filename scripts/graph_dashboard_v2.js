@@ -7,6 +7,11 @@ import { log, t, tf } from "./constants.js";
 
 export default class GraphDashboardV2 extends HandlebarsApplicationMixin(ApplicationV2) {
 
+  static getEnabledThemes(metadata) {
+    const themes = Array.isArray(metadata?.themes) ? metadata.themes : [];
+    return themes.filter(theme => theme?.enabled !== false);
+  }
+
   static ALLOWED_TABS = ["listGraph", "creationGraph"];
   static DEFAULT_ACTIVE_TAB = "listGraph";
 
@@ -106,12 +111,15 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     let selectedTheme = this.editingGraph?.theme ?? "";
     if (selectedGraphType) {
       const metadata = this._graphTypes?.find(g => g.id === selectedGraphType);
-      if (metadata && Array.isArray(metadata.themes) && metadata.themes.length > 0) {
-        selectedGraphThemes = metadata.themes;
+      if (metadata) {
+        const themes = this.constructor.getEnabledThemes(metadata);
+        if (themes.length > 0) {
+          selectedGraphThemes = themes;
 
-        // If the graph has no theme yet (legacy graphs), default to the first theme
-        if (!selectedTheme) {
-          selectedTheme = metadata.themes[0].id;
+          // If the graph has no theme yet (legacy graphs), default to the first enabled theme
+          if (!selectedTheme || !themes.some(t => t.id === selectedTheme)) {
+            selectedTheme = themes[0].id;
+          }
         }
       }
     }
@@ -187,8 +195,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
 
     // Determine base background from selected theme or fallback to metadata.background
     let metadataBg = metadata.background || {};
-    if (selectedThemeId && Array.isArray(metadata.themes)) {
-      const theme = metadata.themes.find(t => t.id === selectedThemeId);
+    if (selectedThemeId) {
+      const theme = this.constructor.getEnabledThemes(metadata).find(t => t.id === selectedThemeId);
       if (theme) metadataBg = theme;
     }
     let finalBgImg = backgroundImagePath || metadataBg?.image;
@@ -365,7 +373,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       return;
     }
 
-    const themes = Array.isArray(metadata.themes) ? metadata.themes : [];
+    const themes = this.constructor.getEnabledThemes(metadata);
     let themeBg = metadata.background || {};
     let defaultThemeId = "";
 
@@ -412,10 +420,10 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     const typeId = this.element.querySelector("#graph-type-select")?.value;
     if (!typeId) return;
     const metadata = this._graphTypes?.find(g => g.id === typeId);
-    if (!metadata || !Array.isArray(metadata.themes)) return;
+    if (!metadata) return;
 
     const selectedThemeId = event.target.value;
-    const theme = metadata.themes.find(t => t.id === selectedThemeId);
+    const theme = this.constructor.getEnabledThemes(metadata).find(t => t.id === selectedThemeId);
     if (!theme) return;
 
     const widthInput = this.element.querySelector("#graph-width");

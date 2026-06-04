@@ -66,7 +66,8 @@ export class GraphRelationsDialog extends HandlebarsApplicationMixin(Application
             color: "#ffffff",
             style: "solid",
             strokeWidth: 2,
-            noArrow: false
+            noArrow: false,
+            glow: false
         });
         this.render(true);
     }
@@ -98,6 +99,7 @@ export class GraphRelationsDialog extends HandlebarsApplicationMixin(Application
             const style = row.querySelector("select[name='style']").value;
             const strokeWidth = Number(row.querySelector("input[name='strokeWidth']").value) || 1;
             const noArrow = row.querySelector("input[name='noArrow']").checked;
+            const glow = row.querySelector("input[name='glow']")?.checked === true;
 
             if (!id) {
                 ui.notifications.warn(`Relation "${label}" must have an ID.`);
@@ -108,7 +110,8 @@ export class GraphRelationsDialog extends HandlebarsApplicationMixin(Application
                 return;
             }
 
-            newRelations.push({ id, label, color, style, strokeWidth, noArrow });
+            const previous = this.relations.find(r => r.id === row.dataset.relationId) ?? {};
+            newRelations.push({ ...previous, id, label, color, style, strokeWidth, noArrow, glow });
         }
 
         // Call the async onSave callback provided by the dashboard

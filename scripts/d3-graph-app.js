@@ -84,7 +84,32 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       relationsSelect.addEventListener("change", (e) => this._onRelationsChange(e));
     }
     this._drawGraph(); // fresh
+    this._registerSymbolPaletteDragHandlers();
     this._syncScaledSceneButtonState();
+  }
+
+  _registerSymbolPaletteDragHandlers() {
+    const items = Array.from(this.element?.querySelectorAll?.(".fg-symbol-palette-item") ?? []);
+    if (!items.length) return;
+
+    for (const item of items) {
+      const onDragStart = (event) => {
+        const symbolId = item.dataset.symbolId;
+        if (!symbolId) return;
+
+        const payload = JSON.stringify({
+          type: "foundry-graph.symbol",
+          symbolId
+        });
+
+        event.dataTransfer?.setData?.("application/json", payload);
+        event.dataTransfer?.setData?.("text/plain", payload);
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = "copy";
+      };
+
+      item.addEventListener("dragstart", onDragStart);
+      this._disposers.push(() => item.removeEventListener("dragstart", onDragStart));
+    }
   }
 
   _onRelationsChange(event) {
@@ -106,10 +131,15 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       this._svgHeight = this.graph.height;
 
     }
+    const isEdit = this._mode === "edit" || this._mode === "new";
+    const symbols = Array.isArray(this.graph?.symbols) ? this.graph.symbols : [];
+
     return {
       ...super._prepareContext(options),
       relations: this.graph?.relations || [],
-      isEdit: this._mode === "edit" || this._mode === "new",
+      symbols,
+      hasSymbolPalette: isEdit && symbols.length > 0,
+      isEdit,
       instructions: this.renderer?.instructions || "No instructions available",
       isLinkNodesVisible: this.renderer?.isLinkNodesVisible ?? true,
       isRelationSelectVisible: this.renderer?.isRelationSelectVisible ?? true,

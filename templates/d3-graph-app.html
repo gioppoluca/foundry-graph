@@ -1,1 +1,17 @@
-<div id="d3-graph-container"><svg id="d3-graph"></svg></div>
+<div class="fg-force-shell">
+  {{#if hasSymbolPalette}}
+  <aside class="fg-symbol-palette">
+    <div class="fg-symbol-palette-title">Symbols</div>
+    <div class="fg-symbol-palette-items">
+      {{#each symbols as |symbol|}}
+      <div class="fg-symbol-palette-item" draggable="true" data-symbol-id="{{symbol.id}}">
+        <img src="{{symbol.img}}" alt="{{symbol.label}}">
+        <span>{{symbol.label}}</span>
+      </div>
+      {{/each}}
+    </div>
+  </aside>
+  {{/if}}
+
+  <div id="d3-graph-container" class="drop-zone"><svg id="d3-graph"></svg></div>
+</div>

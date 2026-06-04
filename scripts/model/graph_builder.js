@@ -1,5 +1,10 @@
 import { MODULE_ID, JSON_graph_types, GRAPH_SCHEMA_VERSION, t } from "../constants.js";
 
+function getEnabledThemes(typeCfg) {
+    const themes = Array.isArray(typeCfg?.themes) ? typeCfg.themes : [];
+    return themes.filter(theme => theme?.enabled !== false);
+}
+
 export class GraphBuilder {
     constructor({
         id = foundry.utils.randomID(),
@@ -20,12 +25,12 @@ export class GraphBuilder {
         const typeCfg = JSON_graph_types[graphType] ?? {};
 
         // --- Resolve theme + base background from graph-type metadata
-        const themes = Array.isArray(typeCfg.themes) ? typeCfg.themes : null;
+        const themes = getEnabledThemes(typeCfg);
         let chosenThemeId = theme;
         let chosenThemeData = themeData ? foundry.utils.deepClone(themeData) : null;
         let themeBackground = typeCfg.background || {};
 
-        if (themes && themes.length > 0) {
+        if (themes.length > 0) {
             const fallbackTheme = themes[0];
             const selectedTheme = themes.find(t => t.id === theme) || fallbackTheme;
             chosenThemeId = selectedTheme.id;
@@ -61,6 +66,7 @@ export class GraphBuilder {
                 [userId]: foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
             },
             relations: JSON_graph_types[graphType]?.relations || [],
+            symbols: JSON_graph_types[graphType]?.symbols || [],
             slots: JSON_graph_types[graphType]?.slots || [],
             schemaVersion: GRAPH_SCHEMA_VERSION,
             graphTypeVersion: JSON_graph_types[graphType]?.version,
