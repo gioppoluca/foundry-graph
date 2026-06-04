@@ -6,8 +6,10 @@
 # Foundry Graph - Visual Relationship Mapping
 
 > Draw the threads that connect your world. Turn relationships into stories you can see.
-Visualize lineage, alliances, and secrets in living diagrams with ease.
+Visualize lineage, alliances, timelines, geographical maps and secrets in living diagrams with ease.
 Foundry Graph is a powerful and intuitive module that lets you visually map relationships between actors, scenes, items, or any other entity in your world. Whether you're managing political intrigue, faction conflicts, character connections, or ancient bloodlines, this tool gives you a dynamic canvas to build, edit, and explore complex networks.
+Maps can be grated using real world and fantasy georeferenced data, overlaid with pins and areas (both could also be Actors or Journal Pages).
+Timelines can be designed to map story arcs
 
 
 ## ⚠️ Beta Status
@@ -31,6 +33,8 @@ Create:
 - Investigation boards  
 - Geographic maps  
 - Quest dependency diagrams  
+- Cyber matrix networks
+- Timelines
 
 Everything lives directly inside Foundry — no external tools.
 
@@ -63,6 +67,11 @@ Everything lives directly inside Foundry — no external tools.
   <summary><strong>Graph Editor</strong></summary>
 
 ![Graph Example](doc/graph_example.png)
+</details>
+<details>
+  <summary><strong>Cyber Network Map</strong></summary>
+
+![Graph Example](doc/graph_matrix.png)
 </details>
 
 
@@ -98,6 +107,7 @@ These are the graph type available
 | ![](img/icons/icon-geographical-map.webp) | Geography Map | Map | | Any | Any | Geographic markers labels and polygons on a map (OpenStreetMap or Raster) |
 | ![](img/icons/icon-haven-layout.webp) | Haven Layout | Slot Layout | Castle, manor, house, modern house, condo, penthouse, slums, medieval village, medieval manor, medieval crypt| WoD5e / VTM5e | Items | Vampire haven visualization |
 | ![](img/icons/icon-vis-timeline.webp)| Timeline | Timeline | | Any | Any | Thins that can happen on a timeline |
+| ![](img/icons/matrix.webp) | Cyber Network Map | Free Diagram | —      | Any    | Actors, Scenes, Items, Journal Pages, Symbols | Cyberpunk matrix diagram with symbol palette and glowing links |
 
 New graph types are actively under development — feel free to open an issue with suggestions.
 
@@ -128,7 +138,13 @@ A diagram made of **nodes + links** on a 2D canvas. Nodes have manual positions 
   - Deletion
   - Hiding the image/identity
   - For Journal Page nodes can customize the image
-
+- Symbol palette for graph types that define symbols.
+- Symbols are not Foundry documents; they are graph-only nodes.
+- Symbols can be named when dropped.
+- Symbols can be linked to normal Foundry document nodes.
+- Symbol nodes can be renamed.
+- Links can glow when the relation type enables glow.
+- Relation editor supports the glow flag.
 ![alt text](doc/EditLabels.png)
 ![alt text](doc/PageImageMenu.png)
 ![alt text](doc/EditPageImage.png)
@@ -162,11 +178,24 @@ A Leaflet-powered map supporting either OpenStreetMap tiles or a raster backgrou
 - Draw polygons, polylines, rectangles, circles
 - Keep labels in synch with the entities
 
+**Themes**
+Current map source modes include:
+
+- Earth maps using OpenStreetMap-compatible tile layers
+- Custom image maps using simple image coordinates
+- Experimental GeoJSON maps with layered geographic data
+
+Earth maps can switch between configured base layers, such as street and satellite tiles. When supported by the selected map source, the map can also export the current view to a Foundry Scene or to a properly scaled to correct grid size Foundry Scene.
+
 ![Map Editor](doc/GeoMapEditor.png)
 **Typical graph types**
 Custom city maps, fantasy regions
 
 Best for world maps, city maps, location-centric graphs.
+
+
+
+
 
 #### Slot Layout Renderer
 **Concept**
