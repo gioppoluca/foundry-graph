@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.1] - 2026-06-04
+### :sparkles: New Features
+- [`649849c`](https://github.com/gioppoluca/foundry-graph/commit/649849cfaedb5808271d8f97f8eee7fdeacd8e1a) - Added the feature to save the graph as a new scene *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`7a5d944`](https://github.com/gioppoluca/foundry-graph/commit/7a5d9442bb7ed75aabbde91ec04cea5ae712430d) - added the option - only for the map - to save the map properly scaled *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`b598f76`](https://github.com/gioppoluca/foundry-graph/commit/b598f7624b7cb1affc38cecf6fc4510cd1fa34a8) - added walls creation on the map *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`dd29183`](https://github.com/gioppoluca/foundry-graph/commit/dd291838f239cf23212c12f56c107f9a04cb7855) - satellite image *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`46a91ad`](https://github.com/gioppoluca/foundry-graph/commit/46a91ad9326216e1bfc5866fdd096570d7d912ea) - modularization for managing different theme of maps *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`1a723b0`](https://github.com/gioppoluca/foundry-graph/commit/1a723b00086aa07d673bdce2311b2825e43cbe12) - new image operator *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`0bf43f1`](https://github.com/gioppoluca/foundry-graph/commit/0bf43f170bd09bcd5ef285b6ff321e9277a02110) - new geojson operator for the map and implementation of the realm gis map *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`e143158`](https://github.com/gioppoluca/foundry-graph/commit/e143158e64ce9a026f63bc5503addf09fe769dbe) - setting faerun map *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`26909da`](https://github.com/gioppoluca/foundry-graph/commit/26909da36560e5e04e9448173f42f7fe1e79836a) - fixed wrong licence *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`58fce6b`](https://github.com/gioppoluca/foundry-graph/commit/58fce6bde169c75b648bc51429f358e8907d73d6) - matrix graph type *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.14.0] - 2026-04-04
 ### :sparkles: New Features
 - [`3e53931`](https://github.com/gioppoluca/foundry-graph/commit/3e5393127b4ae1e51a17f2de25161c3d83b63960) - possible to open graph from macro *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -275,3 +289,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.9.5]: https://github.com/gioppoluca/foundry-graph/compare/0.9.4...0.9.5
 [0.9.6]: https://github.com/gioppoluca/foundry-graph/compare/0.9.5...0.9.6
 [0.14.0]: https://github.com/gioppoluca/foundry-graph/compare/0.9.6...0.14.0
+[0.14.1]: https://github.com/gioppoluca/foundry-graph/compare/0.14.0...0.14.1
