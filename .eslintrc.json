@@ -1,0 +1,16 @@
+{
+  "env": {
+    "browser": true,
+    "es2022": true
+  },
+  "globals": {
+    "game": "readonly",
+    "ui": "readonly",
+    "canvas": "readonly",
+    "Hooks": "readonly",
+    "CONFIG": "readonly",
+    "CONST": "readonly",
+    "foundry": "readonly",
+    "Sequencer": "readonly"
+  }
+}
