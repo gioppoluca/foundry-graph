@@ -18,6 +18,7 @@ export class ForceRenderer extends BaseRenderer {
     this._currentTransform = null; // Stores the last zoom/pan transform
     this._uiLayer = null;            // Fixed overlay UI (not zoomed/panned)
     this._showRelationLegend = false; // UI-only toggle (not persisted)
+    this._selectedNodeIds = new Set(); // UI-only node selection used to create groups
     // Link endpoint rewiring state
     this._isRewiringLink = false;
     this._rewireGhostLine = null;
@@ -26,10 +27,11 @@ export class ForceRenderer extends BaseRenderer {
   get instructions() {
     return `
     <b>Shift + Drag</b>: Link Nodes<br>
-    <b>Drag</b>: Move/Position Nodes<br>
+    <b>Ctrl/Cmd + Click</b>: Select Nodes for Group<br>
+    <b>Drag</b>: Move/Position Nodes or Groups<br>
     <b>Scroll</b>: Zoom<br>
     <b>DblClick</b>: Open Sheet<br>
-    <b>Left Click</b>: Delete Node or Link
+    <b>Right Click</b>: Node, Link, or Group Actions
   `;
   }
 
@@ -53,7 +55,8 @@ export class ForceRenderer extends BaseRenderer {
   initializeGraphData() {
     return {
       nodes: [],
-      links: []
+      links: [],
+      groups: []
     };
   }
 
@@ -96,6 +99,16 @@ export class ForceRenderer extends BaseRenderer {
         glow: l.glow === true || l.glow === "true",
         glowWidth: l.glowWidth,
         glowOpacity: l.glowOpacity
+      })),
+      groups: (this.graph?.data?.groups ?? []).map(g => ({
+        id: g.id,
+        label: g.label,
+        nodeIds: Array.isArray(g.nodeIds) ? [...g.nodeIds] : [],
+        color: g.color || "#00eaff",
+        fillOpacity: g.fillOpacity ?? 0.14,
+        strokeOpacity: g.strokeOpacity ?? 0.85,
+        strokeWidth: g.strokeWidth ?? 2,
+        padding: g.padding ?? 48
       }))
     };
   }
@@ -127,6 +140,7 @@ export class ForceRenderer extends BaseRenderer {
     this._currentTransform = null;
     this._uiLayer = null;
     this._showRelationLegend = false;
+    this._selectedNodeIds = new Set();
   }
 
   render(svg, graph, ctx) {
@@ -202,6 +216,12 @@ export class ForceRenderer extends BaseRenderer {
       }
     }
 
+    // Ensure old force graphs created before groups remain compatible.
+    if (!Array.isArray(renderGraph?.data?.groups)) {
+      renderGraph.data.groups = [];
+    }
+    this._normalizeGroupData(renderGraph);
+
     // Ensure every node has a defensive status array
     for (const n of renderGraph.data.nodes) {
       if (!Array.isArray(n.status)) n.status = n.status == null ? [] : [n.status];
@@ -240,6 +260,37 @@ export class ForceRenderer extends BaseRenderer {
       .attr("height", bgHeight);
 
     log("added background image")
+
+    const groupLayer = zoomLayer.append("g")
+      .attr("class", "fg-groups");
+
+    const groupPolygons = groupLayer
+      .selectAll("path")
+      .data(renderGraph.data.groups, d => d.id)
+      .join("path")
+      .attr("class", "fg-group-polygon")
+      .attr("fill", d => d.color || "#00eaff")
+      .attr("fill-opacity", d => d.fillOpacity ?? 0.14)
+      .attr("stroke", d => d.color || "#00eaff")
+      .attr("stroke-opacity", d => d.strokeOpacity ?? 0.85)
+      .attr("stroke-width", d => d.strokeWidth ?? 2)
+      .style("cursor", "move")
+      .on("contextmenu", (event, d) => {
+        event.preventDefault();
+        this._onRightClickGroup(event, d);
+      });
+
+    const groupLabels = groupLayer
+      .selectAll("text")
+      .data(renderGraph.data.groups, d => d.id)
+      .join("text")
+      .attr("class", "fg-group-label")
+      .attr("font-size", 13)
+      .attr("font-weight", 700)
+      .attr("fill", d => d.color || "#00eaff")
+      .attr("text-anchor", "middle")
+      .attr("pointer-events", "none")
+      .text(d => d.label || "Group");
 
     // --- FIX: <defs> must be a child of <svg>, NOT the zoomLayer ---
     let defs = this._svg.select("defs");
@@ -607,6 +658,9 @@ export class ForceRenderer extends BaseRenderer {
             }
             this._linkSourceNode = null;
           }
+        } else if (event.ctrlKey || event.metaKey) {
+          this._toggleNodeSelection(d.id);
+          ticked();
         } else {
           ui.notifications.info(`Clicked node: ${d.label}`);
         }
@@ -626,6 +680,17 @@ export class ForceRenderer extends BaseRenderer {
           });
         }
       });
+
+    const nodeSelectionRing = zoomLayer.append("g")
+      .attr("class", "node-selection-ring")
+      .selectAll("circle")
+      .data(renderGraph.data.nodes, d => d.id)
+      .join("circle")
+      .attr("fill", "none")
+      .attr("stroke", "#00eaff")
+      .attr("stroke-width", 3)
+      .attr("stroke-dasharray", "5 4")
+      .attr("pointer-events", "none");
 
     const nodeOverlayCircle = zoomLayer.append("g")
       .attr("class", "node-status-overlay")
@@ -668,6 +733,28 @@ export class ForceRenderer extends BaseRenderer {
     simulation.force("charge", d3.forceManyBody().strength(-400));
     simulation.force("center", d3.forceCenter(400, 300));
     linkForce.links(renderGraph.data.links);
+
+    groupPolygons.call(
+      d3.drag()
+        .on("start", (event) => {
+          event.sourceEvent?.stopPropagation?.();
+          event.sourceEvent?.preventDefault?.();
+          simulation.alphaTarget(0.2).restart();
+        })
+        .on("drag", (event, group) => {
+          const groupNodes = this._getGroupNodes(group, renderGraph.data.nodes);
+          for (const n of groupNodes) {
+            n.x += event.dx;
+            n.y += event.dy;
+            n.fx = n.x;
+            n.fy = n.y;
+          }
+          ticked();
+        })
+        .on("end", (event) => {
+          if (!event.active) simulation.alphaTarget(0);
+        })
+    );
 
     // NEW CODE ADDED BELOW
     // ------------------------------
@@ -836,6 +923,13 @@ export class ForceRenderer extends BaseRenderer {
 
     log("started simulation")
     function ticked() {
+      groupPolygons
+        .attr("d", g => self._getGroupHullPath(g, renderGraph.data.nodes));
+
+      groupLabels
+        .attr("x", g => self._getGroupLabelPoint(g, renderGraph.data.nodes).x)
+        .attr("y", g => self._getGroupLabelPoint(g, renderGraph.data.nodes).y);
+
       link
         .attr("x1", d => d.source.x)
         .attr("y1", d => d.source.y)
@@ -851,6 +945,12 @@ export class ForceRenderer extends BaseRenderer {
       node
         .attr("x", d => d.x - getNodeSize(d) / 2)
         .attr("y", d => d.y - getNodeSize(d) / 2);
+
+      nodeSelectionRing
+        .attr("cx", d => d.x)
+        .attr("cy", d => d.y)
+        .attr("r", d => getNodeSize(d) / 2 + 8)
+        .attr("opacity", d => self._selectedNodeIds.has(d.id) ? 1 : 0);
 
       linkLabels
         .attr("x", d => (d.source.x + d.target.x) / 2)
@@ -1114,6 +1214,18 @@ export class ForceRenderer extends BaseRenderer {
       }
     ];
 
+    if (this._selectedNodeIds.size > 0) {
+      items.push({
+        id: "createGroup",
+        label: `Create group from selected (${this._selectedNodeIds.size})`,
+        icon: "fa-solid fa-object-group",
+        onClick: async () => {
+          this._closeRadialMenu?.();
+          await this._createGroupFromSelected();
+        }
+      });
+    }
+
     if (nodeData.type === "Symbol") {
       items.push({
         id: "rename",
@@ -1142,6 +1254,8 @@ export class ForceRenderer extends BaseRenderer {
           const targetId = typeof l.target === "object" ? l.target.id : l.target;
           return sourceId !== nodeData.id && targetId !== nodeData.id;
         });
+        this._removeNodesFromGroups([nodeData.id]);
+        this._selectedNodeIds.delete(nodeData.id);
         this.render();
       }
     });
@@ -1268,6 +1382,210 @@ export class ForceRenderer extends BaseRenderer {
         }
       ]
     });
+  }
+
+  _normalizeGroupData(graph) {
+    const nodes = graph?.data?.nodes ?? [];
+    const existingNodeIds = new Set(nodes.map(n => n.id));
+    graph.data.groups = (graph?.data?.groups ?? [])
+      .map(g => ({
+        id: g.id || safeUUID(),
+        label: String(g.label || "Group"),
+        nodeIds: Array.isArray(g.nodeIds) ? g.nodeIds.filter(id => existingNodeIds.has(id)) : [],
+        color: g.color || "#00eaff",
+        fillOpacity: g.fillOpacity ?? 0.14,
+        strokeOpacity: g.strokeOpacity ?? 0.85,
+        strokeWidth: g.strokeWidth ?? 2,
+        padding: g.padding ?? 48
+      }))
+      .filter(g => g.nodeIds.length > 0);
+  }
+
+  _toggleNodeSelection(nodeId) {
+    if (!nodeId) return;
+    if (this._selectedNodeIds.has(nodeId)) {
+      this._selectedNodeIds.delete(nodeId);
+      ui.notifications.info("Node removed from group selection.");
+    } else {
+      this._selectedNodeIds.add(nodeId);
+      ui.notifications.info("Node added to group selection.");
+    }
+  }
+
+  _getGroupNodes(group, nodes) {
+    const ids = new Set(group?.nodeIds ?? []);
+    return (nodes ?? []).filter(n => ids.has(n.id));
+  }
+
+  _getGroupHullPath(group, nodes) {
+    const groupNodes = this._getGroupNodes(group, nodes);
+    const padding = Number(group?.padding ?? 48);
+    if (!groupNodes.length) return null;
+
+    const points = [];
+    for (const n of groupNodes) {
+      const width = Number(n.width ?? n.size ?? 64);
+      const height = Number(n.height ?? n.size ?? 64);
+      const halfWidth = width / 2 + padding;
+      const halfHeight = height / 2 + padding;
+
+      points.push([n.x - halfWidth, n.y - halfHeight]);
+      points.push([n.x + halfWidth, n.y - halfHeight]);
+      points.push([n.x + halfWidth, n.y + halfHeight]);
+      points.push([n.x - halfWidth, n.y + halfHeight]);
+    }
+
+    const hull = d3.polygonHull(points);
+    if (!hull) return null;
+
+    return `M${hull.map(p => p.join(",")).join("L")}Z`;
+  }
+
+  _getGroupLabelPoint(group, nodes) {
+    const groupNodes = this._getGroupNodes(group, nodes);
+    if (!groupNodes.length) return { x: 0, y: 0 };
+
+    const x = groupNodes.reduce((sum, n) => sum + (Number(n.x) || 0), 0) / groupNodes.length;
+    const minY = Math.min(...groupNodes.map(n => (Number(n.y) || 0) - (Number(n.size ?? 64) / 2) - (Number(group.padding ?? 48))));
+    return { x, y: minY - 8 };
+  }
+
+  _removeNodesFromGroups(nodeIds) {
+    const removed = new Set(nodeIds ?? []);
+    if (!removed.size) return;
+    this.graph.data.groups = (this.graph?.data?.groups ?? [])
+      .map(g => ({ ...g, nodeIds: (g.nodeIds ?? []).filter(id => !removed.has(id)) }))
+      .filter(g => (g.nodeIds ?? []).length > 0);
+  }
+
+  async _createGroupFromSelected() {
+    const nodeIds = Array.from(this._selectedNodeIds)
+      .filter(id => (this.graph?.data?.nodes ?? []).some(n => n.id === id));
+
+    if (!nodeIds.length) {
+      ui.notifications.warn("Select at least one node with Ctrl/Cmd + click before creating a group.");
+      return;
+    }
+
+    const groupData = await this._promptGroupData({
+      label: `Group ${(this.graph?.data?.groups ?? []).length + 1}`,
+      color: "#00eaff",
+      padding: 48
+    }, "Create Group");
+    if (!groupData) return;
+
+    if (!Array.isArray(this.graph.data.groups)) this.graph.data.groups = [];
+    this.graph.data.groups.push({
+      id: safeUUID(),
+      label: groupData.label,
+      nodeIds,
+      color: groupData.color,
+      fillOpacity: 0.14,
+      strokeOpacity: 0.85,
+      strokeWidth: 2,
+      padding: groupData.padding
+    });
+
+    this._selectedNodeIds.clear();
+    this.render();
+  }
+
+  async _onRightClickGroup(event, groupData) {
+    log("_onRightClickGroup", groupData);
+    const label = groupData.label || groupData.id || "Group";
+
+    this._showRadialMenu({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      items: [
+        {
+          id: "editGroup",
+          label: `Edit group (${label})`,
+          icon: "fa-solid fa-pen-to-square",
+          onClick: async () => {
+            this._closeRadialMenu?.();
+            const result = await this._promptGroupData(groupData, "Edit Group");
+            if (!result) return;
+            groupData.label = result.label;
+            groupData.color = result.color;
+            groupData.padding = result.padding;
+            this.render();
+          }
+        },
+        {
+          id: "dissolveGroup",
+          label: `Dissolve group (${label})`,
+          icon: "fa-solid fa-object-ungroup",
+          onClick: async () => {
+            this._closeRadialMenu?.();
+            const confirmed = await this._confirm(`Dissolve group "${label}"? Nodes will not be deleted.`);
+            if (!confirmed) return;
+            this.graph.data.groups = (this.graph?.data?.groups ?? []).filter(g => g !== groupData);
+            this.render();
+          }
+        }
+      ]
+    });
+  }
+
+  async _promptGroupData(initialValue = {}, title = "Group") {
+    const label = foundry.utils.escapeHTML?.(initialValue.label ?? "Group") ?? String(initialValue.label ?? "Group");
+    const color = foundry.utils.escapeHTML?.(initialValue.color ?? "#00eaff") ?? String(initialValue.color ?? "#00eaff");
+    const padding = Number(initialValue.padding ?? 48);
+    const content = `<form class="fg-group-editor">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" name="label" value="${label}" autofocus>
+      </div>
+      <div class="form-group">
+        <label>Color</label>
+        <input type="color" name="color" value="${color}">
+      </div>
+      <div class="form-group">
+        <label>Padding</label>
+        <input type="number" name="padding" value="${padding}" min="0" step="1">
+      </div>
+    </form>`;
+
+    const normalize = (obj) => {
+      const nextLabel = String(obj.label ?? "").trim();
+      if (!nextLabel) return null;
+      return {
+        label: nextLabel,
+        color: String(obj.color ?? "#00eaff").trim() || "#00eaff",
+        padding: Math.max(0, Number(obj.padding ?? 48) || 0)
+      };
+    };
+
+    if (DialogV2?.prompt) {
+      const result = await DialogV2.prompt({
+        window: { title },
+        content,
+        ok: {
+          label: "Save",
+          callback: (event, button) => normalize(new FormDataExtended(button.form).object)
+        },
+        rejectClose: false
+      });
+      return result || null;
+    }
+
+    if (Dialog?.prompt) {
+      const result = await Dialog.prompt({
+        title,
+        content,
+        label: "Save",
+        callback: (html) => normalize({
+          label: html[0]?.querySelector?.("input[name='label']")?.value,
+          color: html[0]?.querySelector?.("input[name='color']")?.value,
+          padding: html[0]?.querySelector?.("input[name='padding']")?.value
+        }),
+        rejectClose: false
+      });
+      return result || null;
+    }
+
+    return normalize(initialValue);
   }
 
   async _confirm(content) {
@@ -1527,9 +1845,14 @@ export class ForceRenderer extends BaseRenderer {
       !nodeIdsToRemove.has(l.source) && !nodeIdsToRemove.has(l.target)
     );
 
+    const cleanGroups = (graph.data?.groups || [])
+      .map(g => ({ ...g, nodeIds: (g.nodeIds || []).filter(id => !nodeIdsToRemove.has(id)) }))
+      .filter(g => (g.nodeIds || []).length > 0);
+
     // 4. Assign back
     graph.data.nodes = cleanNodes;
     graph.data.links = cleanLinks;
+    graph.data.groups = cleanGroups;
 
     return graph;
   }
