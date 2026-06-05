@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.2] - 2026-06-05
+### :sparkles: New Features
+- [`8f37191`](https://github.com/gioppoluca/foundry-graph/commit/8f371913be3abe21b503b5afab8c655c3308ab4f) - added groups for nodes *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`7dd9840`](https://github.com/gioppoluca/foundry-graph/commit/7dd98404192c360b965ae2bed77e468ef9537080) - assets for spacekit *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`1b59221`](https://github.com/gioppoluca/foundry-graph/commit/1b59221f15120ce895ffa156480e3369df93970b) - new spacekit renderer *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`bacfd17`](https://github.com/gioppoluca/foundry-graph/commit/bacfd172bc5a215178ae139adca2fd80a7d82251) - included spacekit *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`f59f558`](https://github.com/gioppoluca/foundry-graph/commit/f59f5586e566fe9fbc76f0d413107b68b80dd743) - final release of the space renderer with proper images *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+### :bug: Bug Fixes
+- [`6c414b6`](https://github.com/gioppoluca/foundry-graph/commit/6c414b6d06000d8e146eaecb7e178bd8075a1ec5) - moved string into lang file *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`7a07318`](https://github.com/gioppoluca/foundry-graph/commit/7a07318651fe22d1473a9e6722674fb9f18bcc58) - moved string in lang file and close [#18](https://github.com/gioppoluca/foundry-graph/pull/18) *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`d638ee0`](https://github.com/gioppoluca/foundry-graph/commit/d638ee0a17d6b1e0c965734768e84008bbe3deb7) - image export *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.14.1] - 2026-06-04
 ### :sparkles: New Features
 - [`649849c`](https://github.com/gioppoluca/foundry-graph/commit/649849cfaedb5808271d8f97f8eee7fdeacd8e1a) - Added the feature to save the graph as a new scene *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -290,3 +304,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.9.6]: https://github.com/gioppoluca/foundry-graph/compare/0.9.5...0.9.6
 [0.14.0]: https://github.com/gioppoluca/foundry-graph/compare/0.9.6...0.14.0
 [0.14.1]: https://github.com/gioppoluca/foundry-graph/compare/0.14.0...0.14.1
+[0.14.2]: https://github.com/gioppoluca/foundry-graph/compare/0.14.1...0.14.2
