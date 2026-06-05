@@ -205,19 +205,21 @@ export class SpacekitRenderer extends BaseRenderer {
     else this.startSimulation();
   }
 
-  async exportToPNG({ destination = "download" } = {}) {
+  async exportToPNG({ scale = 3, destination = "download" } = {}) {
     const canvas = this._stage?.querySelector?.("canvas");
     if (!canvas) {
       ui.notifications.warn(t("Spacekit.ExportUnavailable"));
       return null;
     }
 
-    const blob = await new Promise((resolve, reject) => {
-      canvas.toBlob(
-        b => b ? resolve(b) : reject(new Error("Canvas toBlob failed")),
-        "image/png"
-      );
-    });
+    let blob = null;
+    try {
+      blob = await this._captureSpacekitSceneBlob(scale);
+    } catch (err) {
+      log("Spacekit export failed", err);
+      ui.notifications.error(t("Errors.ExportFailed"));
+      return null;
+    }
 
     const rawName = this.graph?.name || "spacekit-graph";
     const safeName = String(rawName).trim().replace(/[^\w.-]+/g, "_");
@@ -236,6 +238,108 @@ export class SpacekitRenderer extends BaseRenderer {
       URL.revokeObjectURL(url);
     }
     return null;
+  }
+
+  async _captureSpacekitSceneBlob(scale = 1) {
+    await this._waitForAnimationFrame();
+
+    const Spacekit = this._spacekit();
+    const THREE = Spacekit?.THREE ?? globalThis.THREE;
+    const RendererClass = THREE?.WebGLRenderer;
+    const scene = this._simulation?.getScene?.() ?? this._simulation?.scene;
+    const liveRenderer = this._simulation?.getRenderer?.() ?? this._simulation?.renderer;
+    const liveCamera = this._simulation?.getViewer?.()?.get3jsCamera?.()
+      ?? this._simulation?.camera?.get3jsCamera?.();
+
+    if (!RendererClass || !scene || !liveCamera) {
+      throw new Error("Spacekit scene is not ready for export");
+    }
+
+    const stageWidth = this._stage?.clientWidth || liveRenderer?.domElement?.clientWidth || liveRenderer?.domElement?.width || 1024;
+    const stageHeight = this._stage?.clientHeight || liveRenderer?.domElement?.clientHeight || liveRenderer?.domElement?.height || 512;
+    const exportWidth = Math.max(1, Math.floor(Number(this.graph?.width) || Number(this.graph?.background?.width) || stageWidth));
+    const exportHeight = Math.max(1, Math.floor(Number(this.graph?.height) || Number(this.graph?.background?.height) || stageHeight));
+    const pixelRatio = Math.max(1, Number(scale) || 1);
+
+    const exportRenderer = new RendererClass({
+      antialias: true,
+      alpha: false,
+      preserveDrawingBuffer: true
+    });
+    const exportCamera = liveCamera.clone?.() ?? liveCamera;
+    const previousAspect = exportCamera === liveCamera ? liveCamera.aspect : null;
+
+    try {
+      exportRenderer.setPixelRatio?.(pixelRatio);
+      exportRenderer.setSize?.(exportWidth, exportHeight, false);
+      exportRenderer.setClearColor?.(0x000000, 1);
+      exportRenderer.autoClear = true;
+
+      if (liveRenderer) {
+        if ("outputEncoding" in exportRenderer && "outputEncoding" in liveRenderer) {
+          exportRenderer.outputEncoding = liveRenderer.outputEncoding;
+        }
+        if ("toneMapping" in exportRenderer && "toneMapping" in liveRenderer) {
+          exportRenderer.toneMapping = liveRenderer.toneMapping;
+        }
+        if ("toneMappingExposure" in exportRenderer && "toneMappingExposure" in liveRenderer) {
+          exportRenderer.toneMappingExposure = liveRenderer.toneMappingExposure;
+        }
+      }
+
+      exportCamera.aspect = exportWidth / exportHeight;
+      exportCamera.updateProjectionMatrix?.();
+      exportCamera.updateMatrixWorld?.(true);
+
+      this._applyOrbitPositions(this._currentElapsedSeconds());
+      scene.updateMatrixWorld?.(true);
+      exportRenderer.clear?.(true, true, true);
+      exportRenderer.render(scene, exportCamera);
+
+      return await this._canvasToBlob(exportRenderer.domElement);
+    } finally {
+      if (previousAspect !== null) {
+        liveCamera.aspect = previousAspect;
+        liveCamera.updateProjectionMatrix?.();
+      }
+      exportRenderer.dispose?.();
+      exportRenderer.forceContextLoss?.();
+    }
+  }
+
+  _canvasToBlob(canvas) {
+    return new Promise((resolve, reject) => {
+      if (canvas.toBlob) {
+        canvas.toBlob(blob => {
+          if (blob) resolve(blob);
+          else reject(new Error("Canvas toBlob failed"));
+        }, "image/png");
+        return;
+      }
+
+      try {
+        resolve(this._dataUrlToBlob(canvas.toDataURL("image/png")));
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  _dataUrlToBlob(dataUrl) {
+    const [header, payload] = String(dataUrl).split(",");
+    const mime = header.match(/^data:([^;]+);base64$/)?.[1] ?? "image/png";
+    const binary = atob(payload ?? "");
+    const bytes = new Uint8Array(binary.length);
+
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+
+    return new Blob([bytes], { type: mime });
+  }
+
+  _waitForAnimationFrame() {
+    return new Promise(resolve => requestAnimationFrame(() => resolve()));
   }
 
   _ensureGraph(graph) {
@@ -903,10 +1007,15 @@ export class SpacekitRenderer extends BaseRenderer {
     this._stage?.appendChild(box);
   }
 
+  _currentElapsedSeconds() {
+    if (!this._running) return this._elapsedBeforeStop;
+    return this._elapsedBeforeStop + ((performance.now() - this._startedAt) / 1000);
+  }
+
   _tickOrbits() {
     if (!this._running) return;
 
-    const elapsed = this._elapsedBeforeStop + ((performance.now() - this._startedAt) / 1000);
+    const elapsed = this._currentElapsedSeconds();
     this._applyOrbitPositions(elapsed);
     this._forceSimulationUpdate();
     this._animationFrame = requestAnimationFrame(() => this._tickOrbits());
