@@ -8,6 +8,7 @@ import { MapRenderer } from "./renderers/map-renderer.js";
 import { migrateGraph } from "./model/graph_migrations.js";
 import { TimelineRenderer } from "./renderers/timeline-renderer.js";
 import { VisTimelineRenderer } from "./renderers/vis-timeline-renderer.js";
+import { SpacekitRenderer } from "./renderers/spacekit-renderer.js";
 import { D3GraphApp } from "./d3-graph-app.js";
 
 const LEVELS = foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS; // { NONE:0, LIMITED:1, OBSERVER:2, OWNER:3 }
@@ -104,6 +105,7 @@ export class GraphApi {
             [MapRenderer.ID, new MapRenderer()],
             [TimelineRenderer.ID, new VisTimelineRenderer()],
             [VisTimelineRenderer.ID, new VisTimelineRenderer()],
+            [SpacekitRenderer.ID, new SpacekitRenderer()],
         ]);
 
         log("GraphApi.constructor", this.graphTypes)

@@ -533,3 +533,149 @@ svg image {
   white-space: nowrap;
   font-size: 12px;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Spacekit renderer                                                           */
+/* -------------------------------------------------------------------------- */
+
+.fg-spacekit-container {
+  position: relative;
+  overflow: hidden;
+  background: #01030d;
+  border: 1px solid #888;
+}
+
+.fg-spacekit-container #d3-graph {
+  display: none;
+}
+
+.fg-spacekit-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  overflow: hidden;
+  isolation: isolate;
+  background-color: #01030d;
+  background-position: center;
+  background-size: cover;
+}
+
+.fg-spacekit-stage canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.fg-spacekit-toolbar {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+  display: flex;
+  gap: 6px;
+}
+
+.fg-spacekit-toolbar button,
+.fg-spacekit-body-row button {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 4px;
+  background: rgba(10, 18, 34, 0.86);
+  color: #e9f7ff;
+  cursor: pointer;
+}
+
+.fg-spacekit-toolbar button.active {
+  background: rgba(22, 84, 42, 0.9);
+}
+
+.fg-spacekit-body-list {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  width: 230px;
+  max-height: calc(100% - 20px);
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  background: rgba(5, 10, 22, 0.72);
+  color: #e9f7ff;
+}
+
+.fg-spacekit-body-list-title {
+  margin-bottom: 6px;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+
+.fg-spacekit-body-list-empty {
+  opacity: 0.75;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.fg-spacekit-body-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+.fg-spacekit-body-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fg-spacekit-body-row button {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  line-height: 18px;
+  padding: 0;
+}
+
+.fg-spacekit-body-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 3px;
+}
+
+.fg-spacekit-body-form .form-group {
+  align-items: center;
+}
+
+.fg-spacekit-body-form input[type="number"] {
+  max-width: 120px;
+}
+
+.fg-spacekit-body-form hr {
+  width: 100%;
+  margin: 8px 0;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.fg-spacekit-message {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 6;
+  max-width: 520px;
+  transform: translate(-50%, -50%);
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 6px;
+  background: rgba(5, 10, 22, 0.88);
+  color: #e9f7ff;
+  text-align: center;
+}
