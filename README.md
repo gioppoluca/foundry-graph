@@ -71,7 +71,12 @@ Everything lives directly inside Foundry — no external tools.
 <details>
   <summary><strong>Cyber Network Map</strong></summary>
 
-![Graph Example](doc/graph_matrix.png)
+![Matrix Example](doc/graph_matrix.png)
+</details>
+<details>
+  <summary><strong>Planetary Map</strong></summary>
+
+![Planetary Example](doc/Planetary.png)
 </details>
 
 
@@ -108,6 +113,7 @@ These are the graph type available
 | ![](img/icons/icon-haven-layout.webp) | Haven Layout | Slot Layout | Castle, manor, house, modern house, condo, penthouse, slums, medieval village, medieval manor, medieval crypt| WoD5e / VTM5e | Items | Vampire haven visualization |
 | ![](img/icons/icon-vis-timeline.webp)| Timeline | Timeline | | Any | Any | Thins that can happen on a timeline |
 | ![](img/icons/matrix.webp) | Cyber Network Map | Free Diagram | —      | Any    | Actors, Scenes, Items, Journal Pages, Symbols | Cyberpunk matrix diagram with symbol palette and glowing links |
+| ![](img/icons/space-system.webp) | Space system | Spacekit | —      | Any    | Symbols | Planetary system 3D visualization with rotational simulation |
 
 New graph types are actively under development — feel free to open an issue with suggestions.
 
@@ -232,6 +238,20 @@ Placing Scenes, Journals, Actors, Items or free events on a temporal timeline wi
 - Keep labels in synch with the entities
 
 ![timeline example](doc/Orcish_History.png)
+
+
+#### Spacekit renderer
+**Concept**
+Create your planetary system, with star, planets and moons.
+Simulate its rotation and export if needed.
+
+**Key interactions**
+- Drop from the palette the proper object you want to add
+- Choose from different textures for each celestial body
+- Set orbital data to define radius, speed, inclination
+
+![Planetary example](doc/planetary-graph.png)
+
 
 ### Common feature
 All the graph share some common features:
