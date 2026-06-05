@@ -3,10 +3,10 @@
   </i>
   <div class="flexrow">
     {{#if isLinkNodesVisible}}
-    <button type="button" data-action="linkNodes" class="graph-btn">Link Nodes</button>
+    <button type="button" data-action="linkNodes" class="graph-btn">{{localize "foundry-graph.Buttons.LinkNodes"}}</button>
     {{/if}}
     {{#if isRelationSelectVisible}}
-    <label for="relation-type">Relation Type:</label>
+    <label for="relation-type">{{localize "foundry-graph.Labels.RelationTypeWithColon"}}</label>
     <select id="relation-type">
       {{#each relations}}
       <option value="{{id}}" data-color="{{color}}" data-style="{{style}}">
@@ -23,7 +23,7 @@
     {{/if}}
     {{#if isSaveNewSceneScaledVisible}}
     <button data-action="exportScaledSceneAction" id="export-scaled-scene-btn" {{#unless isSaveNewSceneScaledEnabled}}disabled
-      title="Scaled scene export is available only when the map is close enough to the provider native max zoom."{{/unless}}>🗺 {{localize "foundry-graph.Buttons.ExportScaledScene"}}</button>
+      title="{{localize 'foundry-graph.Notifications.ScaledSceneExportUnavailableZoom'}}"{{/unless}}>🗺 {{localize "foundry-graph.Buttons.ExportScaledScene"}}</button>
     {{/if}}
     <button data-action="saveAction" id="save-btn" {{#unless isEdit}}disabled
       title='{{localize "foundry-graph.Window.ViewOnlyMode"}}' {{/unless}}>💾 {{localize

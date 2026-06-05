@@ -20,10 +20,10 @@
       <textarea id="graph-desc" rows="5" cols="45">{{graph.desc}}</textarea>
     </div>
     <div class="graph-select-wrapper">
-      <label for="graph-type-select">Select Graph Type:</label>
+      <label for="graph-type-select">{{ localize "foundry-graph.Labels.SelectGraphTypeWithColon" }}</label>
       <select id="graph-type-select" name="graphId" {{#if graph.id}} disabled {{/if}}
         data-tooltip="foundry-graph.tooltip.selectGraphType">
-        <option value="">--Please choose an option--</option>
+        <option value="">{{ localize "foundry-graph.Labels.PleaseChooseOption" }}</option>
         {{selectOptions graphTypes selected=selectedGraphType valueAttr="id" labelAttr="name"}}
         <!--
         {{#each graphTypes}}
@@ -34,41 +34,41 @@
       </select>
     </div>
     <div class="graph-select-wrapper">
-      <label for="graph-theme-select">Theme:</label>
+      <label for="graph-theme-select">{{ localize "foundry-graph.Labels.ThemeWithColon" }}</label>
       <select id="graph-theme-select" name="graphTheme" data-action="onThemeChange">
         {{#if selectedGraphThemes}}
         {{selectOptions selectedGraphThemes selected=selectedTheme valueAttr="id" labelAttr="label"}}
         {{else}}
-        <option value="">Default</option>
+        <option value="">{{ localize "foundry-graph.Labels.Default" }}</option>
         {{/if}}
       </select>
     </div>
     <div class="flexrow">
       <div class="form-fields">
-        <label for="graph-width">Width (px):</label>
+        <label for="graph-width">{{ localize "foundry-graph.Labels.WidthPxWithColon" }}</label>
         <input type="number" id="graph-width" value="{{graph.background.width}}" min="100" {{#if
           graph.id}}readonly{{/if}} />
       </div>
       <div class="form-fields">
-        <label for="graph-height">Height (px):</label>
+        <label for="graph-height">{{ localize "foundry-graph.Labels.HeightPxWithColon" }}</label>
         <input type="number" id="graph-height" value="{{graph.background.height}}" min="100" {{#if
           graph.id}}readonly{{/if}} />
       </div>
     </div>
-    <label for="graph-background">Background Image:</label>
+    <label for="graph-background">{{ localize "foundry-graph.Labels.BackgroundImageWithColon" }}</label>
     <file-picker id="graph-background" name="graph-background" type="image" value="{{graph.background.image}} "
       data-tooltip="foundry-graph.tooltip.backgroundImage" data-action="onChangeGraphBackground">
-      <span class="file-picker-label">Select Background Image</span>
+      <span class="file-picker-label">{{ localize "foundry-graph.Labels.SelectBackgroundImage" }}</span>
       <span class="file-picker-value">{{graph.background.image}}</span>
     </file-picker>
-    <span class="file-picker-info">Supported formats: PNG, JPG, GIF</span>
+    <span class="file-picker-info">{{ localize "foundry-graph.Labels.SupportedImageFormats" }}</span>
     <br>
     <div class="flexrow">
       <button id="create-graph-btn" type="button" data-action="onCreateGraph">
-        <i class="fa-solid fa-square-pen"></i> Save Graph
+        <i class="fa-solid fa-square-pen"></i> {{ localize "foundry-graph.Buttons.SaveGraph" }}
       </button>
       <button id="cancel-graph-btn" type="button" data-action="onCancelCreate">
-        <i class="fa-solid fa-ban"></i> Cancel
+        <i class="fa-solid fa-ban"></i> {{ localize "foundry-graph.Buttons.Cancel" }}
       </button>
     </div>
     {{!-- Import section --}}

@@ -37,7 +37,7 @@ export class FGCalendarDateTimePopover {
         monthEl.innerHTML = months.map((m, idx) => {
             console.log("month", m, idx);
             const value = (idx);
-            const raw = (m.name ?? m.abbreviation ?? `Month ${idx + 1}`);
+            const raw = (m.name ?? m.abbreviation ?? game.i18n.format("foundry-graph.Calendar.MonthFallback", { number: idx + 1 }));
             // Calendar month names may be localization keys (e.g. "TIME.Months.January")
             const label = (typeof raw === "string") ? game.i18n.localize(raw) : String(raw);
             return `<option value="${value}">${label}</option>`;

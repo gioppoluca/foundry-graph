@@ -1,9 +1,9 @@
-import { log } from "../../constants.js";
+import { log, t } from "../../constants.js";
 import { BaseMapOperator } from "./base-map-operator.js";
 
 export class MapImageOperator extends BaseMapOperator {
   getInstructions() {
-    return "Drop Actors/Scenes/Items/Journal pages on the image map to create markers. Drag markers to reposition. Right-click a marker to radial menu.";
+    return t("Map.ImageInstructions");
   }
 
   async createMap(container, { graph, center = null, zoom = null } = {}) {

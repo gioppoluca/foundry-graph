@@ -1,9 +1,9 @@
-import { log } from "../../constants.js";
+import { log, t } from "../../constants.js";
 import { BaseMapOperator } from "./base-map-operator.js";
 
 export class MapEarthOperator extends BaseMapOperator {
   getInstructions() {
-    return "Drop Actors/Scenes/Items/Journal pages on the map to create markers. Drag markers to reposition. Right-click a marker to radial menu.";
+    return t("Map.Instructions");
   }
 
   async createMap(container, { graph, center = [0, 0], zoom = 2 } = {}) {
@@ -424,8 +424,8 @@ export class MapEarthOperator extends BaseMapOperator {
         const container = L.DomUtil.create("div", "leaflet-control fg-leaflet-search");
         container.innerHTML = `
           <div class="fg-leaflet-search-row">
-            <input class="fg-leaflet-search-input" type="text" placeholder="Search (Nominatim)…" />
-            <button class="fg-leaflet-search-btn" type="button" title="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
+            <input class="fg-leaflet-search-input" type="text" placeholder="${t("Map.SearchPlaceholder")}" />
+            <button class="fg-leaflet-search-btn" type="button" title="${t("Map.Search")}"><i class="fa-solid fa-magnifying-glass"></i></button>
           </div>
           <div class="fg-leaflet-search-results"></div>
         `;
@@ -450,7 +450,7 @@ export class MapEarthOperator extends BaseMapOperator {
             const json = await res.json();
             const items = Array.isArray(json) ? json : [];
             if (items.length === 0) {
-              results.innerHTML = `<div class="fg-leaflet-search-empty">No results</div>`;
+              results.innerHTML = `<div class="fg-leaflet-search-empty">${t("Map.NoResults")}</div>`;
               return;
             }
 
@@ -470,7 +470,7 @@ export class MapEarthOperator extends BaseMapOperator {
             }
           } catch (e) {
             log("MapEarthOperator.search failed", e);
-            results.innerHTML = `<div class="fg-leaflet-search-empty">Search failed</div>`;
+            results.innerHTML = `<div class="fg-leaflet-search-empty">${t("Map.SearchFailed")}</div>`;
           }
         };
 

@@ -2,8 +2,8 @@
   <table class="graph-table">
     <thead>
       <tr>
-        <th>User</th>
-        <th>Permission</th>
+        <th>{{localize "foundry-graph.Labels.User"}}</th>
+        <th>{{localize "foundry-graph.Labels.Permission"}}</th>
       </tr>
     </thead>
     <tbody>
@@ -26,7 +26,7 @@
 
   <hr>
 
-  <label>Default Permission&nbsp;
+  <label>{{localize "foundry-graph.Labels.DefaultPermission"}}&nbsp;
     <select id="perm-default">
       {{#each LEVELS}}
       <option value="{{this}}" {{#if (eq ../defaultLevel this)}}selected{{/if}}>

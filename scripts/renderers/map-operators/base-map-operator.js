@@ -1,4 +1,4 @@
-import { log } from "../../constants.js";
+import { log, t } from "../../constants.js";
 
 /**
  * Base class for map source operators.
@@ -77,7 +77,7 @@ export class BaseMapOperator {
   }
 
   getInstructions() {
-    return "Drop Actors/Scenes/Items/Journal pages on the map to create markers. Drag markers to reposition. Right-click a marker to radial menu.";
+    return t("Map.BaseInstructions");
   }
 
   getGraphMapData(currentMapData = {}) {

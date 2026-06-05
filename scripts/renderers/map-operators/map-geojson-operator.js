@@ -1,8 +1,9 @@
+import { t } from "../../constants.js";
 import { BaseMapOperator } from "./base-map-operator.js";
 
 export class MapGeoJsonOperator extends BaseMapOperator {
   getInstructions() {
-    return "Drop Actors/Scenes/Items/Journal pages on the GeoJSON map to create markers. Use the layer selector to show or hide configured map layers.";
+    return t("Map.GeoJsonInstructions");
   }
 
   async createMap(container, { graph, center = null, zoom = null } = {}) {
@@ -1004,7 +1005,7 @@ export class MapGeoJsonOperator extends BaseMapOperator {
 
   _formatControlLabel(layerDef) {
     const group = String(layerDef?.group ?? "").trim();
-    const label = String(layerDef?.label ?? layerDef?.id ?? "Layer").trim();
+    const label = String(layerDef?.label ?? layerDef?.id ?? t("Map.Layer")).trim();
     return group ? `${group} / ${label}` : label;
   }
 
