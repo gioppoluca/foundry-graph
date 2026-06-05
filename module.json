@@ -29,6 +29,7 @@
     "scripts/lib/d3.js",
     "scripts/lib/family-chart.min.js",
     "scripts/lib/vis-timeline.min.js",
+    "scripts/lib/spacekit.js",
     "scripts/lib/js_family_tree.umd.js"
   ],
   "styles": [
