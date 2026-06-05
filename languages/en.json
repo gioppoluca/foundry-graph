@@ -358,14 +358,14 @@
       "MonthFallback": "Month {number}"
     },
     "Spacekit": {
-      "Instructions": "<b>Drag</b> a star or planet symbol into the 3D space scene<br><b>Start/Stop</b>: control the visual orbit simulation<br><b>✎</b>: edit body settings<br><b>×</b>: remove a body from the scene",
+      "Instructions": "<b>Drag</b> a star, planet, moon or small body symbol into the 3D space scene<br><b>Dialog</b>: choose texture, parent body and orbit settings<br><b>Start/Stop</b>: control the visual orbit simulation<br><b>✎</b>: edit body settings<br><b>×</b>: remove a body from the scene",
       "MissingLibrary": "Spacekit is not loaded. Make sure the Spacekit browser build is included in module.json before the ES module starts.",
       "InitFailed": "Spacekit initialization failed: {message}",
       "AddedBody": "Added space body: {label}",
       "NameBody": "Name Space Body",
       "BodyFallback": "Space Body",
       "Bodies": "Bodies",
-      "DropHint": "Drag a star or planet symbol here.",
+      "DropHint": "Drag a star, planet, moon or small body symbol here.",
       "RemoveBody": "Remove body",
       "ExportUnavailable": "Spacekit export is not available until the canvas is ready.",
       "AddBody": "Add Space Body",
@@ -379,7 +379,16 @@
       "OrbitSpeed": "Orbit speed",
       "OrbitPhase": "Orbit phase",
       "OrbitInclination": "Orbit inclination",
-      "BodyFormHint": "Disable visual orbit to use the fixed X/Y/Z position. Distances are visual units, not astronomical units."
+      "BodyFormHint": "Choose a texture and parent body here. Disable visual orbit to use the fixed X/Y/Z position relative to the selected parent. Distances are visual units, not astronomical units.",
+      "BodyType": "Body type",
+      "BodyTypeStar": "Star",
+      "BodyTypePlanet": "Planet",
+      "BodyTypeMoon": "Moon",
+      "BodyTypeSmallBody": "Small Body",
+      "Texture": "Texture",
+      "ParentBody": "Orbit around",
+      "SystemCenter": "System Center",
+      "UnknownParent": "Unknown Parent"
     }
   }
 }

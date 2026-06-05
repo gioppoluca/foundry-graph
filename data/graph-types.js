@@ -1953,6 +1953,193 @@ export const GRAPH_TYPES = {
       },
     ]
   },
+
+  "fantasy-space-system": {
+    "id": "fantasy-space-system",
+    "name": "Fantasy Space System",
+    "description": "A visual 3D fantasy space scene powered by Spacekit. Add stars, planets, moons and small bodies from the symbol palette and configure their texture and orbit in the dialog.",
+    "themes": [
+      {
+        "id": "deep-space",
+        "label": "Deep Space",
+        "image": "modules/foundry-graph/assets/space/fantasy/textures/backgrounds/deep-space-01.png",
+        "width": 1024,
+        "height": 512,
+        "spacekitBasePath": "modules/foundry-graph/assets/spacekit",
+        "camera": {
+          "initialPosition": [0, -22, 12]
+        }
+      }
+    ],
+    "background": {
+      "image": "modules/foundry-graph/assets/space/fantasy/textures/backgrounds/deep-space-01.png",
+      "width": 1024,
+      "height": 512
+    },
+    "icon": "modules/foundry-graph/img/icons/space-system.webp",
+    "renderer": "spacekit",
+    "color": "#00eaff",
+    "nodeLabelColor": "#ffffff",
+    "version": 1,
+    "released": true,
+    "editRelationsEnabled": false,
+    "systems": ["*"],
+    "allowedEntities": [],
+    "relations": [],
+    "textureCatalog": {
+      "star": [
+        {
+          "id": "yellow-star",
+          "label": "Yellow Star",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/stars/sun.webp"
+        },
+        {
+          "id": "red-star",
+          "label": "Red Star",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/stars/red-giant.webp"
+        },
+        {
+          "id": "blue-star",
+          "label": "Blue Star",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/stars/blue-star.webp"
+        },
+        {
+          "id": "dark-star",
+          "label": "Dark Star",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/stars/dark-star.webp"
+        }
+      ],
+      "planet": [
+        {
+          "id": "rocky-red",
+          "label": "Rocky Red Planet",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/planets/red.webp"
+        },
+        {
+          "id": "rocky-grey",
+          "label": "Rocky Grey Planet",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/planets/mercury.webp"
+        },
+        {
+          "id": "martian",
+          "label": "Martian Planet",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/planets/mars.webp"
+        },
+        {
+          "id": "semi-desert",
+          "label": "Semi-Desert Planet",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/planets/desert.webp"
+        },
+        {
+          "id": "desert",
+          "label": "Desert Planet",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/planets/desert-02.webp"
+        },
+        {
+          "id": "ocean",
+          "label": "Ocean Planet",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/planets/neptune.webp"
+        },
+        {
+          "id": "ice-rocky",
+          "label": "Ice Rocky Planet",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/planets/haumea.webp"
+        },
+        {
+          "id": "ice",
+          "label": "Ice Planet",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/planets/ice.webp"
+        },
+        {
+          "id": "lava",
+          "label": "Lava Planet",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/planets/lava.webp"
+        },
+        {
+          "id": "venusian",
+          "label": "Venusian Planet",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/planets/venus.webp"
+        },
+        {
+          "id": "toxic",
+          "label": "Toxic Planet",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/planets/methane.webp"
+        },
+        {
+          "id": "gas-giant",
+          "label": "Gas Giant",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/planets/jupiter.webp"
+        }
+      ],
+      "moon": [
+        {
+          "id": "gray-moon",
+          "label": "Gray Moon",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/moons/moon.webp"
+        }
+      ],
+      "smallBody": [
+        {
+          "id": "asteroid",
+          "label": "Asteroid",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/asteroids/ceres.webp"
+        },
+        {
+          "id": "comet-core",
+          "label": "Comet Core",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/asteroids/comet.webp"
+        },
+        {
+          "id": "crystal-body",
+          "label": "Crystal Body",
+          "texture": "modules/foundry-graph/assets/space/fantasy/textures/asteroids/crystal-body.webp"
+        }
+      ]
+    },
+    "symbols": [
+      {
+        "id": "star",
+        "label": "Star",
+        "defaultName": "Star",
+        "bodyType": "star",
+        "img": "modules/foundry-graph/assets/space/fantasy/icons/sun.webp",
+        "radius": 2.8,
+        "position": [0, 0, 0]
+      },
+      {
+        "id": "planet",
+        "label": "Planet",
+        "defaultName": "Planet",
+        "bodyType": "planet",
+        "img": "modules/foundry-graph/assets/space/fantasy/icons/planet.webp",
+        "radius": 0.75,
+        "orbitRadius": 6,
+        "orbitSpeed": 0.25
+      },
+      {
+        "id": "moon",
+        "label": "Moon",
+        "defaultName": "Moon",
+        "bodyType": "moon",
+        "img": "modules/foundry-graph/assets/space/fantasy/icons/moon.webp",
+        "radius": 0.32,
+        "orbitRadius": 1.4,
+        "orbitSpeed": 0.65,
+        "orbitInclination": 8
+      },
+      {
+        "id": "small-body",
+        "label": "Small Body",
+        "defaultName": "Small Body",
+        "bodyType": "smallBody",
+        "img": "modules/foundry-graph/assets/space/fantasy/icons/small-body.webp",
+        "radius": 0.28,
+        "orbitRadius": 4,
+        "orbitSpeed": 0.45,
+        "orbitInclination": 12
+      }
+    ]
+  },
   "vis-timeline-notes": {
     "id": "vis-timeline-notes",
     "name": "Timeline",

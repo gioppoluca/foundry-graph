@@ -1,4 +1,4 @@
-import { log, safeUUID, t, tf } from "../constants.js";
+import { JSON_graph_types, log, safeUUID, t, tf } from "../constants.js";
 import { BaseRenderer } from "./base-renderer.js";
 
 const { DialogV2 } = foundry.applications.api;
@@ -26,6 +26,9 @@ export class SpacekitRenderer extends BaseRenderer {
     this._bodyList = null;
     this._simulation = null;
     this._resizeFrame = null;
+    this._resizeObserver = null;
+    this._onWindowResize = null;
+    this._lastStageSize = { width: 0, height: 0 };
     this._objects = new Map();
     this._running = false;
     this._animationFrame = null;
@@ -89,7 +92,9 @@ export class SpacekitRenderer extends BaseRenderer {
         type: n.type,
         bodyType: n.bodyType,
         symbolId: n.symbolId,
+        textureId: n.textureId,
         texture: n.texture,
+        parentId: n.parentId ?? null,
         radius: Number(n.radius) || 1,
         position: Array.isArray(n.position) ? n.position.slice(0, 3) : null,
         visualOrbit: n.visualOrbit ? { ...n.visualOrbit } : null
@@ -120,6 +125,7 @@ export class SpacekitRenderer extends BaseRenderer {
     this._container.appendChild(this._stage);
 
     this._attachDropHandlers();
+    this._attachResizeHandlers();
     this._setStageSize();
     this._renderToolbar();
     this._renderBodyList();
@@ -129,6 +135,7 @@ export class SpacekitRenderer extends BaseRenderer {
   teardown() {
     this.stopSimulation({ persist: false });
     this._detachDropHandlers();
+    this._detachResizeHandlers();
 
     try {
       this._simulation?.stop?.();
@@ -139,6 +146,7 @@ export class SpacekitRenderer extends BaseRenderer {
 
     if (this._resizeFrame) cancelAnimationFrame(this._resizeFrame);
     this._resizeFrame = null;
+    this._lastStageSize = { width: 0, height: 0 };
 
     if (this._stage?.parentNode) this._stage.parentNode.removeChild(this._stage);
     if (this._container) this._container.classList.remove("fg-spacekit-container");
@@ -253,6 +261,43 @@ export class SpacekitRenderer extends BaseRenderer {
     this._stage.style.minHeight = "420px";
   }
 
+  _attachResizeHandlers() {
+    this._detachResizeHandlers();
+
+    this._onWindowResize = () => this._queueSimulationResize();
+    window.addEventListener("resize", this._onWindowResize, { passive: true });
+
+    if (globalThis.ResizeObserver && this._stage) {
+      this._resizeObserver = new ResizeObserver(() => {
+        if (!this._stage) return;
+
+        const rect = this._stage.getBoundingClientRect();
+        const width = Math.round(rect.width);
+        const height = Math.round(rect.height);
+        if (!width || !height) return;
+
+        if (width === this._lastStageSize.width && height === this._lastStageSize.height) return;
+        this._lastStageSize = { width, height };
+        this._queueSimulationResize();
+      });
+
+      this._resizeObserver.observe(this._stage);
+      if (this._container) this._resizeObserver.observe(this._container);
+    }
+  }
+
+  _detachResizeHandlers() {
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+      this._resizeObserver = null;
+    }
+
+    if (this._onWindowResize) {
+      window.removeEventListener("resize", this._onWindowResize);
+      this._onWindowResize = null;
+    }
+  }
+
   _queueSimulationResize() {
     if (this._resizeFrame) cancelAnimationFrame(this._resizeFrame);
     this._resizeFrame = requestAnimationFrame(() => {
@@ -271,10 +316,6 @@ export class SpacekitRenderer extends BaseRenderer {
     } catch (err) {
       log("Spacekit resize update failed", err);
     }
-
-    try {
-      window.dispatchEvent(new Event("resize"));
-    } catch (_err) { /* ignore */ }
 
     this._forceSimulationUpdate();
   }
@@ -337,7 +378,7 @@ export class SpacekitRenderer extends BaseRenderer {
     this._objects.clear();
 
     for (const node of this.graph.data.nodes) {
-      const position = this._positionForNode(node, 0);
+      const position = this._worldPositionForNode(node, 0);
       let obj = null;
 
       try {
@@ -424,37 +465,167 @@ export class SpacekitRenderer extends BaseRenderer {
   }
 
   _nodeFromSymbol(symbol, label) {
-    const orbitIndex = this.graph.data.nodes.filter(n => n.bodyType !== "star").length;
-    const orbit = symbol.visualOrbit
-      ? { ...symbol.visualOrbit }
-      : this._defaultOrbitFor(symbol, orbitIndex);
+    const bodyType = symbol.bodyType || "planet";
+    const bodyIndex = this.graph.data.nodes.filter(n => n.bodyType === bodyType).length;
+    const texture = this._defaultTextureFor(bodyType);
+    const parentId = this._defaultParentIdFor(bodyType);
+    const isStar = bodyType === "star";
 
     return {
       id: safeUUID(),
       label,
       type: "SpaceBody",
-      bodyType: symbol.bodyType || "planet",
+      bodyType,
       symbolId: symbol.id,
-      texture: symbol.texture || symbol.img,
-      radius: Number(symbol.radius) || 1,
-      position: Array.isArray(symbol.position) ? symbol.position.slice(0, 3) : null,
-      visualOrbit: symbol.bodyType === "star" ? null : orbit
+      textureId: texture?.id ?? null,
+      texture: texture?.texture ?? symbol.texture ?? symbol.img,
+      parentId,
+      radius: Number(symbol.radius) || this._defaultRadiusFor(bodyType),
+      position: isStar ? [0, 0, 0] : null,
+      visualOrbit: isStar ? null : this._defaultOrbitFor(symbol, bodyIndex, bodyType)
     };
   }
 
-  _defaultOrbitFor(symbol, index) {
-    return {
-      radius: Number(symbol.orbitRadius) || 4 + index * 2.4,
-      speed: Number(symbol.orbitSpeed) || 0.08 + index * 0.015,
-      phase: Number(symbol.orbitPhase) || index * 55,
-      inclination: Number(symbol.orbitInclination) || 0
+  _defaultOrbitFor(symbol, index, bodyType) {
+    const defaults = {
+      planet: {
+        radius: 5 + index * 2.4,
+        speed: 0.25 - Math.min(index * 0.025, 0.14),
+        phase: index * 55,
+        inclination: 0
+      },
+      moon: {
+        radius: 1.4 + index * 0.35,
+        speed: 0.65 + index * 0.05,
+        phase: index * 70,
+        inclination: 8
+      },
+      smallBody: {
+        radius: 4 + index * 1.8,
+        speed: 0.45 + index * 0.03,
+        phase: index * 50,
+        inclination: 12
+      }
     };
+
+    const fallback = defaults[bodyType] ?? defaults.planet;
+    return {
+      radius: Number(symbol.orbitRadius) || fallback.radius,
+      speed: Number(symbol.orbitSpeed) || fallback.speed,
+      phase: Number(symbol.orbitPhase) || fallback.phase,
+      inclination: Number(symbol.orbitInclination) || fallback.inclination
+    };
+  }
+
+  _defaultRadiusFor(bodyType) {
+    return {
+      star: 2.8,
+      planet: 0.75,
+      moon: 0.32,
+      smallBody: 0.28
+    }[bodyType] ?? 1;
+  }
+
+  _defaultParentIdFor(bodyType) {
+    if (bodyType === "star") return null;
+
+    const nodes = this.graph?.data?.nodes ?? [];
+    const firstStar = nodes.find(n => n.bodyType === "star")?.id ?? null;
+    const firstPlanet = nodes.find(n => n.bodyType === "planet")?.id ?? null;
+
+    if (bodyType === "moon") return firstPlanet ?? firstStar;
+    return firstStar;
+  }
+
+  _textureCatalog() {
+    return this.graph?.textureCatalog
+      ?? this.graph?.["theme-data"]?.textureCatalog
+      ?? JSON_graph_types?.[this.graph?.graphType]?.textureCatalog
+      ?? {};
+  }
+
+  _texturesFor(bodyType) {
+    return this._textureCatalog()[bodyType] ?? [];
+  }
+
+  _defaultTextureFor(bodyType) {
+    return this._texturesFor(bodyType)[0] ?? null;
+  }
+
+  _textureById(bodyType, textureId) {
+    return this._texturesFor(bodyType).find(texture => texture.id === textureId) ?? this._defaultTextureFor(bodyType);
+  }
+
+  _bodyTypeLabel(bodyType) {
+    return {
+      star: t("Spacekit.BodyTypeStar"),
+      planet: t("Spacekit.BodyTypePlanet"),
+      moon: t("Spacekit.BodyTypeMoon"),
+      smallBody: t("Spacekit.BodyTypeSmallBody")
+    }[bodyType] ?? t("Spacekit.BodyFallback");
   }
 
   _nextBodyName(symbol) {
     const base = String(symbol.defaultName || symbol.label || symbol.id || t("Spacekit.BodyFallback")).trim();
     const count = (this.graph?.data?.nodes ?? []).filter(n => n.symbolId === symbol.id).length + 1;
     return `${base} ${String(count).padStart(2, "0")}`;
+  }
+
+  _parentLabel(parentId) {
+    if (!parentId) return t("Spacekit.SystemCenter");
+    return this.graph?.data?.nodes?.find?.(n => n.id === parentId)?.label ?? t("Spacekit.UnknownParent");
+  }
+
+  _parentOptionsFor(node) {
+    const options = [{ id: "", label: t("Spacekit.SystemCenter") }];
+    if (node.bodyType === "star") return options;
+
+    const allowedTypes = node.bodyType === "planet"
+      ? ["star"]
+      : ["planet", "star"];
+
+    const candidates = (this.graph?.data?.nodes ?? [])
+      .filter(candidate => candidate.id !== node.id)
+      .filter(candidate => allowedTypes.includes(candidate.bodyType))
+      .filter(candidate => !this._wouldCreateParentCycle(node.id, candidate.id))
+      .sort((a, b) => {
+        const weight = { planet: 0, star: 1 };
+        return (weight[a.bodyType] ?? 9) - (weight[b.bodyType] ?? 9) || String(a.label).localeCompare(String(b.label));
+      });
+
+    for (const candidate of candidates) {
+      options.push({
+        id: candidate.id,
+        label: `${candidate.label} (${this._bodyTypeLabel(candidate.bodyType)})`
+      });
+    }
+
+    return options;
+  }
+
+  _wouldCreateParentCycle(nodeId, parentId) {
+    if (!nodeId || !parentId) return false;
+
+    let currentId = parentId;
+    const visited = new Set();
+    const nodes = this.graph?.data?.nodes ?? [];
+
+    while (currentId) {
+      if (currentId === nodeId) return true;
+      if (visited.has(currentId)) return true;
+      visited.add(currentId);
+      const current = nodes.find(n => n.id === currentId);
+      currentId = current?.parentId ?? null;
+    }
+
+    return false;
+  }
+
+  _optionsHtml(options, selectedId) {
+    return options.map(option => {
+      const selected = String(option.id ?? "") === String(selectedId ?? "") ? " selected" : "";
+      return `<option value="${this._escapeHtml(option.id ?? "")}"${selected}>${this._escapeHtml(option.label)}</option>`;
+    }).join("");
   }
 
   _formDataObject(form) {
@@ -485,6 +656,10 @@ export class SpacekitRenderer extends BaseRenderer {
     const orbit = node.visualOrbit ?? {};
     const position = Array.isArray(node.position) ? node.position : [0, 0, 0];
     const hasOrbit = !!node.visualOrbit;
+    const isStar = node.bodyType === "star";
+    const selectedTexture = this._textureById(node.bodyType, node.textureId);
+    const textureOptions = this._optionsHtml(this._texturesFor(node.bodyType), selectedTexture?.id ?? node.textureId);
+    const parentOptions = this._optionsHtml(this._parentOptionsFor(node), node.parentId ?? "");
 
     const content = `
 <form class="fg-spacekit-body-form">
@@ -493,8 +668,20 @@ export class SpacekitRenderer extends BaseRenderer {
     <input type="text" name="label" value="${this._escapeHtml(node.label)}" autofocus>
   </div>
   <div class="form-group">
+    <label>${t("Spacekit.BodyType")}</label>
+    <input type="text" value="${this._escapeHtml(this._bodyTypeLabel(node.bodyType))}" disabled>
+  </div>
+  <div class="form-group">
+    <label>${t("Spacekit.Texture")}</label>
+    <select name="textureId">${textureOptions}</select>
+  </div>
+  <div class="form-group">
     <label>${t("Spacekit.Radius")}</label>
     <input type="number" name="radius" value="${this._escapeHtml(node.radius)}" step="0.05" min="0.05">
+  </div>
+  <div class="form-group">
+    <label>${t("Spacekit.ParentBody")}</label>
+    <select name="parentId" ${isStar ? "disabled" : ""}>${parentOptions}</select>
   </div>
   <div class="form-group">
     <label>${t("Spacekit.PositionX")}</label>
@@ -511,7 +698,7 @@ export class SpacekitRenderer extends BaseRenderer {
   <hr>
   <div class="form-group">
     <label>${t("Spacekit.UseOrbit")}</label>
-    <input type="checkbox" name="useOrbit" ${hasOrbit ? "checked" : ""}>
+    <input type="checkbox" name="useOrbit" ${hasOrbit ? "checked" : ""} ${isStar ? "disabled" : ""}>
   </div>
   <div class="form-group">
     <label>${t("Spacekit.OrbitRadius")}</label>
@@ -537,11 +724,16 @@ export class SpacekitRenderer extends BaseRenderer {
       const label = String(obj.label ?? "").trim();
       if (!label) return null;
 
-      const useOrbit = obj.useOrbit === true || obj.useOrbit === "on" || obj.useOrbit === "true";
+      const nextTexture = this._textureById(node.bodyType, obj.textureId ?? node.textureId);
+      const useOrbit = !isStar && (obj.useOrbit === true || obj.useOrbit === "on" || obj.useOrbit === "true");
+      const parentId = isStar ? null : String(obj.parentId ?? "").trim() || null;
       const next = {
         ...node,
         label,
-        radius: this._numberOrFallback(obj.radius, Number(node.radius) || 1)
+        textureId: nextTexture?.id ?? null,
+        texture: nextTexture?.texture ?? node.texture,
+        parentId: this._wouldCreateParentCycle(node.id, parentId) ? null : parentId,
+        radius: this._numberOrFallback(obj.radius, Number(node.radius) || this._defaultRadiusFor(node.bodyType))
       };
 
       if (useOrbit) {
@@ -641,15 +833,24 @@ export class SpacekitRenderer extends BaseRenderer {
       const row = document.createElement("div");
       row.className = "fg-spacekit-body-row";
 
-      const label = document.createElement("span");
-      label.textContent = node.label;
-      label.title = t("Spacekit.EditBody");
-      label.addEventListener("dblclick", event => {
+      const labelWrap = document.createElement("div");
+      labelWrap.className = "fg-spacekit-body-label";
+      labelWrap.title = t("Spacekit.EditBody");
+      labelWrap.addEventListener("dblclick", event => {
         event.preventDefault();
         event.stopPropagation();
         this._editBody(node.id);
       });
-      row.appendChild(label);
+
+      const label = document.createElement("span");
+      label.textContent = node.label;
+      labelWrap.appendChild(label);
+
+      const detail = document.createElement("small");
+      detail.textContent = `${this._bodyTypeLabel(node.bodyType)} · ${this._parentLabel(node.parentId)}`;
+      labelWrap.appendChild(detail);
+
+      row.appendChild(labelWrap);
 
       const actions = document.createElement("div");
       actions.className = "fg-spacekit-body-actions";
@@ -715,11 +916,27 @@ export class SpacekitRenderer extends BaseRenderer {
     for (const node of this.graph?.data?.nodes ?? []) {
       const obj = this._objects.get(node.id);
       if (!obj) continue;
-      this._setObjectPosition(obj, this._positionForNode(node, elapsedSeconds));
+      this._setObjectPosition(obj, this._worldPositionForNode(node, elapsedSeconds));
     }
   }
 
-  _positionForNode(node, elapsedSeconds) {
+  _worldPositionForNode(node, elapsedSeconds, visited = new Set()) {
+    const local = this._localPositionForNode(node, elapsedSeconds);
+    if (!node.parentId || visited.has(node.id)) return local;
+
+    const parent = this.graph?.data?.nodes?.find?.(n => n.id === node.parentId);
+    if (!parent) return local;
+
+    visited.add(node.id);
+    const parentPosition = this._worldPositionForNode(parent, elapsedSeconds, visited);
+    return [
+      parentPosition[0] + local[0],
+      parentPosition[1] + local[1],
+      parentPosition[2] + local[2]
+    ];
+  }
+
+  _localPositionForNode(node, elapsedSeconds) {
     if (Array.isArray(node.position) && node.position.length >= 3) {
       return node.position.slice(0, 3).map(v => Number(v) || 0);
     }
