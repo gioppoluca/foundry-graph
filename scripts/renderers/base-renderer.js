@@ -1,4 +1,27 @@
-import { log, t } from "../constants.js";
+import { log, MODULE_ID, t } from "../constants.js";
+
+const DEFAULT_WORLD_STORAGE_SUBFOLDER = "graphs";
+const WORLD_STORAGE_SUBFOLDER_SETTING = "worldStorageSubfolder";
+
+function _worldStorageSubfolder() {
+  let value = DEFAULT_WORLD_STORAGE_SUBFOLDER;
+  try {
+    value = game.settings.get(MODULE_ID, WORLD_STORAGE_SUBFOLDER_SETTING) || DEFAULT_WORLD_STORAGE_SUBFOLDER;
+  } catch (err) {
+    value = DEFAULT_WORLD_STORAGE_SUBFOLDER;
+  }
+
+  value = String(value).trim().replace(/^\/+|\/+$/g, "");
+  return value || DEFAULT_WORLD_STORAGE_SUBFOLDER;
+}
+
+function _filePicker() {
+  const picker = globalThis.foundry?.applications?.apps?.FilePicker?.implementation
+    ?? globalThis.foundry?.applications?.apps?.FilePicker
+    ?? globalThis.FilePicker;
+  if (!picker) throw new Error("Foundry FilePicker API is not available");
+  return picker;
+}
 
 // Base class for D3 renderers
 export class BaseRenderer {
@@ -428,7 +451,6 @@ export class BaseRenderer {
       } else if (destination === "data-folder") {
         // NEW: Upload to Foundry's world data folder
         const path = await this.savePNGToDataFolder(pngBlob, safeName, {
-          subfolder: "graphs",
           overwrite: true
         });
         log("Saved PNG to data folder:", path);
@@ -589,23 +611,23 @@ export class BaseRenderer {
  * @param {Blob} pngBlob - The PNG image blob
  * @param {string} baseFileName - Filename without extension
  * @param {Object} options - Upload options
- * @param {string} [options.subfolder='graphs'] - Subfolder within world data
+ * @param {string} [options.subfolder] - Subfolder within world data. Defaults to the hidden module storage setting.
  * @param {boolean} [options.overwrite=false] - Allow overwriting existing files
- * @returns {Promise<string>} The relative path to the saved file (e.g., "worlds/my-world/graphs/my-graph.png")
+ * @returns {Promise<string>} The relative path to the saved file.
  * @private
  */
-  async savePNGToDataFolder(pngBlob, baseFileName, { subfolder = "graphs", overwrite = false } = {}) {
+  async savePNGToDataFolder(pngBlob, baseFileName, { subfolder = null, overwrite = false } = {}) {
     const worldName = game.world.id;
     const safeName = baseFileName.replace(/[^a-z0-9-_]/gi, "_");
     const fileName = `${safeName}.png`;
+    const finalSubfolder = String(subfolder ?? _worldStorageSubfolder()).trim().replace(/^\/+|\/+$/g, "") || DEFAULT_WORLD_STORAGE_SUBFOLDER;
 
     // ✅ Correct path format for Foundry FilePicker API
     // Use forward slashes, no leading slash
-    const relativePath = `worlds/${worldName}/${subfolder}`;
-    const targetPath = `${relativePath}/${fileName}`;
+    const relativePath = `worlds/${worldName}/${finalSubfolder}`;
 
     if (!game.user.isGM) {
-      ui.notifications.warn("Only GM can save data at the world-level.");
+      ui.notifications.warn(t("Notifications.OnlyGMSaveWorldData"));
       return;
     }
 
@@ -619,7 +641,7 @@ export class BaseRenderer {
 
 
       const file = new File([pngBlob], fileName, { type: "image/png" });
-      const result = await foundry.applications.apps.FilePicker.implementation.upload("data", relativePath, file, {}, { notify: true });
+      const result = await _filePicker().upload("data", relativePath, file, {}, { notify: true });
       if (!result?.path) {
         throw new Error(`Upload failed: ${result?.error || "Unknown server error"}`);
       }
@@ -634,7 +656,7 @@ export class BaseRenderer {
       // This handles edge cases where FileHelpers might not be available
       try {
         log("🔄 Attempting fallback upload via FilePicker...");
-        //return await this._fallbackUpload(pngBlob, targetPath, { overwrite });
+        //return await this._fallbackUpload(pngBlob, relativePath, { overwrite });
       } catch (fallbackErr) {
         log("❌ Fallback upload also failed:", fallbackErr);
         throw new Error(
@@ -646,14 +668,14 @@ export class BaseRenderer {
   }
   /**
  * Ensure a directory exists in Foundry's data folder
- * @param {string} dirPath - Relative path like "worlds/my-world/graphs"
+ * @param {string} dirPath - Relative path inside Foundry data storage
  * @private
  */
   async ensureDirectoryExists(dirPath) {
     try {
       // Browse the directory - Foundry will auto-create if it doesn't exist
       // when we attempt to upload, but this ensures it's accessible
-      await foundry.applications.apps.FilePicker.implementation.browse("data", dirPath, { recursive: false });
+      await _filePicker().browse("data", dirPath, { recursive: false });
       log(`✓ Directory verified: ${dirPath}`);
     } catch (err) {
       // If browse fails, try to create the directory explicitly
@@ -661,7 +683,7 @@ export class BaseRenderer {
 
       try {
         // FilePicker.createDirectory is the proper way to create folders
-        await foundry.applications.apps.FilePicker.implementation.createDirectory("data", dirPath);
+        await _filePicker().createDirectory("data", dirPath);
         log(`✓ Directory created: ${dirPath}`);
       } catch (createErr) {
         // Some Foundry setups auto-create on upload, so we'll let the upload attempt proceed

@@ -1,5 +1,5 @@
 import GraphDashboardV2 from "./graph_dashboard_v2.js"
-import { log, MODULE_ID, JSON_graph_types, t } from './constants.js';
+import { log, MODULE_ID, JSON_graph_types, t, tf } from './constants.js';
 import { ForceRenderer } from "./renderers/force-renderer.js";
 //import { TreeRenderer } from "./renderers/tree-renderer.js";
 import { GenealogyRenderer } from "./renderers/genealogy-renderer.js";
@@ -11,7 +11,9 @@ import { VisTimelineRenderer } from "./renderers/vis-timeline-renderer.js";
 import { D3GraphApp } from "./d3-graph-app.js";
 
 const LEVELS = foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS; // { NONE:0, LIMITED:1, OBSERVER:2, OWNER:3 }
-const DEFAULT_STORAGE_ROOT = "foundry-graph"; // Data/foundry-graph/<worldId>/
+const LEGACY_STORAGE_ROOT = "foundry-graph"; // Old location: Data/foundry-graph/<worldId>/
+const WORLD_STORAGE_SUBFOLDER_SETTING = "worldStorageSubfolder";
+const DEFAULT_WORLD_STORAGE_SUBFOLDER = "graphs";
 
 
 // graph_api.js – SAFE ES2019 VERSION (no class‑fields, no private #names)
@@ -22,37 +24,57 @@ const DEFAULT_STORAGE_ROOT = "foundry-graph"; // Data/foundry-graph/<worldId>/
 //  • No window globals and only ES features that Foundry v12 (Chromium 100+) supports.
 function _nowISO() { return new Date().toISOString(); }
 
+function _filePicker() {
+    const picker = globalThis.foundry?.applications?.apps?.FilePicker?.implementation
+        ?? globalThis.foundry?.applications?.apps?.FilePicker
+        ?? globalThis.FilePicker;
+    if (!picker) throw new Error("Foundry FilePicker API is not available");
+    return picker;
+}
+
 export class GraphApi {
     /**
      * Ensure the world‑level setting exists. Call once early in module init.
      */
     static async registerSettings() {
-        game.settings.register(MODULE_ID, "debug", {
-            scope: "world",
-            config: true,
-            type: Boolean,
-            default: false,
-            name: t("Settings.DebugName"),
-            hint: t("Settings.DebugHint")
-        });
+        if (!game.settings.settings.has(`${MODULE_ID}.debug`)) {
+            game.settings.register(MODULE_ID, "debug", {
+                scope: "world",
+                config: true,
+                type: Boolean,
+                default: false,
+                name: t("Settings.DebugName"),
+                hint: t("Settings.DebugHint")
+            });
+        }
 
-        // Avoid double registration if hot‑reloaded
-        if (game.settings.settings.has(`${MODULE_ID}.graphs`)) return;
+        // Avoid double registration if hot‑reloaded, but register each setting independently.
+        if (!game.settings.settings.has(`${MODULE_ID}.graphs`)) {
+            game.settings.register(MODULE_ID, "graphs", {
+                scope: "world",
+                config: false,
+                type: Array,
+                default: []
+            });
+        }
 
-        game.settings.register(MODULE_ID, "graphs", {
-            scope: "world",
-            config: false,
-            type: Array,
-            default: []
-        });
+        if (!game.settings.settings.has(`${MODULE_ID}.graphIndex`)) {
+            game.settings.register(MODULE_ID, "graphIndex", {
+                scope: "world",
+                config: false,
+                type: Array,
+                default: []
+            });
+        }
 
-        if (game.settings.settings.has(`${MODULE_ID}.graphIndex`)) return;
-        game.settings.register(MODULE_ID, "graphIndex", {
-            scope: "world",
-            config: false,
-            type: Array,
-            default: []
-        });
+        if (!game.settings.settings.has(`${MODULE_ID}.${WORLD_STORAGE_SUBFOLDER_SETTING}`)) {
+            game.settings.register(MODULE_ID, WORLD_STORAGE_SUBFOLDER_SETTING, {
+                scope: "world",
+                config: false,
+                type: String,
+                default: DEFAULT_WORLD_STORAGE_SUBFOLDER
+            });
+        }
     }
 
 
@@ -109,12 +131,12 @@ export class GraphApi {
     async openGraphById(graphId, { mode = null, force = false, onCloseCallback = null } = {}) {
         const graph = await this.getGraph(graphId);
         if (!graph) {
-            ui.notifications.warn(`Graph "${graphId}" not found.`);
+            ui.notifications.warn(tf("Notifications.GraphNotFound", { id: graphId }));
             return null;
         }
 
         if (!force && !this.canOpen(graph)) {
-            ui.notifications.warn(`You do not have permission to open graph "${graph.name}".`);
+            ui.notifications.warn(tf("Notifications.GraphOpenPermissionDenied", { name: graph.name }));
             return null;
         }
 
@@ -197,6 +219,7 @@ export class GraphApi {
         const index = await game.settings.get(MODULE_ID, "graphIndex") || [];
         this._indexMap = new Map(index.map(e => [e.id, e]));
         await this.migrateFromLegacySettingIfNeeded();
+        await this.migrateGraphFilesToWorldStorageFolderIfNeeded();
         this._graphMap.clear();
     }
 
@@ -318,13 +341,24 @@ export class GraphApi {
         return game.modules.get(this.moduleId)?.version ?? "0.0.0";
     }
 
-    // Prefer your desired location, but be ready to fall back.
-    get storageDirPreferred() {
-        return `${DEFAULT_STORAGE_ROOT}/${game.world.id}`;
+    get worldStorageSubfolder() {
+        let value = DEFAULT_WORLD_STORAGE_SUBFOLDER;
+        try {
+            value = game.settings.get(MODULE_ID, WORLD_STORAGE_SUBFOLDER_SETTING) || DEFAULT_WORLD_STORAGE_SUBFOLDER;
+        } catch (err) {
+            value = DEFAULT_WORLD_STORAGE_SUBFOLDER;
+        }
+
+        value = String(value).trim().replace(/^\/+|\/+$/g, "");
+        return value || DEFAULT_WORLD_STORAGE_SUBFOLDER;
     }
 
-    get storageDirWorldFallback() {
-        return `worlds/${game.world.id}/foundry-graph`;
+    get storageDirWorld() {
+        return `worlds/${game.world.id}/${this.worldStorageSubfolder}`;
+    }
+
+    get storageDirLegacy() {
+        return `${LEGACY_STORAGE_ROOT}/${game.world.id}`;
     }
 
     _graphFileName(id) {
@@ -336,15 +370,14 @@ export class GraphApi {
     }
 
     async _ensureDir(source, target) {
-        // Create nested directories segment by segment
+        // Create nested directories segment by segment.
         const parts = target.split("/").filter(Boolean);
         let current = "";
         for (const p of parts) {
             current = current ? `${current}/${p}` : p;
             try {
-                await FilePicker.createDirectory(source, current);
+                await _filePicker().createDirectory(source, current);
             } catch (e) {
-                // If already exists or forbidden, ignore existence; rethrow on true failures
                 const msg = String(e?.message ?? e);
                 const alreadyExists = msg.toLowerCase().includes("exist");
                 if (!alreadyExists) throw e;
@@ -353,14 +386,51 @@ export class GraphApi {
     }
 
     async _pickWritableStorageDir() {
-        // Try preferred first
-        try {
-            await this._ensureDir("data", this.storageDirPreferred);
-            return this.storageDirPreferred;
-        } catch (e) {
-            // Fallback to world folder
-            await this._ensureDir("data", this.storageDirWorldFallback);
-            return this.storageDirWorldFallback;
+        await this._ensureDir("data", this.storageDirWorld);
+        return this.storageDirWorld;
+    }
+
+    _normalizeStoragePath(path) {
+        return String(path ?? "").replace(/^\/+/, "");
+    }
+
+    _isWorldStoragePath(path) {
+        const normalized = this._normalizeStoragePath(path);
+        return normalized.startsWith(`${this.storageDirWorld}/`);
+    }
+
+    _isMigratableGraphStoragePath(path) {
+        const normalized = this._normalizeStoragePath(path);
+        return normalized.startsWith(`${this.storageDirLegacy}/`);
+    }
+
+    async migrateGraphFilesToWorldStorageFolderIfNeeded() {
+        if (!game.user.isGM) return;
+
+        let changed = false;
+        await this._ensureDir("data", this.storageDirWorld);
+
+        for (const entry of this._indexMap.values()) {
+            if (!entry?.id || !entry?.file) continue;
+            if (this._isWorldStoragePath(entry.file)) continue;
+            if (!this._isMigratableGraphStoragePath(entry.file)) continue;
+
+            try {
+                const graphRaw = await this._readGraphFile(entry.file);
+                if (!graphRaw.id) graphRaw.id = entry.id;
+                const newFile = await this._writeGraphFile(this.storageDirWorld, graphRaw);
+                this._indexMap.set(entry.id, { ...entry, file: newFile });
+                changed = true;
+                log(`Migrated graph ${entry.id} from ${entry.file} to ${newFile}`);
+            } catch (err) {
+                log(`Failed to migrate graph ${entry.id} to world storage folder`, err);
+                ui.notifications?.warn?.(tf("Notifications.WorldStorageMigrationFailed", { name: entry.name ?? entry.id }));
+            }
+        }
+
+        if (changed) {
+            await this._saveIndex();
+            ui.notifications?.info?.(t("Notifications.WorldStorageMigrationDone"));
         }
     }
 
@@ -369,17 +439,14 @@ export class GraphApi {
         const blob = new Blob([json], { type: "application/json" });
         const file = new File([blob], this._graphFileName(graph.id), { type: "application/json" });
 
-        // Upload overwrites same filename (the common “save” behavior)
-        // FilePicker.upload docs: upload(source, path, file, ...) :contentReference[oaicite:5]{index=5}
-        await FilePicker.upload("data", dir, file, {}, { notify: false });
+        await _filePicker().upload("data", dir, file, {}, { notify: false });
 
-        // Return a usable path for fetch/links
+        // Return a usable path for fetch/links.
         return this._graphFilePath(dir, graph.id);
     }
 
     async _readGraphFile(filePath) {
-        // filePath is relative like "foundry-graph/worldId/graphId.json"
-        // Fetch relative to the server root
+        // filePath is relative, for example: "worlds/world-id/<configured-folder>/graph-id.json".
         const res = await fetch(filePath.startsWith("/") ? filePath : `/${filePath}`);
         if (!res.ok) throw new Error(`Failed to load graph file ${filePath}: ${res.status}`);
         return await res.json();

@@ -1,5 +1,5 @@
 // image-slots-renderer.js
-import { log, safeUUID } from "../constants.js";
+import { log, safeUUID, t, tf } from "../constants.js";
 import { BaseRenderer } from "./base-renderer.js";
 const { DialogV2 } = foundry.applications.api;
 
@@ -63,13 +63,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
 
     /** Short help text, similar to ForceRenderer.instructions */
     get instructions() {
-        return `
-    <b>Drag</b>: Move nodes and drop them into slots<br>
-    <b>Shift + Click</b> (when linking mode is enabled): Link nodes<br>
-    <b>Scroll</b>: Zoom<br>
-    <b>DblClick</b>: Open sheet<br>
-    <b>Right Click</b>: Delete node or link
-  `;
+        return t("ImageSlots.Instructions");
     }
 
     get isLinkNodesVisible() {
@@ -392,7 +386,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
                     // Linking mode: same behavior as ForceRenderer
                     if (!this._linkSourceNode) {
                         this._linkSourceNode = d;
-                        ui.notifications.info(`Selected source node: ${d.label}`);
+                        ui.notifications.info(tf("Notifications.SelectedSourceNode", { label: d.label }));
                     } else {
                         const source = this._linkSourceNode;
                         const target = d;
@@ -407,7 +401,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
                         if (!alreadyLinked && source.id !== target.id) {
                             const relation = this.relation;
                             if (!relation) {
-                                ui.notifications.warn("Please select a valid relation type before creating the link.");
+                                ui.notifications.warn(t("Notifications.ValidRelationRequired"));
                                 return;
                             }
                             const newLink = {
@@ -422,20 +416,20 @@ export class ImageSlotsRenderer extends BaseRenderer {
                                 strokeWidth: relation.strokeWidth
                             };
                             renderGraph.data.links.push(newLink);
-                            ui.notifications.info(`Linked ${source.label} → ${target.label} (${relation.label})`);
+                            ui.notifications.info(tf("Notifications.LinkedNodes", { source: source.label, target: target.label, relation: relation.label }));
                             this.render(this._svg, this.graph, ctx);
                         } else {
-                            ui.notifications.warn("Invalid or duplicate link");
+                            ui.notifications.warn(t("Notifications.InvalidOrDuplicateLink"));
                         }
                         this._linkSourceNode = null;
                     }
                 } else {
                     // Normal click: open sheet
-                    ui.notifications.info(`Clicked node: ${d.label}`);
+                    ui.notifications.info(tf("Notifications.ClickedNode", { label: d.label }));
                     if (d.uuid) {
                         fromUuid(d.uuid).then(doc => {
                             if (doc?.sheet) doc.sheet.render(true);
-                            else ui.notifications.warn("No document found for UUID");
+                            else ui.notifications.warn(t("Notifications.NoDocumentFoundForUUID"));
                         });
                     }
                 }
@@ -446,11 +440,11 @@ export class ImageSlotsRenderer extends BaseRenderer {
             })
             .on("dblclick", (event, d) => {
                 event.preventDefault();
-                ui.notifications.info(`Double-clicked node: ${d.label}`);
+                ui.notifications.info(tf("Notifications.DoubleClickedNode", { label: d.label }));
                 if (d.uuid) {
                     fromUuid(d.uuid).then(doc => {
                         if (doc?.sheet) doc.sheet.render(true);
-                        else ui.notifications.warn("No document found for UUID");
+                        else ui.notifications.warn(t("Notifications.NoDocumentFoundForUUID"));
                     });
                 }
             });
@@ -909,7 +903,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
             items: [
                 {
                     id: "toggleHidden",
-                    label: isHidden ? `Show to players (${label})` : `Hide from players (${label})`,
+                    label: isHidden ? tf("Dialogs.ShowToPlayers", { label }) : tf("Dialogs.HideFromPlayers", { label }),
                     icon: isHidden ? "fa-solid fa-eye" : "fa-solid fa-eye-slash",
                     onClick: async () => {
                         const st = Array.isArray(nodeData.status) ? [...nodeData.status] : [];
@@ -921,10 +915,10 @@ export class ImageSlotsRenderer extends BaseRenderer {
                 },
                 {
                     id: "delete",
-                    label: `Delete (${label})`,
+                    label: tf("Dialogs.DeleteAction", { label }),
                     icon: "fa-solid fa-trash",
                     onClick: async () => {
-                        const confirmed = await DialogV2.confirm({ content: `Delete node "${label}"?` });
+                        const confirmed = await DialogV2.confirm({ content: tf("Dialogs.DeleteNode", { label }) });
                         if (!confirmed) return;
 
                         this.graph.data.nodes = this.graph.data.nodes.filter(n => n.id !== nodeData.id);
@@ -947,7 +941,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
         const tgtLabel = linkData.target?.label || linkData.target?.id || linkData.target;
 
         const confirmed = await DialogV2.confirm({
-            content: `Delete link from "${srcLabel}" to "${tgtLabel}"?`,
+            content: tf("Dialogs.DeleteLink", { source: srcLabel, target: tgtLabel }),
         });
         if (confirmed) {
             this.graph.data.links = (this.graph.data.links ?? []).filter(l => l !== linkData);
@@ -965,7 +959,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
 
         const allowed = this.graph?.allowedEntities;
         if (Array.isArray(allowed) && allowed.length > 0 && !allowed.includes(data.type)) {
-            ui.notifications.warn(`You cannot add a ${data.type} on this graph type.`);
+            ui.notifications.warn(tf("Notifications.CannotAddEntityGraphType", { type: data.type }));
             return;
         }
 
@@ -981,7 +975,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
         // Must be inside a slot
         const slot = this._findSlotAt(x, y);
         if (!slot) {
-            ui.notifications.warn("You can only drop entities on slots.");
+            ui.notifications.warn(t("Notifications.CanOnlyDropEntitiesOnSlots"));
             return;
         }
 
@@ -991,7 +985,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
             case "Actor": {
                 const actor = await fromUuid(data.uuid);
                 if (!actor) {
-                    ui.notifications.warn("Could not find actor");
+                    ui.notifications.warn(t("Notifications.CouldNotFindActor"));
                     return;
                 }
 
@@ -1002,7 +996,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
                     subType: actor.type
                 };
                 if (!this._canDropInSlot(dummyNode, slot)) {
-                    ui.notifications.warn(`Slot "${slot.label ?? slot.id}" cannot accept this Actor type.`);
+                    ui.notifications.warn(tf("Notifications.SlotCannotAcceptActor", { slot: slot.label ?? slot.id }));
                     return;
                 }
                 // Try to extract a reasonable text description
@@ -1023,14 +1017,14 @@ export class ImageSlotsRenderer extends BaseRenderer {
                     description,
                     subType: actor.type
                 });
-                ui.notifications.info(`Added node for actor: ${actor.name}`);
+                ui.notifications.info(tf("Notifications.AddedNodeActor", { name: actor.name }));
                 break;
             }
 
             case "JournalEntryPage": {
                 const page = await fromUuid(data.uuid);
                 if (!page) {
-                    ui.notifications.warn("Could not find page");
+                    ui.notifications.warn(t("Notifications.CouldNotFindPage"));
                     return;
                 }
 
@@ -1040,7 +1034,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
                     subType: page.type // usually "text", "image", etc.
                 };
                 if (!this._canDropInSlot(dummyNode, slot)) {
-                    ui.notifications.warn(`Slot "${slot.label ?? slot.id}" cannot accept this Page type.`);
+                    ui.notifications.warn(tf("Notifications.SlotCannotAcceptPage", { slot: slot.label ?? slot.id }));
                     return;
                 }
 
@@ -1061,14 +1055,14 @@ export class ImageSlotsRenderer extends BaseRenderer {
                     description,
                     subType: page.type
                 });
-                ui.notifications.info(`Added node for page: ${page.name}`);
+                ui.notifications.info(tf("Notifications.AddedNodePage", { name: page.name }));
                 break;
             }
 
             case "Scene": {
                 const scene = await fromUuid(data.uuid);
                 if (!scene) {
-                    ui.notifications.warn("Could not find scene");
+                    ui.notifications.warn(t("Notifications.CouldNotFindScene"));
                     return;
                 }
 
@@ -1078,7 +1072,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
                     subType: scene.type // if present; otherwise undefined is fine
                 };
                 if (!this._canDropInSlot(dummyNode, slot)) {
-                    ui.notifications.warn(`Slot "${slot.label ?? slot.id}" cannot accept this Scene type.`);
+                    ui.notifications.warn(tf("Notifications.SlotCannotAcceptScene", { slot: slot.label ?? slot.id }));
                     return;
                 }
 
@@ -1099,14 +1093,14 @@ export class ImageSlotsRenderer extends BaseRenderer {
                     description,
                     subType: scene.type
                 });
-                ui.notifications.info(`Added node for scene: ${scene.name}`);
+                ui.notifications.info(tf("Notifications.AddedNodeScene", { name: scene.name }));
                 break;
             }
 
             case "Item": {
                 const item = await fromUuid(data.uuid);
                 if (!item) {
-                    ui.notifications.warn("Could not find item");
+                    ui.notifications.warn(t("Notifications.CouldNotFindItem"));
                     return;
                 }
 
@@ -1116,7 +1110,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
                     subType: item.type
                 };
                 if (!this._canDropInSlot(dummyNode, slot)) {
-                    ui.notifications.warn(`Slot "${slot.label ?? slot.id}" cannot accept this Item type.`);
+                    ui.notifications.warn(tf("Notifications.SlotCannotAcceptItem", { slot: slot.label ?? slot.id }));
                     return;
                 }
 
@@ -1137,12 +1131,12 @@ export class ImageSlotsRenderer extends BaseRenderer {
                     description,
                     subType: item.type
                 });
-                ui.notifications.info(`Added node for item: ${item.name}`);
+                ui.notifications.info(tf("Notifications.AddedNodeItem", { name: item.name }));
                 break;
             }
 
             default: {
-                ui.notifications.warn(`Dropping ${data.type} on this graph is not yet supported.`);
+                ui.notifications.warn(tf("Notifications.UnsupportedDropGraph", { type: data.type }));
                 return;
             }
         }

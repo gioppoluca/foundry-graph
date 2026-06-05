@@ -9,7 +9,7 @@ export class GraphPermissionsDialog extends HandlebarsApplicationMixin(Applicati
     classes: ["fgraph", "graph-perms"],
     width: 420,
     height: "auto",
-    window: { title: "Graph Permissions" },
+    window: { title: "foundry-graph.Window.PermTitle" },
     submitOnChange: false,
     actions: {
       save: GraphPermissionsDialog._onSave,
@@ -30,7 +30,7 @@ export class GraphPermissionsDialog extends HandlebarsApplicationMixin(Applicati
   constructor(opts) {
     super(opts);
     this.graphId = opts.graphId;
-    this.gName = opts.gName || "Unnamed Graph";
+    this.gName = opts.gName || t("Defaults.UntitledGraph");
     this.permissions = opts.permissions ?? {};
   }
 
@@ -79,7 +79,7 @@ export class GraphPermissionsDialog extends HandlebarsApplicationMixin(Applicati
     const api = game.modules.get("foundry-graph").api;
     await api.updateGraphPermissions(this.graphId, perms);
 
-    ui.notifications.info("Graph permissions updated");
+    ui.notifications.info(t("Permissions.Updated"));
     this.close();
   }
 

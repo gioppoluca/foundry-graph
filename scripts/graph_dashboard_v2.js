@@ -248,7 +248,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
 
     // Save the graph
     await this.api.upsertGraph(graphToSave);
-    ui.notifications.info(this.editingGraph ? `Graph ${name} updated.` : `Graph ${name} created.`);
+    ui.notifications.info(this.editingGraph ? tf("Notifications.GraphUpdated", { name }) : tf("Notifications.GraphCreated", { name }));
     // Refresh the dashboard / list view
     this.editingGraph = null;
     this.changeTab("listGraph", "primary");
@@ -279,7 +279,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     log(event)
     log(event.target.dataset.id)
     await this.api.deleteGraph(event.target.dataset.id);
-    ui.notifications.info(`Graph ${event.target.dataset.id} deleted.`);
+    ui.notifications.info(tf("Notifications.GraphDeleted", { id: event.target.dataset.id }));
     this.render(true);
   }
 
@@ -307,15 +307,33 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     log("onGraphRelations", event, target);
     const graphId = event.target.dataset.id;
     const graph = await this.api.getGraph(graphId);
-    if (!graph) return ui.notifications.warn("Graph not found!");
+    if (!graph) return ui.notifications.warn(t("Notifications.GraphNotFound"));
 
     // Define the callback function to run when the dialog saves
     const onSaveCallback = async (newRelations) => {
       log(`Saving ${newRelations.length} relations for graph ${graphId}`);
-      graph.relations = newRelations;
+      const oldRelations = foundry.utils.deepClone(graph.relations ?? []);
+      const newById = new Map(newRelations.map(r => [r.id, r]));
+      const deletedRelations = oldRelations.filter(r => !newById.has(r.id));
+
+      if (deletedRelations.length > 0) {
+        const deletedIds = deletedRelations.map(r => r.id).join(", ");
+        ui.notifications.warn(
+          tf("Relations.RemovedOrphanWarning", { count: deletedRelations.length, ids: deletedIds }),
+          { permanent: true }
+        );
+      }
+
+      const renderer = this.api.getRenderer(graph.renderer);
+      if (renderer?.applyRelationChanges) {
+        renderer.applyRelationChanges(graph, oldRelations, newRelations);
+      } else {
+        graph.relations = newRelations;
+      }
+
       await this.api.upsertGraph(graph);
       //this.render(true); // Refresh the dashboard
-      ui.notifications.info(`Relations for "${graph.name}" updated.`);
+      ui.notifications.info(tf("Relations.Updated", { name: graph.name }));
     };
 
     // Create and render the dialog
@@ -388,7 +406,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
       if (themes.length === 0) {
         const opt = document.createElement("option");
         opt.value = "";
-        opt.textContent = game.i18n?.localize?.("foundry-graph.themes.none") ?? "Default";
+        opt.textContent = game.i18n?.localize?.("foundry-graph.themes.none") ?? t("Labels.Default");
         themeSelect.appendChild(opt);
         themeSelect.value = "";
       } else {
@@ -513,18 +531,18 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     const graphId = event.target.dataset.id;
     const api = game.modules.get("foundry-graph").api;
     const graph = await api.getGraph(graphId);
-    if (!graph) return ui.notifications.warn(t("Errors.GraphNotFound") ?? "Graph not found.");
+    if (!graph) return ui.notifications.warn(t("Notifications.GraphNotFound"));
 
     const renderer = api.getRenderer(graph.renderer ?? graph.graphType);
     if (!renderer || typeof renderer.getNonExistentEntities !== "function") {
-      return ui.notifications.warn("This graph type does not support entity reassignment.");
+      return ui.notifications.warn(t("Notifications.ReassignUnsupported"));
     }
 
     const graphData = foundry.utils.deepClone(graph.data);
     const missing = await renderer.getNonExistentEntities(graphData);
 
     if (missing.length === 0) {
-      return ui.notifications.info(`All entities in "${graph.name}" are valid in this world.`);
+      return ui.notifications.info(tf("Notifications.ReassignAllValid", { name: graph.name }));
     }
 
     // --- Try exact-name search in the appropriate world collection ---
@@ -543,12 +561,12 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     let html = '<div class="fg-reassign-dialog" style="max-height:400px;overflow-y:auto;">';
 
     if (matched.length > 0) {
-      html += `<h3>Auto-matched (${matched.length})</h3>`;
+      html += `<h3>${tf("Dialogs.ReassignAutoMatched", { count: matched.length })}</h3>`;
       html += '<table style="width:100%;border-collapse:collapse;margin-bottom:8px;">'
-        + '<thead><tr><th style="text-align:left;padding:2px 6px;">Type</th>'
-        + '<th style="text-align:left;padding:2px 6px;">Old name</th>'
+        + `<thead><tr><th style="text-align:left;padding:2px 6px;">${t("Dialogs.ReassignType")}</th>`
+        + `<th style="text-align:left;padding:2px 6px;">${t("Dialogs.ReassignOldName")}</th>`
         + '<th style="padding:2px 4px;">→</th>'
-        + '<th style="text-align:left;padding:2px 6px;">New entity</th></tr></thead><tbody>';
+        + `<th style="text-align:left;padding:2px 6px;">${t("Dialogs.ReassignNewEntity")}</th></tr></thead><tbody>`;
       for (const m of matched) {
         html += `<tr><td style="padding:2px 6px;">${m.entityType}</td>`
           + `<td style="padding:2px 6px;">${m.oldName}</td>`
@@ -559,10 +577,10 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     }
 
     if (unmatched.length > 0) {
-      html += `<h3>No match found (${unmatched.length})</h3>`;
+      html += `<h3>${tf("Dialogs.ReassignNoMatchFound", { count: unmatched.length })}</h3>`;
       html += '<table style="width:100%;border-collapse:collapse;">'
-        + '<thead><tr><th style="text-align:left;padding:2px 6px;">Type</th>'
-        + '<th style="text-align:left;padding:2px 6px;">Name</th></tr></thead><tbody>';
+        + `<thead><tr><th style="text-align:left;padding:2px 6px;">${t("Dialogs.ReassignType")}</th>`
+        + `<th style="text-align:left;padding:2px 6px;">${t("Dialogs.ReassignName")}</th></tr></thead><tbody>`;
       for (const u of unmatched) {
         html += `<tr><td style="padding:2px 6px;">${u.entityType}</td>`
           + `<td style="padding:2px 6px;">${u.label}</td></tr>`;
@@ -571,20 +589,20 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     }
 
     if (matched.length === 0) {
-      html += '<p>No automatic matches could be found. The entities above will remain unlinked.</p>';
+      html += `<p>${t("Dialogs.ReassignNoAutomaticMatches")}</p>`;
     }
 
     html += '</div>';
 
     const confirmed = await foundry.applications.api.DialogV2.confirm({
-      window: { title: `Reassign Entities — ${graph.name}` },
+      window: { title: tf("Dialogs.ReassignTitle", { name: graph.name }) },
       content: html,
       yes: {
-        label: matched.length > 0 ? `Apply ${matched.length} match${matched.length > 1 ? "es" : ""}` : "OK",
+        label: matched.length > 0 ? tf("Dialogs.ReassignApply", { count: matched.length, suffix: matched.length > 1 ? "es" : "" }) : t("Buttons.OK"),
         icon: "fa-solid fa-check",
         callback: () => true,
       },
-      no: { label: "Cancel", icon: "fa-solid fa-times", callback: () => false },
+      no: { label: t("Buttons.Cancel"), icon: "fa-solid fa-times", callback: () => false },
     });
 
     if (!confirmed || matched.length === 0) return;
@@ -592,8 +610,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     const updated = renderer.replaceEntities(graphData, matched);
     graph.data = updated;
     await api.upsertGraph(graph);
-    const word = matched.length > 1 ? "entities" : "entity";
-    ui.notifications.info(`Reassigned ${matched.length} ${word} in "${graph.name}".`);
+    const word = matched.length > 1 ? t("Notifications.EntityPlural") : t("Notifications.EntitySingular");
+    ui.notifications.info(tf("Notifications.ReassignedEntities", { count: matched.length, word, name: graph.name }));
   }
 
   /**

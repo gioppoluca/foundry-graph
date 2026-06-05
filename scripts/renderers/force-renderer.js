@@ -1,4 +1,4 @@
-import { log, safeUUID, MODULE_ID } from "../constants.js";
+import { log, safeUUID, MODULE_ID, t, tf } from "../constants.js";
 import { BaseRenderer } from "./base-renderer.js";
 const DialogV2 = foundry?.applications?.api?.DialogV2;
 
@@ -25,14 +25,7 @@ export class ForceRenderer extends BaseRenderer {
   }
 
   get instructions() {
-    return `
-    <b>Shift + Drag</b>: Link Nodes<br>
-    <b>Ctrl/Cmd + Click</b>: Select Nodes for Group<br>
-    <b>Drag</b>: Move/Position Nodes or Groups<br>
-    <b>Scroll</b>: Zoom<br>
-    <b>DblClick</b>: Open Sheet<br>
-    <b>Right Click</b>: Node, Link, or Group Actions
-  `;
+    return t("Force.Instructions");
   }
 
   get isLinkNodesVisible() {
@@ -290,7 +283,7 @@ export class ForceRenderer extends BaseRenderer {
       .attr("fill", d => d.color || "#00eaff")
       .attr("text-anchor", "middle")
       .attr("pointer-events", "none")
-      .text(d => d.label || "Group");
+      .text(d => d.label || t("Dialogs.Group"));
 
     // --- FIX: <defs> must be a child of <svg>, NOT the zoomLayer ---
     let defs = this._svg.select("defs");
@@ -455,7 +448,7 @@ export class ForceRenderer extends BaseRenderer {
         .attr("font-size", 12)
         .attr("font-weight", 600)
         .attr("fill", "#111")
-        .text("Hide center labels + show legend");
+        .text(t("Force.ToggleLegend"));
     }
 
 
@@ -566,7 +559,7 @@ export class ForceRenderer extends BaseRenderer {
           .attr("font-size", 12)
           .attr("font-weight", 700)
           .attr("fill", "#111")
-          .text("Relations");
+          .text(t("Force.RelationsLegend"));
 
         const startY = LEG_PAD + 22;
 
@@ -617,7 +610,7 @@ export class ForceRenderer extends BaseRenderer {
         if (this._linkingMode) {
           if (!this._linkSourceNode) {
             this._linkSourceNode = d;
-            ui.notifications.info(`Selected source node: ${d.label}`);
+            ui.notifications.info(tf("Notifications.SelectedSourceNode", { label: d.label }));
           } else {
             const source = this._linkSourceNode;
             const target = d;
@@ -632,7 +625,7 @@ export class ForceRenderer extends BaseRenderer {
             if (!alreadyLinked && source.id !== target.id) {
               const relation = this.relation
               if (!relation) {
-                ui.notifications.warn("Please select a valid relation type before creating the link.");
+                ui.notifications.warn(t("Notifications.ValidRelationRequired"));
                 return;
               }
               renderGraph.data.links.push({
@@ -652,9 +645,9 @@ export class ForceRenderer extends BaseRenderer {
                 glowOpacity: relation?.glowOpacity
               });
               this.render();
-              ui.notifications.info(`Linked ${source.label} → ${target.label} (${relation.label})`);
+              ui.notifications.info(tf("Notifications.LinkedNodes", { source: source.label, target: target.label, relation: relation.label }));
             } else {
-              ui.notifications.warn("Invalid or duplicate link");
+              ui.notifications.warn(t("Notifications.InvalidOrDuplicateLink"));
             }
             this._linkSourceNode = null;
           }
@@ -662,7 +655,7 @@ export class ForceRenderer extends BaseRenderer {
           this._toggleNodeSelection(d.id);
           ticked();
         } else {
-          ui.notifications.info(`Clicked node: ${d.label}`);
+          ui.notifications.info(tf("Notifications.ClickedNode", { label: d.label }));
         }
       })
       .on("contextmenu", (event, d) => {
@@ -671,12 +664,12 @@ export class ForceRenderer extends BaseRenderer {
         this._onRightClickNode(event, d);
       })
       .on("dblclick", (event, d) => {
-        ui.notifications.info(`Double-clicked node: ${d.label}`);
+        ui.notifications.info(tf("Notifications.DoubleClickedNode", { label: d.label }));
         // Example: open the actor sheet if the UUID is valid
         if (d.uuid) {
           fromUuid(d.uuid).then(doc => {
             if (doc?.sheet) doc.sheet.render(true);
-            else ui.notifications.warn("No document found for UUID");
+            else ui.notifications.warn(t("Notifications.NoDocumentFoundForUUID"));
           });
         }
       });
@@ -846,7 +839,7 @@ export class ForceRenderer extends BaseRenderer {
         if (!droppedOn) { hideHandles(); return; }
 
         if (droppedOn.id === otherNode.id) {
-          ui.notifications.warn("Cannot link a node to itself.");
+          ui.notifications.warn(t("Notifications.CannotLinkNodeToItself"));
           hideHandles();
           return;
         }
@@ -861,7 +854,7 @@ export class ForceRenderer extends BaseRenderer {
           return (s === newSourceId && t === newTargetId) || (s === newTargetId && t === newSourceId);
         });
         if (duplicate) {
-          ui.notifications.warn("That link already exists.");
+          ui.notifications.warn(t("Notifications.LinkAlreadyExists"));
           hideHandles();
           return;
         }
@@ -1102,7 +1095,7 @@ export class ForceRenderer extends BaseRenderer {
           if (!alreadyLinked) {
             const relation = self.relation;
             if (!relation) {
-              ui.notifications.warn("Please select a valid relation type before creating the link.");
+              ui.notifications.warn(t("Notifications.ValidRelationRequired"));
             } else {
               renderGraph.data.links.push({
                 id: safeUUID(),
@@ -1122,7 +1115,7 @@ export class ForceRenderer extends BaseRenderer {
                 glowOpacity: relation?.glowOpacity
               });
               self.render(); // Redraw graph
-              ui.notifications.info(`Linked ${source.label} → ${target.label} (${relation.label})`);
+              ui.notifications.info(tf("Notifications.LinkedNodes", { source: source.label, target: target.label, relation: relation.label }));
             }
           }
         }
@@ -1164,6 +1157,28 @@ export class ForceRenderer extends BaseRenderer {
 
   }
 
+
+  applyRelationChanges(graph, _oldRelations, newRelations) {
+    graph.relations = Array.isArray(newRelations) ? newRelations : [];
+
+    const relById = new Map(graph.relations.map(r => [r.id, r]));
+    for (const link of graph.data?.links ?? []) {
+      const relation = relById.get(link.relationId);
+      if (!relation) continue;
+
+      link.label = relation.label;
+      link.color = relation.color;
+      link.style = relation.style;
+      link.noArrow = relation?.noArrow === true || relation?.noArrow === "true";
+      link.strokeWidth = Number(relation.strokeWidth) || 1;
+      link.glow = relation?.glow === true || relation?.glow === "true";
+      link.glowWidth = relation?.glowWidth;
+      link.glowOpacity = relation?.glowOpacity;
+    }
+
+    return graph;
+  }
+
   setLinkingMode(enabled) {
     this._linkingMode = enabled;
   }
@@ -1202,7 +1217,7 @@ export class ForceRenderer extends BaseRenderer {
     const items = [
       {
         id: "toggleHidden",
-        label: isHidden ? `Show to players (${label})` : `Hide from players (${label})`,
+        label: isHidden ? tf("Dialogs.ShowToPlayers", { label }) : tf("Dialogs.HideFromPlayers", { label }),
         icon: isHidden ? "fa-solid fa-eye" : "fa-solid fa-eye-slash",
         onClick: async () => {
           const st = Array.isArray(nodeData.status) ? [...nodeData.status] : [];
@@ -1217,7 +1232,7 @@ export class ForceRenderer extends BaseRenderer {
     if (this._selectedNodeIds.size > 0) {
       items.push({
         id: "createGroup",
-        label: `Create group from selected (${this._selectedNodeIds.size})`,
+        label: tf("Dialogs.CreateGroupFromSelected", { count: this._selectedNodeIds.size }),
         icon: "fa-solid fa-object-group",
         onClick: async () => {
           this._closeRadialMenu?.();
@@ -1229,10 +1244,10 @@ export class ForceRenderer extends BaseRenderer {
     if (nodeData.type === "Symbol") {
       items.push({
         id: "rename",
-        label: `Rename (${label})`,
+        label: tf("Dialogs.RenameAction", { label }),
         icon: "fa-solid fa-pen-to-square",
         onClick: async () => {
-          const newLabel = await this._promptSymbolName(label, "Rename Symbol");
+          const newLabel = await this._promptSymbolName(label, t("Dialogs.RenameSymbol"));
           if (!newLabel) return;
           nodeData.label = newLabel;
           this.render();
@@ -1242,10 +1257,10 @@ export class ForceRenderer extends BaseRenderer {
 
     items.push({
       id: "delete",
-      label: `Delete (${label})`,
+      label: tf("Dialogs.DeleteAction", { label }),
       icon: "fa-solid fa-trash",
       onClick: async () => {
-        const confirmed = await this._confirm(`Delete node "${label}"?`);
+        const confirmed = await this._confirm(tf("Dialogs.DeleteNode", { label }));
         if (!confirmed) return;
 
         this.graph.data.nodes = this.graph.data.nodes.filter(n => n.id !== nodeData.id);
@@ -1285,7 +1300,7 @@ export class ForceRenderer extends BaseRenderer {
     console.log("linkData in edit dialog:", linkData);
     // Build 2 form groups using Foundry fields (stable + consistent with DialogV2)
     const sourceGroup = new StringField({
-      label: `Source label (${linkData?.source?.label}): `,
+      label: tf("Labels.SourceLabel", { label: linkData?.source?.label }) + ": ",
       initial: linkData?.sourceLabel ?? "",
       required: false
     }).toFormGroup(
@@ -1294,7 +1309,7 @@ export class ForceRenderer extends BaseRenderer {
     ).outerHTML;
 
     const targetGroup = new StringField({
-      label: `Target label (${linkData?.target?.label}): `,
+      label: tf("Labels.TargetLabel", { label: linkData?.target?.label }) + ": ",
       initial: linkData?.targetLabel ?? "",
       required: false
     }).toFormGroup(
@@ -1306,16 +1321,16 @@ export class ForceRenderer extends BaseRenderer {
     <form class="fg-link-label-editor">
       ${sourceGroup}
       ${targetGroup}
-      <p class="notes">Tip: leave empty to hide the endpoint label.</p>
+      <p class="notes">${t("Dialogs.EndpointLabelTip")}</p>
     </form>
   `;
 
     // IMPORTANT: DialogV2.prompt returns the callback return value (or null/undefined)
     const result = await DialogV2.prompt({
-      window: { title: "Edit link endpoint labels" },
+      window: { title: t("Dialogs.EditEndpointLabels") },
       content,
       ok: {
-        label: "Save",
+        label: t("Buttons.Save"),
         callback: (event, button) => {
           // This is the correct v13 way: button.form + FormDataExtended
           const obj = new FormDataExtended(button.form).object;
@@ -1348,8 +1363,8 @@ export class ForceRenderer extends BaseRenderer {
   async _onRightClickLink(event, linkData) {
     log("_onRightClickLink", linkData);
 
-    const src = linkData?.source?.label || linkData?.source?.id || "source";
-    const tgt = linkData?.target?.label || linkData?.target?.id || "target";
+    const src = linkData?.source?.label || linkData?.source?.id || t("Force.SourceFallback");
+    const tgt = linkData?.target?.label || linkData?.target?.id || t("Force.TargetFallback");
     const label = linkData.label || `${src} → ${tgt}`;
 
     this._showRadialMenu({
@@ -1358,7 +1373,7 @@ export class ForceRenderer extends BaseRenderer {
       items: [
         {
           id: "editLabels",
-          label: `Edit endpoint labels (${label})`,
+          label: tf("Dialogs.EditEndpointLabelsAction", { label }),
           icon: "fa-solid fa-pen-to-square",
           onClick: async () => {
             // Close the radial menu so it doesn't remain above the dialog
@@ -1370,11 +1385,11 @@ export class ForceRenderer extends BaseRenderer {
         },
         {
           id: "delete",
-          label: `Delete link (${label})`,
+          label: tf("Dialogs.DeleteLinkAction", { label }),
           icon: "fa-solid fa-trash",
           onClick: async () => {
             this._closeRadialMenu?.();
-            const confirmed = await this._confirm(`Delete link from "${src}" to "${tgt}"?`);
+            const confirmed = await this._confirm(tf("Dialogs.DeleteLink", { source: src, target: tgt }));
             if (!confirmed) return;
             this.graph.data.links = this.graph.data.links.filter(l => l !== linkData);
             this.render();
@@ -1390,7 +1405,7 @@ export class ForceRenderer extends BaseRenderer {
     graph.data.groups = (graph?.data?.groups ?? [])
       .map(g => ({
         id: g.id || safeUUID(),
-        label: String(g.label || "Group"),
+        label: String(g.label || t("Dialogs.Group")),
         nodeIds: Array.isArray(g.nodeIds) ? g.nodeIds.filter(id => existingNodeIds.has(id)) : [],
         color: g.color || "#00eaff",
         fillOpacity: g.fillOpacity ?? 0.14,
@@ -1405,10 +1420,10 @@ export class ForceRenderer extends BaseRenderer {
     if (!nodeId) return;
     if (this._selectedNodeIds.has(nodeId)) {
       this._selectedNodeIds.delete(nodeId);
-      ui.notifications.info("Node removed from group selection.");
+      ui.notifications.info(t("Notifications.NodeRemovedFromGroup"));
     } else {
       this._selectedNodeIds.add(nodeId);
-      ui.notifications.info("Node added to group selection.");
+      ui.notifications.info(t("Notifications.NodeAddedToGroup"));
     }
   }
 
@@ -1463,15 +1478,15 @@ export class ForceRenderer extends BaseRenderer {
       .filter(id => (this.graph?.data?.nodes ?? []).some(n => n.id === id));
 
     if (!nodeIds.length) {
-      ui.notifications.warn("Select at least one node with Ctrl/Cmd + click before creating a group.");
+      ui.notifications.warn(t("Notifications.SelectNodeBeforeGroup"));
       return;
     }
 
     const groupData = await this._promptGroupData({
-      label: `Group ${(this.graph?.data?.groups ?? []).length + 1}`,
+      label: tf("Dialogs.GroupNumber", { number: (this.graph?.data?.groups ?? []).length + 1 }),
       color: "#00eaff",
       padding: 48
-    }, "Create Group");
+    }, t("Dialogs.CreateGroup"));
     if (!groupData) return;
 
     if (!Array.isArray(this.graph.data.groups)) this.graph.data.groups = [];
@@ -1492,7 +1507,7 @@ export class ForceRenderer extends BaseRenderer {
 
   async _onRightClickGroup(event, groupData) {
     log("_onRightClickGroup", groupData);
-    const label = groupData.label || groupData.id || "Group";
+    const label = groupData.label || groupData.id || t("Dialogs.Group");
 
     this._showRadialMenu({
       clientX: event.clientX,
@@ -1500,11 +1515,11 @@ export class ForceRenderer extends BaseRenderer {
       items: [
         {
           id: "editGroup",
-          label: `Edit group (${label})`,
+          label: tf("Dialogs.EditGroupAction", { label }),
           icon: "fa-solid fa-pen-to-square",
           onClick: async () => {
             this._closeRadialMenu?.();
-            const result = await this._promptGroupData(groupData, "Edit Group");
+            const result = await this._promptGroupData(groupData, t("Dialogs.EditGroup"));
             if (!result) return;
             groupData.label = result.label;
             groupData.color = result.color;
@@ -1514,11 +1529,11 @@ export class ForceRenderer extends BaseRenderer {
         },
         {
           id: "dissolveGroup",
-          label: `Dissolve group (${label})`,
+          label: tf("Dialogs.DissolveGroupAction", { label }),
           icon: "fa-solid fa-object-ungroup",
           onClick: async () => {
             this._closeRadialMenu?.();
-            const confirmed = await this._confirm(`Dissolve group "${label}"? Nodes will not be deleted.`);
+            const confirmed = await this._confirm(tf("Dialogs.DissolveGroupConfirm", { label }));
             if (!confirmed) return;
             this.graph.data.groups = (this.graph?.data?.groups ?? []).filter(g => g !== groupData);
             this.render();
@@ -1528,21 +1543,21 @@ export class ForceRenderer extends BaseRenderer {
     });
   }
 
-  async _promptGroupData(initialValue = {}, title = "Group") {
-    const label = foundry.utils.escapeHTML?.(initialValue.label ?? "Group") ?? String(initialValue.label ?? "Group");
+  async _promptGroupData(initialValue = {}, title = t("Dialogs.Group")) {
+    const label = foundry.utils.escapeHTML?.(initialValue.label ?? t("Dialogs.Group")) ?? String(initialValue.label ?? t("Dialogs.Group"));
     const color = foundry.utils.escapeHTML?.(initialValue.color ?? "#00eaff") ?? String(initialValue.color ?? "#00eaff");
     const padding = Number(initialValue.padding ?? 48);
     const content = `<form class="fg-group-editor">
       <div class="form-group">
-        <label>Name</label>
+        <label>${t("Labels.Name")}</label>
         <input type="text" name="label" value="${label}" autofocus>
       </div>
       <div class="form-group">
-        <label>Color</label>
+        <label>${t("Labels.Color")}</label>
         <input type="color" name="color" value="${color}">
       </div>
       <div class="form-group">
-        <label>Padding</label>
+        <label>${t("Labels.Padding")}</label>
         <input type="number" name="padding" value="${padding}" min="0" step="1">
       </div>
     </form>`;
@@ -1562,7 +1577,7 @@ export class ForceRenderer extends BaseRenderer {
         window: { title },
         content,
         ok: {
-          label: "Save",
+          label: t("Buttons.Save"),
           callback: (event, button) => normalize(new FormDataExtended(button.form).object)
         },
         rejectClose: false
@@ -1574,7 +1589,7 @@ export class ForceRenderer extends BaseRenderer {
       const result = await Dialog.prompt({
         title,
         content,
-        label: "Save",
+        label: t("Buttons.Save"),
         callback: (html) => normalize({
           label: html[0]?.querySelector?.("input[name='label']")?.value,
           color: html[0]?.querySelector?.("input[name='color']")?.value,
@@ -1595,11 +1610,11 @@ export class ForceRenderer extends BaseRenderer {
 
     return await new Promise(resolve => {
       new Dialog({
-        title: "Confirm",
+        title: t("Dialogs.Confirm"),
         content,
         buttons: {
-          yes: { label: "Yes", callback: () => resolve(true) },
-          no: { label: "No", callback: () => resolve(false) }
+          yes: { label: t("Buttons.Yes"), callback: () => resolve(true) },
+          no: { label: t("Buttons.No"), callback: () => resolve(false) }
         },
         default: "no",
         close: () => resolve(false)
@@ -1607,11 +1622,11 @@ export class ForceRenderer extends BaseRenderer {
     });
   }
 
-  async _promptSymbolName(initialValue, title = "Name Symbol") {
+  async _promptSymbolName(initialValue, title = t("Dialogs.NameSymbol")) {
     const escaped = foundry.utils.escapeHTML?.(initialValue ?? "") ?? String(initialValue ?? "");
     const content = `<form class="fg-symbol-name-form">
       <div class="form-group">
-        <label>Name</label>
+        <label>${t("Labels.Name")}</label>
         <input type="text" name="name" value="${escaped}" autofocus>
       </div>
     </form>`;
@@ -1621,7 +1636,7 @@ export class ForceRenderer extends BaseRenderer {
         window: { title },
         content,
         ok: {
-          label: "OK",
+          label: t("Buttons.OK"),
           callback: (event, button) => {
             const obj = new FormDataExtended(button.form).object;
             return String(obj.name ?? "").trim();
@@ -1636,7 +1651,7 @@ export class ForceRenderer extends BaseRenderer {
       const result = await Dialog.prompt({
         title,
         content,
-        label: "OK",
+        label: t("Buttons.OK"),
         callback: (html) => String(html[0]?.querySelector?.("input[name='name']")?.value ?? "").trim(),
         rejectClose: false
       });
@@ -1662,7 +1677,7 @@ export class ForceRenderer extends BaseRenderer {
   }
 
   _getNextSymbolName(symbol) {
-    const base = String(symbol?.defaultName || symbol?.label || symbol?.id || "Symbol").trim();
+    const base = String(symbol?.defaultName || symbol?.label || symbol?.id || t("Force.Symbol")).trim();
     const symbolId = symbol?.id;
     const count = (this.graph?.data?.nodes ?? []).filter(n => n.type === "Symbol" && n.symbolId === symbolId).length + 1;
     return `${base} ${String(count).padStart(2, "0")}`;
@@ -1688,7 +1703,7 @@ export class ForceRenderer extends BaseRenderer {
     if (symbolDrop) {
       const symbol = (this.graph?.symbols ?? []).find(s => s.id === symbolDrop.symbolId);
       if (!symbol) {
-        ui.notifications.warn(`Unknown symbol: ${symbolDrop.symbolId}`);
+        ui.notifications.warn(tf("Notifications.UnknownSymbol", { id: symbolDrop.symbolId }));
         return;
       }
 
@@ -1707,7 +1722,7 @@ export class ForceRenderer extends BaseRenderer {
         y
       });
 
-      ui.notifications.info(`Added symbol: ${label}`);
+      ui.notifications.info(tf("Notifications.AddedSymbol", { label }));
       this.render();
       return;
     }
@@ -1718,7 +1733,7 @@ export class ForceRenderer extends BaseRenderer {
 
     const allowed = this.graph?.allowedEntities;
     if (Array.isArray(allowed) && allowed.length > 0 && !allowed.includes(data.type)) {
-      ui.notifications.warn(`You cannot add a ${data.type} on this graph type.`);
+      ui.notifications.warn(tf("Notifications.CannotAddEntityGraphType", { type: data.type }));
       return;
     }
 
@@ -1729,7 +1744,7 @@ export class ForceRenderer extends BaseRenderer {
       case "Actor": {
         const actor = await fromUuid(data.uuid);
         if (!actor) {
-          ui.notifications.warn("Could not find actor");
+          ui.notifications.warn(t("Notifications.CouldNotFindActor"));
           return;
         }
 
@@ -1743,14 +1758,14 @@ export class ForceRenderer extends BaseRenderer {
           y
         });
 
-        ui.notifications.info(`Added node for actor: ${actor.name}`);
+        ui.notifications.info(tf("Notifications.AddedNodeActor", { name: actor.name }));
         break;
       }
       case "JournalEntryPage": {
         const page = await fromUuid(data.uuid);
         log(page);
         if (!page) {
-          ui.notifications.warn("Could not find page");
+          ui.notifications.warn(t("Notifications.CouldNotFindPage"));
           return;
         }
         const customIcon = page.getFlag(MODULE_ID, "icon");
@@ -1764,14 +1779,14 @@ export class ForceRenderer extends BaseRenderer {
           x,
           y
         });
-        ui.notifications.info(`Added node for page: ${page.name}`);
+        ui.notifications.info(tf("Notifications.AddedNodePage", { name: page.name }));
         break;
       }
       case "Scene": {
         const scene = await fromUuid(data.uuid);
         log(scene);
         if (!scene) {
-          ui.notifications.warn("Could not find scene");
+          ui.notifications.warn(t("Notifications.CouldNotFindScene"));
           return;
         }
 
@@ -1784,14 +1799,14 @@ export class ForceRenderer extends BaseRenderer {
           x,
           y
         });
-        ui.notifications.info(`Added node for scene: ${scene.name}`);
+        ui.notifications.info(tf("Notifications.AddedNodeScene", { name: scene.name }));
         break;
       }
       case "Item": {
         const item = await fromUuid(data.uuid);
         log(item);
         if (!item) {
-          ui.notifications.warn("Could not find item");
+          ui.notifications.warn(t("Notifications.CouldNotFindItem"));
           return;
         }
 
@@ -1804,7 +1819,7 @@ export class ForceRenderer extends BaseRenderer {
           x,
           y
         });
-        ui.notifications.info(`Added node for item: ${item.name}`);
+        ui.notifications.info(tf("Notifications.AddedNodeItem", { name: item.name }));
         break;
       }
       default:

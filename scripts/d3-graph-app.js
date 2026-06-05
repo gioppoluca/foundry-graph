@@ -1,4 +1,4 @@
-import { log, MODULE_ID, t } from './constants.js';
+import { log, MODULE_ID, t, tf } from './constants.js';
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -140,7 +140,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       symbols,
       hasSymbolPalette: isEdit && symbols.length > 0,
       isEdit,
-      instructions: this.renderer?.instructions || "No instructions available",
+      instructions: this.renderer?.instructions || t("Notifications.NoInstructionsAvailable"),
       isLinkNodesVisible: this.renderer?.isLinkNodesVisible ?? true,
       isRelationSelectVisible: this.renderer?.isRelationSelectVisible ?? true,
       isSaveNewSceneVisible: this.renderer?.isSaveNewSceneVisible ?? false,
@@ -216,7 +216,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     button.disabled = !enabled;
     button.title = enabled
       ? ""
-      : "Scaled scene export is available only when the map is close enough to the provider native max zoom.";
+      : t("Notifications.ScaledSceneExportUnavailableZoom");
   }
 
   async _onClose(options) {
@@ -252,27 +252,31 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     event?.preventDefault?.();
 
     if (!this._isSaveNewSceneScaledEnabled()) {
-      ui.notifications.warn("Scaled scene export is available only when the map is close enough to the provider native max zoom.");
+      ui.notifications.warn(t("Notifications.ScaledSceneExportUnavailableZoom"));
       return;
     }
 
     const scaleInfo = this.renderer?.getScaledSceneScaleInfo?.();
     if (!scaleInfo) {
-      ui.notifications.warn("Scaled scene export is not available for this renderer.");
+      ui.notifications.warn(t("Notifications.ScaledSceneExportUnavailableRenderer"));
       return;
     }
 
     console.log("[foundry-graph] Scaled scene scale info", scaleInfo);
 
     if (!scaleInfo.ok) {
-      const scaleText = Number.isFinite(scaleInfo.scale) ? ` Scale: ${scaleInfo.scale.toFixed(2)}.` : "";
-      ui.notifications.warn(`Scaled scene check failed: ${scaleInfo.reason}.${scaleText}`);
+      const scaleText = Number.isFinite(scaleInfo.scale) ? tf("Notifications.ScaledSceneScaleText", { scale: scaleInfo.scale.toFixed(2) }) : "";
+      ui.notifications.warn(tf("Notifications.ScaledSceneCheckFailed", { reason: scaleInfo.reason, scaleText }));
       return;
     }
 
     try {
       ui.notifications.info(
-        `Saving scaled scene image. Scale: ${scaleInfo.scale.toFixed(2)}; grid: ${scaleInfo.finalGridSize.toFixed(2)} px / ${scaleInfo.feetPerSquare} ft.`
+        tf("Notifications.SavingScaledSceneImage", {
+          scale: scaleInfo.scale.toFixed(2),
+          gridSize: scaleInfo.finalGridSize.toFixed(2),
+          feetPerSquare: scaleInfo.feetPerSquare
+        })
       );
 
       let wallData = null
@@ -289,7 +293,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       });
 
       if (!filePath) {
-        ui.notifications.warn("Scaled scene export did not return a saved image path.");
+        ui.notifications.warn(t("Notifications.ScaledSceneNoImagePath"));
         return;
       }
 
@@ -304,7 +308,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       }
     } catch (err) {
       console.error("Scaled scene export failed:", err);
-      ui.notifications.error("Failed to create scaled scene from map image");
+      ui.notifications.error(t("Notifications.ScaledSceneCreateFailed"));
     }
   }
 
@@ -315,7 +319,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     console.log(this)
 
     try {
-      ui.notifications.info("Saving graph to world folder...");
+      ui.notifications.info(t("Notifications.SavingGraphToWorldFolder"));
 
       // Call svgToCanvas with new destination parameter
       const filePath = await this.svgToCanvas({
@@ -325,7 +329,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       log("Exported file path:", filePath);
 
       if (filePath) {
-        ui.notifications.success(`Graph saved: ${filePath}`);
+        ui.notifications.success(tf("Notifications.GraphImageSaved", { filePath }));
 
         /*
         // Store path on graph document for scene transformation
@@ -338,8 +342,8 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 */
         // Optional: Prompt user to create scene now
         const createScene = await Dialog.confirm({
-          title: "Create Scene from Graph?",
-          content: `<p>Graph image saved to <code>${filePath}</code>.</p><p>Create a new scene using this image as background?</p>`,
+          title: t("Dialogs.CreateSceneTitle"),
+          content: tf("Dialogs.CreateSceneContent", { filePath }),
           yes: () => true,
           no: () => false
         });
@@ -350,7 +354,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       }
     } catch (err) {
       console.error("Export to folder failed:", err);
-      ui.notifications.error("Failed to save graph image to world folder");
+      ui.notifications.error(t("Notifications.GraphImageSaveFailed"));
     }
   }
 
@@ -388,7 +392,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     };
 
     const scene = await Scene.create(sceneData);
-    ui.notifications.info(`Scene created: ${scene.name}`);
+    ui.notifications.info(tf("Notifications.SceneCreated", { name: scene.name }));
     return scene;
   }
 }

@@ -108,7 +108,7 @@ console.log("GraphPageApplication _onSave data", data);
         const color = (data.colorevent ?? "").trim();
 
         if (startTs == null) {
-            ui.notifications.warn(t("GraphPage.StartDateRequired") ?? "Start date is required.");
+            ui.notifications.warn(t("GraphPage.StartDateRequired"));
             return;
         }
 

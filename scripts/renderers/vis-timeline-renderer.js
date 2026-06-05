@@ -1,4 +1,4 @@
-import { MODULE_ID, log, t } from "../constants.js";
+import { MODULE_ID, log, t, tf } from "../constants.js";
 import { BaseRenderer } from "./base-renderer.js";
 const { DialogV2 } = foundry.applications.api;
 
@@ -329,17 +329,7 @@ export class VisTimelineRenderer extends BaseRenderer {
     }
 
     get instructions() {
-        return `
-    <b>Use relations for creating new lanes<br>
-    <b>Click on Node</b>: Select Node for editing position, range (if ranged) and lane<br>
-    <b>Scroll</b>: Zoom<br>
-    <b>ALT+Left Click</b>: Add a free item<br>
-    <b>ALT+SHIFT+Left Click</b>: Add a ranged item<br>
-    <b>DblClick</b>: Open Sheet<br>
-    <b>Right Click</b>: Radial menu for delete or open sheet<br>
-    <b>Drop</b>: Add element to timeline<br>
-    <b>Ctrl Drop</b>: To drop a ranged type item with default duration (can be resized immediately after drop)
-  `;
+        return t("VisTimeline.Instructions");
     }
     // --------------------------------------------------------------------------
     // Static entity helpers (called by graph_api cleanup hooks)
@@ -358,6 +348,35 @@ export class VisTimelineRenderer extends BaseRenderer {
     // --------------------------------------------------------------------------
     // Misc renderer overrides
     // --------------------------------------------------------------------------
+
+
+    applyRelationChanges(graph, _oldRelations, newRelations) {
+        graph.relations = Array.isArray(newRelations) ? newRelations : [];
+        if (!graph.data) graph.data = this.initializeGraphData();
+        if (!Array.isArray(graph.data.items)) graph.data.items = [];
+        if (!Array.isArray(graph.data.groups)) graph.data.groups = [];
+
+        const relById = new Map(graph.relations.map(r => [r.id, r]));
+        graph.data.groups = graph.data.groups.filter(g => relById.has(g.id));
+
+        const existingIds = new Set(graph.data.groups.map(g => g.id));
+        for (const relation of graph.relations) {
+            const style = relation.color ? `color: ${relation.color};` : "";
+            if (existingIds.has(relation.id)) {
+                const group = graph.data.groups.find(g => g.id === relation.id);
+                group.content = relation.label || relation.id;
+                group.style = style;
+            } else {
+                graph.data.groups.push({
+                    id: relation.id,
+                    content: relation.label || relation.id,
+                    style
+                });
+            }
+        }
+
+        return graph;
+    }
 
     setRelationData(_relation) { /* lanes come from graph.relations, not a single relation */ }
 
@@ -462,7 +481,7 @@ export class VisTimelineRenderer extends BaseRenderer {
             // First render: create DataSets and Timeline instance
             // vis.js is expected to be available as a global (loaded via module.json lib)
             if (typeof vis === "undefined") {
-                ui.notifications.error("[foundry-graph] vis.js is not loaded. Add it to module.json as a library.");
+                ui.notifications.error(t("Notifications.VisNotLoaded"));
                 return;
             }
             this._itemsDs = new vis.DataSet(visItems);
@@ -511,7 +530,7 @@ export class VisTimelineRenderer extends BaseRenderer {
             // Ensure at least one default group
             relations.push({
                 id: "lane-default",
-                label: t?.("Timeline.DefaultLane") ?? "Default",
+                label: t("Timeline.DefaultLane"),
                 color: "#2b2b2b",
             });
             this.graph.relations = relations;
@@ -633,7 +652,7 @@ export class VisTimelineRenderer extends BaseRenderer {
         const endStr = item.end != null ? fgFormatFull(item.end) : null;
 
         // Type badge label
-        const typeLabel = item.entityType ?? "Unknown";
+        const typeLabel = item.entityType ?? t("Labels.Unknown");
 
         // Image — only for types that have a meaningful portrait/icon
         const showImg = ["Actor", "Item", "Scene"].includes(item.entityType) && item.img;
@@ -936,13 +955,13 @@ export class VisTimelineRenderer extends BaseRenderer {
         let title;
         try {
             title = await DialogV2.prompt({
-                window: { title: isRange ? "New Range Event" : "New Timeline Event" },
+                window: { title: isRange ? t("Dialogs.NewRangeEvent") : t("Dialogs.NewTimelineEvent") },
                 content: `<div class="form-group">
-                    <label>Event title</label>
-                    <input type="text" name="title" value="New Event" autofocus />
+                    <label>${t("Labels.EventTitle")}</label>
+                    <input type="text" name="title" value="${t("Timeline.NewEvent")}" autofocus />
                 </div>`,
                 ok: {
-                    label: "Create",
+                    label: t("Buttons.Create"),
                     callback: (_ev, button) => {
                         const v = button.form.elements.title.value.trim();
                         return v || null;
@@ -974,10 +993,7 @@ export class VisTimelineRenderer extends BaseRenderer {
         await this.render(d3.select(this._svgEl), this.graph);
 
         if (isRange) {
-            ui.notifications.info(
-                game.i18n.localize("foundry-graph.Timeline.RangeDropHint")
-                ?? "Range item placed — drag the right edge to set the end date."
-            );
+            ui.notifications.info(t("DeletionDialog.RangeDropHint"));
         }
     }
 
@@ -1024,7 +1040,7 @@ export class VisTimelineRenderer extends BaseRenderer {
     // --------------------------------------------------------------------------
 
     async _onRightClickItem(event, item) {
-        const label = item?.title || item?.uuid || item?.id || "item";
+        const label = item?.title || item?.uuid || item?.id || t("Force.ItemFallback");
         const isFree = !item?.uuid;
         this._showRadialMenu({
             clientX: event.clientX,
@@ -1033,19 +1049,19 @@ export class VisTimelineRenderer extends BaseRenderer {
                 isFree
                     ? {
                         id: "editTitle",
-                        label: `Edit title (${label})`,
+                        label: tf("Dialogs.EditTitleAction", { label }),
                         icon: "fa-solid fa-pencil",
                         onClick: async () => {
                             let newTitle;
                             try {
                                 newTitle = await DialogV2.prompt({
-                                    window: { title: "Edit Event Title" },
+                                    window: { title: t("Dialogs.EditEventTitle") },
                                     content: `<div class="form-group">
-                                        <label>Event title</label>
+                                        <label>${t("Labels.EventTitle")}</label>
                                         <input type="text" name="title" value="${label}" autofocus />
                                     </div>`,
                                     ok: {
-                                        label: "Save",
+                                        label: t("Buttons.Save"),
                                         callback: (_ev, button) => {
                                             const v = button.form.elements.title.value.trim();
                                             return v || null;
@@ -1060,23 +1076,23 @@ export class VisTimelineRenderer extends BaseRenderer {
                     }
                     : {
                         id: "openSheet",
-                        label: `Open (${label})`,
+                        label: tf("Dialogs.OpenAction", { label }),
                         icon: "fa-solid fa-up-right-from-square",
                         onClick: () => this._openDocumentSheet(item),
                     },
                 ...(isFree ? [{
                     id: "convertToJournal",
-                    label: "Convert to Journal Page",
+                    label: t("Dialogs.ConvertToJournalPage"),
                     icon: "fa-solid fa-book",
                     onClick: () => this._convertFreeEventToJournal(item),
                 }] : []),
                 {
                     id: "delete",
-                    label: `Delete (${label})`,
+                    label: tf("Dialogs.DeleteAction", { label }),
                     icon: "fa-solid fa-trash",
                     onClick: async () => {
                         const confirmed = await DialogV2.confirm({
-                            content: `Delete timeline item "${label}"?`,
+                            content: tf("Dialogs.DeleteTimelineItem", { label }),
                         });
                         if (!confirmed) return;
                         this.graph.data.items = this.graph.data.items.filter(i => i.id !== item.id);
@@ -1089,13 +1105,13 @@ export class VisTimelineRenderer extends BaseRenderer {
 
     async _openDocumentSheet(item) {
         if (!item.uuid) {
-            ui.notifications.info(`"${item.title}" is a free event with no linked document.`);
+            ui.notifications.info(tf("Notifications.TimelineFreeEvent", { title: item.title }));
             return;
         }
         try {
             const doc = await fromUuid(item.uuid);
             if (doc?.sheet) doc.sheet.render(true);
-            else ui.notifications.warn("No sheet available for this document.");
+            else ui.notifications.warn(t("Notifications.NoSheetAvailable"));
         } catch (e) {
             log("VisTimelineRenderer: failed to open sheet", e);
         }
@@ -1114,7 +1130,7 @@ export class VisTimelineRenderer extends BaseRenderer {
         if (rel?.label) return rel.label;
         const grp = this.graph.data?.groups?.find(g => g.id === groupId);
         if (grp?.content) return grp.content;
-        return groupId ?? "Timeline";
+        return groupId ?? t("Timeline.Timeline");
     }
 
     /**
@@ -1163,20 +1179,20 @@ export class VisTimelineRenderer extends BaseRenderer {
      * @param {object} item  – timeline item from graph.data.items
      */
     async _convertFreeEventToJournal(item) {
-        const journalName = this.graph.name || "Timeline";
+        const journalName = this.graph.name || t("Timeline.Timeline");
         const laneName = this._resolveLaneName(item.group);
         const pageTitle = item.title;
 
         const confirmed = await DialogV2.confirm({
-            window: { title: "Convert to Journal Page" },
-            content: `<p>Convert "<strong>${pageTitle}</strong>" into a journal page?</p>
+            window: { title: t("Dialogs.ConvertToJournalPage") },
+            content: `${tf("Dialogs.ConvertToJournalPageContent", { pageTitle })}
                       <ul style="margin:.4em 0 0 1em">
-                        <li>Journal: <em>${journalName}</em></li>
-                        <li>Category: <em>${laneName}</em></li>
-                        <li>Page: <em>${pageTitle}</em></li>
+                        <li>${t("Dialogs.ConvertJournalLabel")}: <em>${journalName}</em></li>
+                        <li>${t("Dialogs.ConvertCategoryLabel")}: <em>${laneName}</em></li>
+                        <li>${t("Dialogs.ConvertPageLabel")}: <em>${pageTitle}</em></li>
                       </ul>
                       <p style="margin-top:.6em;font-size:.85em;color:var(--color-text-light-6)">
-                        The journal entry and category will be created if they do not exist yet.
+                        ${t("Dialogs.ConvertJournalNote")}
                       </p>`,
         });
         if (!confirmed) return;
@@ -1186,7 +1202,7 @@ export class VisTimelineRenderer extends BaseRenderer {
         if (!journal) {
             journal = await JournalEntry.create({ name: journalName });
             if (!journal) {
-                ui.notifications.error("Failed to create journal entry.");
+                ui.notifications.error(t("Notifications.CreateJournalEntryFailed"));
                 return;
             }
         }
@@ -1199,7 +1215,7 @@ export class VisTimelineRenderer extends BaseRenderer {
             }]);
             category = cats?.[0];
             if (!category) {
-                ui.notifications.error("Failed to create journal category.");
+                ui.notifications.error(t("Notifications.CreateJournalCategoryFailed"));
                 return;
             }
         }
@@ -1212,7 +1228,7 @@ export class VisTimelineRenderer extends BaseRenderer {
         }]);
         const page = pages?.[0];
         if (!page) {
-            ui.notifications.error("Failed to create journal page.");
+            ui.notifications.error(t("Notifications.CreateJournalPageFailed"));
             return;
         }
 
@@ -1229,7 +1245,7 @@ export class VisTimelineRenderer extends BaseRenderer {
         item.entityType = "JournalEntryPage";
 
         await this.render(d3.select(this._svgEl), this.graph);
-        ui.notifications.info(`Created journal page "${pageTitle}" in "${journalName} › ${laneName}".`);
+        ui.notifications.info(tf("Notifications.CreatedJournalPage", { pageTitle, journalName, laneName }));
     }
 
     // --------------------------------------------------------------------------
@@ -1290,12 +1306,12 @@ export class VisTimelineRenderer extends BaseRenderer {
         // Check entity type is allowed
         const allowed = this.graph?.allowedEntities;
         if (Array.isArray(allowed) && allowed.length > 0 && !allowed.includes(data.type)) {
-            ui.notifications.warn(`You cannot add a ${data.type} to this timeline.`);
+            ui.notifications.warn(tf("Notifications.CannotAddEntityToTimeline", { type: data.type }));
             return;
         }
 
         const doc = await fromUuid(data.uuid);
-        if (!doc) { ui.notifications.warn("Could not resolve dropped document."); return; }
+        if (!doc) { ui.notifications.warn(t("Notifications.CouldNotResolveDroppedDocument")); return; }
 
         // --- Resolve start time and lane from drop position --------------------
         let dropTimeSec = null;
@@ -1368,10 +1384,7 @@ export class VisTimelineRenderer extends BaseRenderer {
         await this.render(d3.select(this._svgEl), this.graph);
 
         if (isRange) {
-            ui.notifications.info(
-                game.i18n.localize("foundry-graph.Timeline.RangeDropHint")
-                ?? "Range item placed — drag the right edge to set the end date."
-            );
+            ui.notifications.info(t("DeletionDialog.RangeDropHint"));
         }
     }
 
@@ -1435,7 +1448,7 @@ export class VisTimelineRenderer extends BaseRenderer {
         const _root = document.body;
         const _prevCursor = _root.style.cursor;
         _root.style.cursor = "progress";
-        ui?.notifications?.info?.(t("Notifications.ExportPrepare") ?? "Preparing export…");
+        ui?.notifications?.info?.(t("Notifications.ExportPrepare"));
 
         try {
             const pixelRatio = Math.max(1, Number(scale) || 2);
@@ -1655,10 +1668,10 @@ export class VisTimelineRenderer extends BaseRenderer {
 
         } catch (err) {
             log("VisTimelineRenderer.exportToPNG failed", err);
-            ui?.notifications?.error?.(t("Errors.ExportFailed") ?? "Export failed — see console.");
+            ui?.notifications?.error?.(t("Errors.ExportFailed"));
         } finally {
             _root.style.cursor = _prevCursor || "";
-            ui?.notifications?.info?.(t("Notifications.ExportFinished") ?? "Export complete.");
+            ui?.notifications?.info?.(t("Notifications.ExportFinished"));
         }
     }
 

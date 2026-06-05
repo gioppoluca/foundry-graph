@@ -1,4 +1,4 @@
-import { log, safeUUID } from "../constants.js";
+import { log, safeUUID, t, tf } from "../constants.js";
 import { BaseRenderer } from "./base-renderer.js";
 const { DialogV2 } = foundry.applications.api;
 
@@ -98,7 +98,7 @@ export class GenealogyRenderer extends BaseRenderer {
           //          if (!this._linkSourceNode) {
           log("Setting source node for linking:", node);
           this._linkSourceNode = node;
-          ui.notifications.info(`Selected source node: ${node.data.name}`);
+          ui.notifications.info(tf("Notifications.SelectedSourceNode", { label: node.data.name }));
           return
           //        } else {
           //      }
@@ -126,15 +126,7 @@ export class GenealogyRenderer extends BaseRenderer {
   }
 
   get instructions() {
-    return `
-    <b>'Link Nodes' button</b>: To Activate Link Mode<br>
-    <b>Click on Node</b>: Select Parent Node<br>
-    <b>Drop</b>: Link Dropped Actor as Child<br>
-    <b>Scroll</b>: Zoom<br>
-    <b>DblClick</b>: Open Sheet<br>
-    <b>Left Click</b>: Delete Node with all descendants
-    <b>Ctrl Click</b>: To drag for re-parenting
-  `;
+    return t("Genealogy.Instructions");
   }
 
   get isLinkNodesVisible() {
@@ -369,12 +361,12 @@ export class GenealogyRenderer extends BaseRenderer {
       deletingStart = true
       parents = this.getParents(this.graph.data, nodeId);
       if (parents.length > 0) {
-        dialogContent = `Delete node "${nodeData.data.name || nodeId}" and all descendants? One of its parents will be promoted to graph start.`
+        dialogContent = tf("Genealogy.DeleteStartPromote", { name: nodeData.data.name || nodeId })
       } else {
-        dialogContent = `By deleting "${nodeData.data.name || nodeId}" you are deleting the whole graph are you sure?`
+        dialogContent = tf("Genealogy.DeleteWholeGraph", { name: nodeData.data.name || nodeId })
       }
     } else {
-      dialogContent = `Delete node "${nodeData.data.name || nodeId}" and all descendants?`
+      dialogContent = tf("Genealogy.DeleteNodeDescendants", { name: nodeData.data.name || nodeId })
     }
     const confirmed = await DialogV2.confirm({
       content: dialogContent,
@@ -383,7 +375,7 @@ export class GenealogyRenderer extends BaseRenderer {
       if (deletingStart) {
         if (parents.length > 0) {
           this.graph.data.start = parents[0];
-          ui.notifications.info(game.i18n.format("genealogy.promoteStart", { newStart: parents[0] }));
+          ui.notifications.info(tf("Genealogy.PromoteStart", { newStart: parents[0] }));
         } else {
           // delete all graph
           this.graph.data = this.initializeGraphData()
@@ -410,7 +402,7 @@ export class GenealogyRenderer extends BaseRenderer {
     if (graph.data.start) {
       // already initialized
       if (!this._linkSourceNode) {
-        ui.notifications.warn("Please activate linking mode and select a source node before adding a new node.");
+        ui.notifications.warn(t("Notifications.PleaseActivateLinking"));
         return;
       }
       // we look if the existing node has a family
@@ -517,7 +509,7 @@ export class GenealogyRenderer extends BaseRenderer {
   async _onRightClickLink(linkData) {
     log("_onRightClickLink", linkData)
     const confirmed = await DialogV2.confirm({
-      content: `Delete link from "${linkData.source?.label || linkData.source?.id}" to "${linkData.target?.label || linkData.target?.id}"?`,
+      content: tf("Dialogs.DeleteLink", { source: linkData.source?.label || linkData.source?.id, target: linkData.target?.label || linkData.target?.id }),
     })
     if (confirmed) {
       this.graph.data.links = this.graph.data.links.filter(l => l !== linkData);
@@ -534,7 +526,7 @@ export class GenealogyRenderer extends BaseRenderer {
     log(data)
     const allowed = this.graph?.allowedEntities;
     if (Array.isArray(allowed) && allowed.length > 0 && !allowed.includes(data.type)) {
-      ui.notifications.warn(`You cannot add a ${data.type} on this graph type.`);
+      ui.notifications.warn(tf("Notifications.CannotAddEntityGraphType", { type: data.type }));
       return;
     }
     log("this.graph:", this.graph)
@@ -545,7 +537,7 @@ export class GenealogyRenderer extends BaseRenderer {
     log("this._linkSourceNode:", this._linkSourceNode)
     log("!this._linkSourceNode:", !this._linkSourceNode)
     if (hasStart && !this._linkSourceNode) {
-      ui.notifications.warn("Please select one node before linking or activate linking mode.");
+      ui.notifications.warn(t("Notifications.PleaseSelectOneNodeBeforeLinking"));
       return
     }
     // Get mouse position relative to SVG
@@ -569,7 +561,7 @@ export class GenealogyRenderer extends BaseRenderer {
       case "Actor":
         const actor = await fromUuid(data.uuid);
         if (!actor) {
-          ui.notifications.warn("Could not find actor");
+          ui.notifications.warn(t("Notifications.CouldNotFindActor"));
           return;
         }
 
@@ -583,16 +575,16 @@ export class GenealogyRenderer extends BaseRenderer {
           y: y
         });
 
-        ui.notifications.info(`Added node for actor: ${actor.name}`);
+        ui.notifications.info(tf("Notifications.AddedNodeActor", { name: actor.name }));
         break;
       case 'JournalEntryPage':
-        ui.notifications.info(`You cannot add a Journal Page on a genealogy tree.`);
+        ui.notifications.info(t("Notifications.CannotAddJournalPageGenealogy"));
         break;
       case 'Scene':
-        ui.notifications.info(`You cannot add a Scene on a genealogy tree.`);
+        ui.notifications.info(t("Notifications.CannotAddSceneGenealogy"));
         break;
       case 'Item':
-        ui.notifications.info(`You cannot add an Item on a genealogy tree.`);
+        ui.notifications.info(t("Notifications.CannotAddItemGenealogy"));
         break;
 
       default:
@@ -771,7 +763,7 @@ export class GenealogyRenderer extends BaseRenderer {
         hoverTargetId: null,
       };
   
-      ui.notifications.info(`Moving "${nodeData.data.name}" — Ctrl+drop on a target parent`);
+      ui.notifications.info(tf("Notifications.MovingNode", { name: nodeData.data.name }));
     }
   
     _onMoveMouseMove(event) {
@@ -827,7 +819,7 @@ export class GenealogyRenderer extends BaseRenderer {
 
     // Prevent dropping onto own descendant (would create a cycle)
     if (this._isDescendant(personId, hoverTargetId)) {
-      ui.notifications.error("Cannot move a node onto one of its own descendants.");
+      ui.notifications.error(t("Notifications.CannotMoveOwnDescendant"));
       return;
     }
 
@@ -858,7 +850,7 @@ export class GenealogyRenderer extends BaseRenderer {
     // Position it immediately at the cursor (SVG root coords)
     this._updateGhostPosition(event);
 
-    ui.notifications.info(`Moving "${nodeData.data.name}" — Ctrl+drop on a target parent`);
+    ui.notifications.info(tf("Notifications.MovingNode", { name: nodeData.data.name }));
   }
 
   _updateGhostPosition(event) {
@@ -966,7 +958,7 @@ export class GenealogyRenderer extends BaseRenderer {
     // Flush
     this.familytree.reimportData();
     log("Reparent complete, new data:", data);
-    ui.notifications.info(`Moved "${person.name}" under "${newParent.name}"`);
+    ui.notifications.info(tf("Notifications.MovedNode", { name: person.name, parent: newParent.name }));
   }
 
   // ── 3. Cycle-guard: is candidateId a descendant of personId? ─────────────────

@@ -5,13 +5,13 @@
 const { DialogV2 } = foundry.applications.api;
 
 import { BaseRenderer } from "./base-renderer.js";
-import { log, safeUUID } from "../constants.js";
+import { log, safeUUID, t, tf } from "../constants.js";
 import { createMapOperator } from "./map-operators/map-operator-registry.js";
 
 const MAP_BASE_LAYERS = {
   street: {
     id: "street",
-    label: "Street",
+    labelKey: "Map.Street",
     url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     options: {
       maxZoom: 19,
@@ -22,7 +22,7 @@ const MAP_BASE_LAYERS = {
   },
   satellite: {
     id: "satellite",
-    label: "Satellite",
+    labelKey: "Map.Satellite",
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     options: {
       maxZoom: 19,
@@ -77,7 +77,7 @@ export class MapRenderer extends BaseRenderer {
     // UI toggles for the D3GraphApp chrome
     this.isLinkNodesVisible = false;
     this.isRelationSelectVisible = false;
-    this.instructions = "Drop Actors/Scenes/Items/Journal pages on the map to create markers. Drag markers to reposition. Right-click a marker to radial menu.";
+    this.instructions = t("Map.Instructions");
   }
 
   _getMapOperatorThemeData(graph = this.graph) {
@@ -96,13 +96,18 @@ export class MapRenderer extends BaseRenderer {
   _getLegacyEarthThemeData() {
     return {
       id: "earth",
-      label: "Earth Map",
+      label: t("Map.EarthMap"),
       mapSource: {
         operator: "earth",
         type: "tile",
         crs: "earth",
         defaultBaseLayerId: "street",
-        baseLayers: Object.values(MAP_BASE_LAYERS).map(layer => foundry.utils.deepClone(layer)),
+        baseLayers: Object.values(MAP_BASE_LAYERS).map(layer => {
+          const clone = foundry.utils.deepClone(layer);
+          clone.label = t(clone.labelKey);
+          delete clone.labelKey;
+          return clone;
+        }),
         search: {
           type: "nominatim",
           url: "https://nominatim.openstreetmap.org/search",
@@ -128,7 +133,7 @@ export class MapRenderer extends BaseRenderer {
   _getLegacyImageThemeData() {
     return {
       id: "custom-image",
-      label: "Custom Image Map",
+      label: t("Map.CustomImageMap"),
       mapSource: {
         operator: "image",
         type: "image",
@@ -868,17 +873,17 @@ export class MapRenderer extends BaseRenderer {
       const content = `
         <form>
           <div style="display:flex;flex-direction:column;gap:8px;">
-            <label>Label</label>
+            <label>${t("Labels.Label")}</label>
             <input name="label" type="text" value="${safe.replace(/"/g, "&quot;")}" />
-            <small style="opacity:0.7">Leave empty to skip.</small>
+            <small style="opacity:0.7">${t("Labels.LeaveEmptyToSkip")}</small>
           </div>
         </form>
       `;
       return await DialogV2.prompt({
-        window: { title: "Set Label" },
+        window: { title: t("Dialogs.SetLabel") },
         content,
         ok: {
-          label: "Apply",
+          label: t("Buttons.Apply"),
           callback: (_event, button) => button.form.elements.label.value
         }
       });
@@ -1031,19 +1036,19 @@ export class MapRenderer extends BaseRenderer {
         items: [
           {
             id: "color",
-            label: "Change Color",
+            label: t("Dialogs.ChangeColor"),
             icon: "fa-solid fa-palette",
             onClick: () => this._promptForGeomanColor(layer)
           },
           {
             id: "label",
-            label: "Edit Label",
+            label: t("Dialogs.EditLabel"),
             icon: "fa-solid fa-tag",
             onClick: () => this._promptForGeomanLabel(layer)
           },
           {
             id: "delete",
-            label: "Delete Shape",
+            label: t("Dialogs.DeleteShape"),
             icon: "fa-solid fa-trash",
             onClick: () => {
               if (this._geomanLayer) {
@@ -1121,7 +1126,7 @@ export class MapRenderer extends BaseRenderer {
   async _promptForColor(initialColor = "#3388ff") {
     const content = `
     <div class="form-group">
-      <label>Choose Color</label>
+      <label>${t("Labels.ChooseColor")}</label>
       <div class="form-fields">
         <input type="color" name="color" value="${initialColor}">
       </div>
@@ -1129,10 +1134,10 @@ export class MapRenderer extends BaseRenderer {
   `;
 
     return await DialogV2.prompt({
-      window: { title: "Pick Color" },
+      window: { title: t("Dialogs.PickColor") },
       content: content,
       ok: {
-        label: "Apply",
+        label: t("Buttons.Apply"),
         callback: (event, button) => button.form.elements.color.value
       }
     });
@@ -1447,7 +1452,7 @@ export class MapRenderer extends BaseRenderer {
           items: [
             {
               id: "color",
-              label: "Change Color",
+              label: t("Dialogs.ChangeColor"),
               icon: "fa-solid fa-palette",
               onClick: async () => {
                 const newColor = await this._promptForColor(m.color);
@@ -1458,7 +1463,7 @@ export class MapRenderer extends BaseRenderer {
             },
             {
               id: "delete",
-              label: "Delete marker",
+              label: t("Dialogs.DeleteMarker"),
               icon: "fa-solid fa-trash",
               onClick: async () => {
                 this.graph.data.markers = (this.graph.data.markers || []).filter(x => x.id !== m.id);
@@ -1484,7 +1489,7 @@ export class MapRenderer extends BaseRenderer {
 
     const allowed = this.graph?.allowedEntities;
     if (Array.isArray(allowed) && allowed.length > 0 && !allowed.includes(data.type)) {
-      ui.notifications.warn(`You cannot add a ${data.type} on this graph type.`);
+      ui.notifications.warn(tf("Notifications.CannotAddEntityGraphType", { type: data.type }));
       return;
     }
 
@@ -1497,7 +1502,7 @@ export class MapRenderer extends BaseRenderer {
     const latlng = this._map.containerPointToLatLng([x, y]);
 
     const doc = await fromUuidSafe(data.uuid);
-    const label = doc?.name ?? data?.uuid ?? "Unknown";
+    const label = doc?.name ?? data?.uuid ?? t("Labels.Unknown");
 
     const marker = {
       id: safeUUID(),
@@ -1513,7 +1518,7 @@ export class MapRenderer extends BaseRenderer {
     this.graph.data.markers = Array.isArray(this.graph.data.markers) ? this.graph.data.markers : [];
     this.graph.data.markers.push(marker);
 
-    ui.notifications.info(`Added marker: ${label}`);
+    ui.notifications.info(tf("Notifications.AddedMarker", { label }));
     this._syncMarkers();
   }
 
@@ -1570,7 +1575,6 @@ export class MapRenderer extends BaseRenderer {
 
       if (destination === "data-folder") {
         const path = await this.savePNGToDataFolder(pngBlob, safeName, {
-          subfolder: "graphs",
           overwrite: true
         });
         ui?.notifications?.info?.("Map export complete");

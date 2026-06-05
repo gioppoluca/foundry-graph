@@ -1,4 +1,4 @@
-import { MODULE_ID, log, t } from "../constants.js";
+import { MODULE_ID, log, t, tf } from "../constants.js";
 import { BaseRenderer } from "./base-renderer.js";
 import { FGCalendarDateTimePopover } from "../ui/calendar-datetime-popover.js";
 const { DialogV2 } = foundry.applications.api;
@@ -81,6 +81,14 @@ export class TimelineRenderer extends BaseRenderer {
     return graphData;
   }
 
+
+  applyRelationChanges(graph, _oldRelations, newRelations) {
+    graph.relations = Array.isArray(newRelations) ? newRelations : [];
+    if (!graph.data) graph.data = this.initializeGraphData();
+    if (!Array.isArray(graph.data.items)) graph.data.items = [];
+    return graph;
+  }
+
   setRelationData(_relation) {
     // not used (lanes are all relations)
   }
@@ -114,7 +122,7 @@ export class TimelineRenderer extends BaseRenderer {
       // fallback lane
       this.graph.relations.push({
         id: "lane-default",
-        label: t?.("Timeline.DefaultLane") ?? "Default",
+        label: t("Timeline.DefaultLane"),
         color: "#2b2b2b",
         style: "solid",
         strokeWidth: 2,
@@ -653,20 +661,20 @@ export class TimelineRenderer extends BaseRenderer {
 
 
   async _onRightClickItem(event, item) {
-    const label = item?.title || item?.uuid || item?.id || "item";
+    const label = item?.title || item?.uuid || item?.id || t("Force.ItemFallback");
     this._showRadialMenu({
       clientX: event.clientX,
       clientY: event.clientY,
       items: [
         {
           id: "openSheet",
-          label: `Open (${label})`,
+          label: tf("Dialogs.OpenAction", { label }),
           icon: "fa-solid fa-up-right-from-square",
           onClick: async () => {
             try {
               const doc = await fromUuid(item.uuid);
               if (doc?.sheet) doc.sheet.render(true);
-              else ui.notifications.warn("No sheet available for this document.");
+              else ui.notifications.warn(t("Notifications.NoSheetAvailable"));
             } catch (e) {
               log("TimelineRenderer: failed to open", e);
             }
@@ -674,7 +682,7 @@ export class TimelineRenderer extends BaseRenderer {
         },
         {
           id: "editDates",
-          label: `Edit Dates (${label})`,
+          label: tf("Dialogs.EditDatesAction", { label }),
           icon: "fa-solid fa-calendar-days",
           onClick: async () => {
             await this._showEditDatesDialog(item);
@@ -682,10 +690,10 @@ export class TimelineRenderer extends BaseRenderer {
         },
         {
           id: "delete",
-          label: `Delete (${label})`,
+          label: tf("Dialogs.DeleteAction", { label }),
           icon: "fa-solid fa-trash",
           onClick: async () => {
-            const confirmed = await DialogV2.confirm({ content: `Delete timeline item "${label}"?` });
+            const confirmed = await DialogV2.confirm({ content: tf("Dialogs.DeleteTimelineItem", { label }) });
             if (!confirmed) return;
             const items = this.graph?.data?.items || [];
             this.graph.data.items = items.filter(i => i.id !== item.id);
@@ -702,7 +710,7 @@ export class TimelineRenderer extends BaseRenderer {
   async _showEditDatesDialog(item) {
     const doc = await fromUuid(item.uuid);
     if (!doc) {
-      ui.notifications.error("Could not resolve document.");
+      ui.notifications.error(t("Notifications.CouldNotResolveDocument"));
       return;
     }
 
@@ -717,7 +725,7 @@ export class TimelineRenderer extends BaseRenderer {
       "modules/foundry-graph/templates/partials/calendar-datetime.hbs",
       {
         name: "start-date",
-        label: game.i18n.localize("foundry-graph.GraphPage.start_date") || "Start Date",
+        label: t("GraphPage.start_date"),
         value: currentStartTs ? String(currentStartTs) : "",
         required: true
       }
@@ -727,7 +735,7 @@ export class TimelineRenderer extends BaseRenderer {
       "modules/foundry-graph/templates/partials/calendar-datetime.hbs",
       {
         name: "end-date",
-        label: game.i18n.localize("foundry-graph.GraphPage.end_date") || "End Date",
+        label: t("GraphPage.end_date"),
         value: currentEndTs ? String(currentEndTs) : "",
         required: false
       }
@@ -738,13 +746,13 @@ export class TimelineRenderer extends BaseRenderer {
     // Now create the dialog with the rendered templates
     const dialog = DialogV2.wait({
       window: {
-        title: `Edit Dates: ${item.title}`,
+        title: tf("Dialogs.EditDatesTitle", { title: item.title }),
         resizable: true
       },
       content: `
         <form class="timeline-edit-dates-form">
           <p class="notes" style="margin-bottom: 1em;">
-            Edit the start and end dates for this timeline item. Changes will be saved to the document flags.
+            ${t("Dialogs.EditDatesNote")}
           </p>
           ${startTemplate}
           ${endTemplate}
@@ -753,7 +761,7 @@ export class TimelineRenderer extends BaseRenderer {
       buttons: [
         {
           action: "save",
-          label: "Save",
+          label: t("Buttons.Save"),
           icon: "fa-solid fa-save",
           callback: (event, button, dialog) => {
             const form = dialog.element.querySelector("form");
@@ -763,7 +771,7 @@ export class TimelineRenderer extends BaseRenderer {
             const endDateValue = formData.get("end-date");
 
             if (!startDateValue || startDateValue === "") {
-              ui.notifications.warn("Start date is required.");
+              ui.notifications.warn(t("GraphPage.StartDateRequired"));
               return false; // Don't close dialog
             }
 
@@ -775,7 +783,7 @@ export class TimelineRenderer extends BaseRenderer {
         },
         {
           action: "cancel",
-          label: "Cancel",
+          label: t("Buttons.Cancel"),
           icon: "fa-solid fa-times"
         }
       ],
@@ -803,10 +811,10 @@ export class TimelineRenderer extends BaseRenderer {
           // Re-render
           await this.render(this._svg, this.graph);
 
-          ui.notifications.info(`Dates updated for "${item.title}"`);
+          ui.notifications.info(tf("Notifications.DatesUpdated", { title: item.title }));
         } catch (e) {
           log("TimelineRenderer: failed to update dates", e);
-          ui.notifications.error("Failed to update dates. See console for details.");
+          ui.notifications.error(t("Notifications.DatesUpdateFailed"));
         }
       },
       render: async (event, dialog) => {
@@ -829,13 +837,13 @@ export class TimelineRenderer extends BaseRenderer {
 
     const allowed = this.graph?.allowedEntities;
     if (Array.isArray(allowed) && allowed.length > 0 && !allowed.includes(data.type)) {
-      ui.notifications.warn(`You cannot add a ${data.type} on this timeline.`);
+      ui.notifications.warn(tf("Notifications.CannotAddEntityTimeline", { type: data.type }));
       return;
     }
 
     const doc = await fromUuid(data.uuid);
     if (!doc) {
-      ui.notifications.warn("Could not resolve dropped document.");
+      ui.notifications.warn(t("Notifications.CouldNotResolveDroppedDocument"));
       return;
     }
 
@@ -847,7 +855,7 @@ export class TimelineRenderer extends BaseRenderer {
     const colorOverride = doc.getFlag?.(MODULE_ID, "color") ?? null;
 
     if (startTs == null) {
-      ui.notifications.warn(t("GraphPage.StartDateRequired") ?? "Start date is required on the dropped document.");
+      ui.notifications.warn(t("GraphPage.StartDateRequired"));
       return;
     }
 
