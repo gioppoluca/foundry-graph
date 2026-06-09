@@ -62,12 +62,12 @@ export class SpacekitRenderer extends BaseRenderer {
     };
   }
 
-  static hasEntity(graphOrData, uuid) {
+  hasEntity(graphOrData, uuid) {
     const data = graphOrData?.data ?? graphOrData;
     return !!data?.nodes?.some(n => n.uuid === uuid);
   }
 
-  static removeEntity(graphOrData, uuid) {
+  removeEntity(graphOrData, uuid) {
     const data = graphOrData?.data ?? graphOrData;
     if (!Array.isArray(data?.nodes)) return graphOrData;
     data.nodes = data.nodes.filter(n => n.uuid !== uuid);

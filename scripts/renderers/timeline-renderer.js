@@ -71,14 +71,15 @@ export class TimelineRenderer extends BaseRenderer {
   }
 
 
-  static hasEntity(graphData, uuid) {
-    return !!graphData?.items?.some(i => i.uuid === uuid);
+  hasEntity(graphData, uuid) {
+    return !!graphData?.data?.items?.some(i => i.uuid === uuid);
   }
 
-  static removeEntity(graphData, uuid) {
-    if (!graphData?.items) return graphData;
-    graphData.items = graphData.items.filter(i => i.uuid !== uuid);
-    return graphData;
+  removeEntity(graphData, uuid) {
+    const graph = foundry.utils.deepClone(graphData);
+    if (!graph?.data?.items) return graph;
+    graph.data.items = graph.data.items.filter(i => i.uuid !== uuid);
+    return graph;
   }
 
 

@@ -99,11 +99,11 @@ Hooks.on("getSceneControlButtons", (controls) => {
 
 async function performCleanup(affectedList, uuid) {
   for (const graph of affectedList) {
-    const RendererClass = game.modules.get(MODULE_ID)?.api.getRenderer(graph?.renderer);
-    log(RendererClass);
+    const renderer = game.modules.get(MODULE_ID)?.api.getRenderer(graph?.renderer);
+    log(renderer);
     log(`Foundry Graph | Cleaning up graph ${graph.name} (${graph.id})`, affectedList);
     // 1. Delegate logic to Renderer
-    const cleanedData = RendererClass.removeEntity(graph, uuid);
+    const cleanedData = renderer.removeEntity(graph, uuid);
     log(cleanedData);
 
     // 2. Save via API
@@ -128,16 +128,16 @@ async function performAsyncCheck(document, options) {
   const affectedGraphs = [];
 
   for (const graph of allGraphs) {
-    const RendererClass = game.modules.get(MODULE_ID)?.api.getRenderer(graph?.renderer);
-    log(RendererClass);
+    const renderer = game.modules.get(MODULE_ID)?.api.getRenderer(graph?.renderer);
+    log(renderer);
 
-    if (!RendererClass) {
+    if (!renderer) {
       log(`Foundry Graph | Unknown renderer '${graph?.renderer}' for graph ${graph.id}`);
       continue;
     }
 
-    // STATIC CALL: Ask the renderer logic
-    if (RendererClass.hasEntity(graph, docUuid)) {
+    // Ask the renderer logic
+    if (renderer.hasEntity(graph, docUuid)) {
       affectedGraphs.push(graph);
     }
   }
