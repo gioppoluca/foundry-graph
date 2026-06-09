@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.3] - 2026-06-09
+### :bug: Bug Fixes
+- [`f0c1a98`](https://github.com/gioppoluca/foundry-graph/commit/f0c1a98e88d7820c290c138bdf47037d90e08b36) - broken deletion hook that stopped foundry object deletions *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.14.2] - 2026-06-05
 ### :sparkles: New Features
 - [`8f37191`](https://github.com/gioppoluca/foundry-graph/commit/8f371913be3abe21b503b5afab8c655c3308ab4f) - added groups for nodes *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -305,3 +310,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.14.0]: https://github.com/gioppoluca/foundry-graph/compare/0.9.6...0.14.0
 [0.14.1]: https://github.com/gioppoluca/foundry-graph/compare/0.14.0...0.14.1
 [0.14.2]: https://github.com/gioppoluca/foundry-graph/compare/0.14.1...0.14.2
+[0.14.3]: https://github.com/gioppoluca/foundry-graph/compare/0.14.2...0.14.3
