@@ -120,6 +120,7 @@ function calendarMonthName(monthIndex, form = "full") {
  * @param {"minor"|"major"}  role
  */
 function fgFormatForScale(seconds, scale, role) {
+    console.log(seconds, scale, role)
     try {
         const cal = game?.time?.calendar;
         if (!cal?.timeToComponents) {
@@ -127,17 +128,25 @@ function fgFormatForScale(seconds, scale, role) {
             return cal?.format ? cal.format(seconds) : String(seconds);
         }
 
-        const c = cal.timeToComponents(seconds);
+        //const c = cal.timeToComponents(seconds);
+        const c = game.time.calendar.constructor.dateFormattingParts(game.time.calendar, game.time.calendar.timeToComponents(seconds))
         // c: { year, month (0-based), dayOfMonth (0-based), hour, minute, second }
 
+        /*
         const year = c.year ?? 0;
         const month = c.month ?? 0;   // 0-based
         const day = (c.dayOfMonth ?? 0) + 1;  // make 1-based for display
         const hour = String(c.hour ?? 0).padStart(2, "0");
         const min = String(c.minute ?? 0).padStart(2, "0");
+        */
+        const year = c.y ?? 0;
+        const month = c.m ?? 0;   // 0-based
+        const day = (c.d ?? 0) + 1;  // make 1-based for display
+        const hour = c.H;
+        const min = c.M;
 
-        const monthFull = calendarMonthName(month, "full") ?? String(month + 1);
-        const monthAbbr = calendarMonthName(month, "abbr") ?? monthFull.slice(0, 3);
+        const monthFull = c.B;
+        const monthAbbr = c.B;
 
         switch (scale) {
             // ── Finest scales: we don't show sub-minute detail ──────────────────
@@ -244,18 +253,28 @@ function installMomentPatch() {
  * Always shows full date + time down to minutes: "DD MonthName Year HH:MM"
  */
 function fgFormatFull(seconds) {
+    console.log(seconds)
     try {
         const cal = game?.time?.calendar;
         if (!cal?.timeToComponents) {
             return cal?.format ? cal.format(seconds) : String(seconds);
         }
-        const c = cal.timeToComponents(seconds);
+        //        const c = cal.timeToComponents(seconds);
+        const c = game.time.calendar.constructor.dateFormattingParts(game.time.calendar, game.time.calendar.timeToComponents(seconds))
+
+        /*
         const year = c.year ?? 0;
         const month = c.month ?? 0;
         const day = (c.dayOfMonth ?? 0) + 1;
         const hour = String(c.hour ?? 0).padStart(2, "0");
         const min = String(c.minute ?? 0).padStart(2, "0");
-        const monthName = calendarMonthName(month, "full") ?? String(month + 1);
+        */
+        const year = c.y ?? 0;
+        const month = c.m ?? 0;   // 0-based
+        const day = (c.d ?? 0) + 1;  // make 1-based for display
+        const hour = c.H;
+        const min = c.M;
+        const monthName = c.B;
         return `${day} ${monthName} ${year} ${hour}:${min}`;
     } catch (e) {
         return String(seconds);
