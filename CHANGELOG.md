@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.4] - 2026-09-01
+### :bug: Bug Fixes
+- [`aaa58a3`](https://github.com/gioppoluca/foundry-graph/commit/aaa58a3bd3617f607be0e05f7734f625721abfae) - error in init *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`d31a73a`](https://github.com/gioppoluca/foundry-graph/commit/d31a73a686cee7c717ef248c67a161986f9b5323) - finally managed to have proper dated also with dnd *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`28d7ad4`](https://github.com/gioppoluca/foundry-graph/commit/28d7ad4f26201a2e68be199a5db3426c7af64ba5) - timeline working with calendars *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.14.3] - 2026-06-09
 ### :bug: Bug Fixes
 - [`f0c1a98`](https://github.com/gioppoluca/foundry-graph/commit/f0c1a98e88d7820c290c138bdf47037d90e08b36) - broken deletion hook that stopped foundry object deletions *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -311,3 +318,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.14.1]: https://github.com/gioppoluca/foundry-graph/compare/0.14.0...0.14.1
 [0.14.2]: https://github.com/gioppoluca/foundry-graph/compare/0.14.1...0.14.2
 [0.14.3]: https://github.com/gioppoluca/foundry-graph/compare/0.14.2...0.14.3
+[0.14.4]: https://github.com/gioppoluca/foundry-graph/compare/0.14.3...0.14.4
