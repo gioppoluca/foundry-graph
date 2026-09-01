@@ -79,27 +79,6 @@ const msToSec = (ms) => (ms != null && Number.isFinite(Number(ms))) ? Number(ms)
 // Calendar formatting helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Resolve the localised month name (or abbreviation) from CONFIG.
- * Returns null if the calendar config is not available.
- *
- * @param {number} monthIndex  – 0-based month index from timeToComponents
- * @param {"full"|"abbr"}  form
- */
-function calendarMonthName(monthIndex, form = "full") {
-    try {
-        const months = CONFIG.time?.worldCalendarConfig?.months?.values ?? [];
-        const m = months[monthIndex];
-        if (!m) return null;
-        const raw = form === "abbr"
-            ? (m.abbreviation ?? m.name ?? null)
-            : (m.name ?? m.abbreviation ?? null);
-        if (raw == null) return null;
-        return typeof raw === "string" ? game.i18n.localize(raw) : String(raw);
-    } catch (e) {
-        return null;
-    }
-}
 
 /**
  * Format a seconds timestamp for a given vis.js axis scale.
@@ -122,31 +101,23 @@ function calendarMonthName(monthIndex, form = "full") {
 function fgFormatForScale(seconds, scale, role) {
     console.log(seconds, scale, role)
     try {
-        const cal = game?.time?.calendar;
-        if (!cal?.timeToComponents) {
-            // No calendar API: fall back to the raw calendar.format() or the number
-            return cal?.format ? cal.format(seconds) : String(seconds);
-        }
+        const parts = getCalendarDateParts(seconds);
+        if (!parts) return String(seconds);
 
-        //const c = cal.timeToComponents(seconds);
-        const c = game.time.calendar.constructor.dateFormattingParts(game.time.calendar, game.time.calendar.timeToComponents(seconds))
-        // c: { year, month (0-based), dayOfMonth (0-based), hour, minute, second }
-
-        /*
-        const year = c.year ?? 0;
-        const month = c.month ?? 0;   // 0-based
-        const day = (c.dayOfMonth ?? 0) + 1;  // make 1-based for display
-        const hour = String(c.hour ?? 0).padStart(2, "0");
-        const min = String(c.minute ?? 0).padStart(2, "0");
-        */
-        const year = c.y ?? 0;
-        const month = c.m ?? 0;   // 0-based
-        const day = (c.d ?? 0) + 1;  // make 1-based for display
-        const hour = c.H;
-        const min = c.M;
-
-        const monthFull = c.B;
-        const monthAbbr = c.B;
+        const {
+            year,
+            monthIndex,
+            monthOrdinal,
+            monthName,
+            monthAbbreviation,
+            day,
+            hour,
+            minute,
+            second,
+            hourPadded,
+            minutePadded,
+            secondPadded
+        } = parts;
 
         switch (scale) {
             // ── Finest scales: we don't show sub-minute detail ──────────────────
@@ -157,27 +128,27 @@ function fgFormatForScale(seconds, scale, role) {
             // intentional fall-through
             case "minute":
                 return role === "major"
-                    ? `${day} ${monthFull} ${year}`
-                    : `${hour}:${min}`;
+                    ? `${day} ${monthName} ${year}`
+                    : `${hour}:${minute}`;
 
             // ── Hour ─────────────────────────────────────────────────────────────
             case "hour":
                 return role === "major"
-                    ? `${day} ${monthFull} ${year}`
+                    ? `${day} ${monthName} ${year}`
                     : `${hour}:00`;
 
             // ── Day / weekday ─────────────────────────────────────────────────────
             case "weekday":
             case "day":
                 return role === "major"
-                    ? `${monthFull} ${year}`
-                    : `${day} ${monthAbbr}`;
+                    ? `${monthName} ${year}`
+                    : `${day} ${monthAbbreviation}`;
 
             // ── Month ─────────────────────────────────────────────────────────────
             case "month":
                 return role === "major"
                     ? String(year)
-                    : `${monthFull} ${year}`;
+                    : `${monthName} ${year}`;
 
             // ── Year ──────────────────────────────────────────────────────────────
             case "year":
@@ -253,29 +224,25 @@ function installMomentPatch() {
  * Always shows full date + time down to minutes: "DD MonthName Year HH:MM"
  */
 function fgFormatFull(seconds) {
-    console.log(seconds)
     try {
-        const cal = game?.time?.calendar;
-        if (!cal?.timeToComponents) {
-            return cal?.format ? cal.format(seconds) : String(seconds);
-        }
-        //        const c = cal.timeToComponents(seconds);
-        const c = game.time.calendar.constructor.dateFormattingParts(game.time.calendar, game.time.calendar.timeToComponents(seconds))
+        const parts = getCalendarDateParts(seconds);
+        if (!parts) return String(seconds);
 
-        /*
-        const year = c.year ?? 0;
-        const month = c.month ?? 0;
-        const day = (c.dayOfMonth ?? 0) + 1;
-        const hour = String(c.hour ?? 0).padStart(2, "0");
-        const min = String(c.minute ?? 0).padStart(2, "0");
-        */
-        const year = c.y ?? 0;
-        const month = c.m ?? 0;   // 0-based
-        const day = (c.d ?? 0) + 1;  // make 1-based for display
-        const hour = c.H;
-        const min = c.M;
-        const monthName = c.B;
-        return `${day} ${monthName} ${year} ${hour}:${min}`;
+        const {
+            year,
+            monthIndex,
+            monthOrdinal,
+            monthName,
+            monthAbbreviation,
+            day,
+            hour,
+            minute,
+            second,
+            hourPadded,
+            minutePadded,
+            secondPadded
+        } = parts;
+        return `${day} ${monthName} ${year} ${hour}:${minute}`;
     } catch (e) {
         return String(seconds);
     }
@@ -291,6 +258,54 @@ function buildVisAxisFormat() {
     const minor = Object.fromEntries(scales.map(s => [s, fgToken(s, "minor")]));
     const major = Object.fromEntries(scales.map(s => [s, fgToken(s, "major")]));
     return { minorLabels: minor, majorLabels: major };
+}
+
+function getCalendarDateParts(seconds) {
+    const calendar = game?.time?.calendar;
+    if (!calendar?.timeToComponents) return null;
+
+    const components = calendar.timeToComponents(seconds);
+    const monthIndex = Number(components.month ?? 0);
+    const month = calendar.months?.values?.[monthIndex] ?? null;
+
+    const localize = value => {
+        if (value == null) return "";
+        return typeof value === "string"
+            ? game.i18n.localize(value)
+            : String(value);
+    };
+
+    const rawYear = Number(components.year ?? 0);
+    const yearZero = Number(calendar.years?.yearZero ?? 0);
+    const year = rawYear + (Number.isFinite(yearZero) ? yearZero : 0);
+
+    const day = Number(components.dayOfMonth ?? 0) + 1;
+    const hour = Number(components.hour ?? 0);
+    const minute = Number(components.minute ?? 0);
+    const second = Number(components.second ?? 0);
+
+    const monthName =
+        localize(month?.name) ||
+        String(month?.ordinal ?? monthIndex + 1);
+
+    const monthAbbreviation =
+        localize(month?.abbreviation) ||
+        monthName;
+
+    return {
+        year,
+        monthIndex,
+        monthOrdinal: month?.ordinal ?? monthIndex + 1,
+        monthName,
+        monthAbbreviation,
+        day,
+        hour,
+        minute,
+        second,
+        hourPadded: String(hour).padStart(2, "0"),
+        minutePadded: String(minute).padStart(2, "0"),
+        secondPadded: String(second).padStart(2, "0")
+    };
 }
 
 // ---------------------------------------------------------------------------
@@ -346,6 +361,8 @@ export class VisTimelineRenderer extends BaseRenderer {
     get isSaveNewSceneVisible() {
         return false;
     }
+
+
 
     get instructions() {
         return t("VisTimeline.Instructions");
