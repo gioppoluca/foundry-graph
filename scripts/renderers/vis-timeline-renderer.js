@@ -601,12 +601,15 @@ export class VisTimelineRenderer extends BaseRenderer {
      */
     _backfillMissingImages() {
         const items = this.graph?.data?.items ?? [];
-        const missing = items.filter(i => i.img == null && i.uuid);
+        const missing = items.filter(i => i.img == null && i.uuid && !this.isReferenceUnavailable(i.uuid));
         if (missing.length === 0) return;
 
         for (const item of missing) {
-            fromUuid(item.uuid).then(doc => {
-                if (!doc) return;
+            this.resolveReference(item.uuid).then(doc => {
+                if (!doc) {
+                    this.refreshReferenceIndicator(item.uuid);
+                    return;
+                }
                 const img = doc.img ?? doc.src ?? doc.background?.src ?? doc.thumb ?? null;
                 if (img == null) return;
                 item.img = img;   // update in-place on graph.data.items
@@ -655,11 +658,30 @@ export class VisTimelineRenderer extends BaseRenderer {
     }
 
     _buildItemContent(item) {
-        // Plain text label. You can return HTML here for richer displays later.
-        return item.title || item.uuid || item.id;
+        const label = document.createElement("span");
+        label.textContent = item.title || item.uuid || item.id;
+        if (this.shouldShowReferenceIndicator(item.uuid)) {
+            const badge = document.createElement("span");
+            badge.className = "fg-timeline-reference-badge";
+            badge.textContent = " ⚠";
+            badge.title = t("Notifications.GraphReferenceUnavailable");
+            badge.setAttribute("aria-label", badge.title);
+            label.append(badge);
+        }
+        return label;
     }
 
 
+
+    refreshReferenceIndicator(uuid) {
+        if (!this._itemsDs) return;
+        for (const item of this.graph?.data?.items ?? []) {
+            const refresh = uuid ? item.uuid === uuid : this.isReferenceUnavailable(item.uuid);
+            if (refresh && this._itemsDs.get(item.id)) {
+                this._itemsDs.updateOnly({ id: item.id, content: this._buildItemContent(item) });
+            }
+        }
+    }
 
     _buildItemStyle(item) {
         const fill = item.color || this._typeColor(item.entityType);
@@ -1083,8 +1105,7 @@ export class VisTimelineRenderer extends BaseRenderer {
             clientX: event.clientX,
             clientY: event.clientY,
             items: [
-                isFree
-                    ? {
+                ...(isFree ? [{
                         id: "editTitle",
                         label: tf("Dialogs.EditTitleAction", { label }),
                         icon: "fa-solid fa-pencil",
@@ -1110,13 +1131,12 @@ export class VisTimelineRenderer extends BaseRenderer {
                             item.title = newTitle;
                             await this.render(d3.select(this._svgEl), this.graph);
                         },
-                    }
-                    : {
+                    }] : this.isReferenceUnavailable(item.uuid) ? [] : [{
                         id: "openSheet",
                         label: tf("Dialogs.OpenAction", { label }),
                         icon: "fa-solid fa-up-right-from-square",
                         onClick: () => this._openDocumentSheet(item),
-                    },
+                    }]),
                 ...(isFree ? [{
                     id: "convertToJournal",
                     label: t("Dialogs.ConvertToJournalPage"),
@@ -1145,13 +1165,7 @@ export class VisTimelineRenderer extends BaseRenderer {
             ui.notifications.info(tf("Notifications.TimelineFreeEvent", { title: item.title }));
             return;
         }
-        try {
-            const doc = await fromUuid(item.uuid);
-            if (doc?.sheet) doc.sheet.render(true);
-            else ui.notifications.warn(t("Notifications.NoSheetAvailable"));
-        } catch (e) {
-            log("VisTimelineRenderer: failed to open sheet", e);
-        }
+        await this.openReferenceSheet(item.uuid);
     }
 
     /**
@@ -1183,11 +1197,12 @@ export class VisTimelineRenderer extends BaseRenderer {
      * @returns {Promise<Object>}
      */
     async syncLabels(graphData) {
+        const lookups = new Map();
         const items = graphData?.items ?? [];
         for (const item of items) {
             if (!item.uuid) continue;   // free event – no document to sync from
             try {
-                const doc = await fromUuid(item.uuid);
+                const doc = await this.resolveReference(item.uuid, lookups);
                 if (!doc) continue;
                 if (doc.name != null) item.title = doc.name;
                 const img = doc.img ?? doc.src ?? doc.background?.src ?? doc.thumb ?? null;

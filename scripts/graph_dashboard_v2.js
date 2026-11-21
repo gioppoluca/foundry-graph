@@ -530,8 +530,11 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   static async onReassignGraph(event, _target) {
     const graphId = event.target.dataset.id;
     const api = game.modules.get("foundry-graph").api;
+    api.refreshGraphIndex();
     const graph = await api.getGraph(graphId);
     if (!graph) return ui.notifications.warn(t("Notifications.GraphNotFound"));
+    if (!api.canEdit(graph)) return;
+    const revision = api.getGraphIndexEntry(graphId)?.revision ?? null;
 
     const renderer = api.getRenderer(graph.renderer ?? graph.graphType);
     if (!renderer || typeof renderer.getNonExistentEntities !== "function") {
@@ -546,16 +549,22 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     }
 
     // --- Try exact-name search in the appropriate world collection ---
-    const matched = [];
+    const candidates = [];
     const unmatched = [];
-    for (const entry of missing) {
+    for (const entry of new Map(missing.map(entry => [entry.uuid, entry])).values()) {
       const found = GraphDashboardV2._findEntityByTypeAndName(entry.entityType, entry.label);
       if (found) {
-        matched.push({ oldUuid: entry.uuid, newUuid: found.uuid, oldName: entry.label, newName: found.name, entityType: entry.entityType });
+        candidates.push({ oldUuid: entry.uuid, newUuid: found.uuid, oldName: entry.label, newName: found.name, entityType: entry.entityType });
       } else {
         unmatched.push(entry);
       }
     }
+
+    const matched = candidates.filter(match => {
+      const allowed = renderer.canReassignEntity?.(graphData, match, candidates) ?? true;
+      if (!allowed) unmatched.push({ label: match.oldName, entityType: match.entityType });
+      return allowed;
+    });
 
     // --- Build dialog HTML ---
     let html = '<div class="fg-reassign-dialog" style="max-height:400px;overflow-y:auto;">';
@@ -608,8 +617,10 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     if (!confirmed || matched.length === 0) return;
 
     const updated = renderer.replaceEntities(graphData, matched);
-    graph.data = updated;
-    await api.upsertGraph(graph);
+    if (!await api.upsertGraph({ ...graph, data: updated }, { expectedRevision: revision })) {
+      ui.notifications.warn(t("Notifications.GraphRevisionChanged"));
+      return;
+    }
     const word = matched.length > 1 ? t("Notifications.EntityPlural") : t("Notifications.EntitySingular");
     ui.notifications.info(tf("Notifications.ReassignedEntities", { count: matched.length, word, name: graph.name }));
   }
@@ -624,19 +635,21 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
    */
   static _findEntityByTypeAndName(entityType, name) {
     if (!name) return null;
+    let documents;
     switch ((entityType ?? "").toLowerCase()) {
-      case "actor":            return game.actors.find(a => a.name === name) ?? null;
-      case "item":             return game.items.find(i => i.name === name) ?? null;
-      case "scene":            return game.scenes.find(s => s.name === name) ?? null;
-      case "journalentrypage": {
-        for (const journal of game.journal) {
-          const page = journal.pages.find(p => p.name === name);
-          if (page) return page;
-        }
-        return null;
-      }
-      default:                 return null;
+      case "actor": documents = game.actors.contents; break;
+      case "item":
+        documents = [...game.items.contents, ...game.actors.contents.flatMap(actor => actor.items.contents)];
+        break;
+      case "scene": documents = game.scenes.contents; break;
+      case "journalentry": documents = game.journal.contents; break;
+      case "journalentrypage":
+        documents = game.journal.contents.flatMap(journal => journal.pages.contents);
+        break;
+      default: return null;
     }
+    const matches = documents.filter(doc => doc.name === name);
+    return matches.length === 1 ? matches[0] : null;
   }
 
   /** Called after the HTML is rendered */

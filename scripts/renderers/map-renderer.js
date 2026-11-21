@@ -1272,7 +1272,7 @@ export class MapRenderer extends BaseRenderer {
   // SVG Marker icons (inline SVG -> Leaflet divIcon)
   // ---------------------------------------------------------------------------
 
-  _makeSvgDivIcon(markerType, color) {
+  _makeSvgDivIcon(markerType, color, unavailable) {
     const safeType = markerType || "generic";
     const safeColor = color || "#64748b";
     const symbol = this._svgSymbolPath(safeType);
@@ -1284,6 +1284,7 @@ export class MapRenderer extends BaseRenderer {
           <path d="M16 0C8.82 0 3 5.82 3 13c0 9.5 10.1 26.44 12.3 30.02.33.54 1.07.54 1.4 0C18.9 39.44 29 22.5 29 13 29 5.82 23.18 0 16 0z" fill="${safeColor}" stroke="rgba(0,0,0,0.35)" stroke-width="1"/>
           <circle cx="16" cy="13" r="8" fill="rgba(255,255,255,0.18)" />
           <path d="${symbol}" fill="#ffffff" transform="translate(0 0)" />
+          ${unavailable ? '<g transform="translate(25 9)"><circle r="6" fill="#78350f" stroke="#fef3c7"/><path d="M0 -3v3 M0 3v0.2" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></g>' : ""}
         </svg>
       </div>
     `;
@@ -1368,7 +1369,7 @@ export class MapRenderer extends BaseRenderer {
       // Use window.L directly to avoid null property errors
       // Reuse the existing SVG divIcon factory used by _syncMarkers()
       const markerType = markerData.markerType ?? this._defaultMarkerTypeForEntity(markerData.type);
-      leafletMarker.setIcon(this._makeSvgDivIcon(markerType, newColor));
+      leafletMarker.setIcon(this._makeSvgDivIcon(markerType, newColor, this.shouldShowReferenceIndicator(markerData.uuid)));
     }
 
     // 4. Persist changes
@@ -1416,16 +1417,20 @@ export class MapRenderer extends BaseRenderer {
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
 
       const existing = this._leafletMarkers.get(m.id);
-      const icon = this._makeSvgDivIcon(m.markerType, m.color);
+      const icon = this._makeSvgDivIcon(m.markerType, m.color, this.shouldShowReferenceIndicator(m.uuid));
+      const tooltip = document.createElement("span");
+      tooltip.textContent = this.referenceTooltip(m.label, m.uuid);
+      tooltip.style.whiteSpace = "pre-line";
       if (existing) {
         // keep popup + drag binding; just move/label
         existing.setLatLng([lat, lng]);
-        if (m.label) existing.bindTooltip(m.label, { permanent: false });
+        if (existing.options.icon?.options.html !== icon.options.html) existing.setIcon(icon);
+        existing.bindTooltip(tooltip, { permanent: false });
         continue;
       }
 
       const lm = L.marker([lat, lng], { draggable: true, icon, pmIgnore: true, });
-      if (m.label) lm.bindTooltip(m.label, { permanent: false });
+      lm.bindTooltip(tooltip, { permanent: false });
 
       lm.on("dragend", () => {
         const p = lm.getLatLng();
@@ -1438,8 +1443,8 @@ export class MapRenderer extends BaseRenderer {
 
       lm.on("click", async (ev) => {
         ev?.originalEvent?.preventDefault?.();
-        const doc = await fromUuidSafe(m.uuid);
-        if (doc?.sheet?.render) doc.sheet.render(true);
+        const current = this.graph.data.markers.find(marker => marker.id === m.id);
+        await this.openReferenceSheet(current?.uuid);
       });
 
       lm.on("contextmenu", (ev) => {
@@ -1745,12 +1750,17 @@ export class MapRenderer extends BaseRenderer {
     }
   }
 
+  refreshReferenceIndicator(uuid) {
+    if (!uuid || this.graph?.data?.markers?.some(marker => marker.uuid === uuid)) this._syncMarkers();
+  }
+
   async syncLabels(graphData) {
+    const lookups = new Map();
     const markers = graphData?.markers ?? [];
     for (const marker of markers) {
       if (!marker.uuid) continue;
       try {
-        const doc = await fromUuid(marker.uuid);
+        const doc = await this.resolveReference(marker.uuid, lookups);
         if (!doc) continue;
         if (doc.name != null) marker.label = doc.name;
         if (doc.img != null) marker.img = doc.img;

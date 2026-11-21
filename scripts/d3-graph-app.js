@@ -55,7 +55,8 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (this.graph) log("graph already set", this.graph)
     this.api = game.modules.get(MODULE_ID)?.api;
     this.graph = foundry.utils.deepClone(options.graph || {});
-    this.renderer = this.api.getRenderer(options.graph?.renderer);
+    this.renderer = this.api.createRenderer(options.graph?.renderer);
+    this.graphRevision = this.api.getGraphIndexEntry(this.graph.id)?.revision ?? null;
     this.renderer?.setScaledSceneAvailabilityChangeHandler?.(() => this._syncScaledSceneButtonState());
     log("D3GraphApp.constructor renderer", this.renderer)
     // just once we remove fix the window accordingly to the need of the renderer
@@ -75,15 +76,27 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   async _onRender(context, options) {
-    let el = this.element.querySelector("#d3-graph")
     this._disposers ??= [];
-    this._disposers.push(() => this.renderer.teardown());
+    if (!this._disposers.length) {
+      const events = ["Actor", "Item", "Scene", "JournalEntry", "JournalEntryPage", "Token"];
+      const subscriptions = events.map(type => {
+        const event = `delete${type}`;
+        return [event, Hooks.on(event, doc => this.renderer.markReferenceDeleted(doc.uuid))];
+      });
+      const indicatorEvent = `${MODULE_ID}.referenceIndicatorsChanged`;
+      subscriptions.push([indicatorEvent,
+        Hooks.on(indicatorEvent, () => this.renderer.refreshReferenceIndicator?.())]);
+      this._disposers.push(() => {
+        for (const [event, hook] of subscriptions) Hooks.off(event, hook);
+        this.renderer.teardown();
+      });
+    }
 
     const relationsSelect = this.element.querySelector('#relation-type');
     if (relationsSelect) {
       relationsSelect.addEventListener("change", (e) => this._onRelationsChange(e));
     }
-    this._drawGraph(); // fresh
+    await this._drawGraph();
     this._registerSymbolPaletteDragHandlers();
     this._syncScaledSceneButtonState();
   }
@@ -180,8 +193,10 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // Refresh labels/images from live Foundry documents before persisting
     data = await this.renderer.syncLabels(data);
     this.graph.data = data;
-    await api.upsertGraph(this.graph);
-    this.renderer.teardown();
+    if (!await api.upsertGraph(this.graph, { expectedRevision: this.graphRevision })) {
+      ui.notifications.warn(t("Notifications.GraphRevisionChanged"));
+      return;
+    }
     ui.notifications.info(t("Notifications.GraphSaved"));
     log(this)
     this.close()
@@ -189,17 +204,18 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
 
   async _drawGraph(data = null) {
-    let svg = d3.select("#d3-graph");
+    const svg = d3.select(this.element.querySelector("#d3-graph"));
     log("D3GraphApp._drawGraph", this.renderer, this.graph, svg)
     if (this.graph?.data) {
       this.graph.data = await this.renderer.syncLabels(
         foundry.utils.deepClone(this.graph.data)
       );
     }
+    if (!this._disposers?.length) return;
     const relationId = this.element.querySelector("#relation-type")?.value || "";
     const relation = this.graph.relations.find(r => r.id === relationId);
     this.renderer.setRelationData(relation);
-    this.renderer.render(svg, this.graph)
+    await this.renderer.render(svg, this.graph);
   }
 
   _isSaveNewSceneScaledEnabled() {

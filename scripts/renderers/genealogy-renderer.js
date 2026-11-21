@@ -75,6 +75,8 @@ export class GenealogyRenderer extends BaseRenderer {
             .attr('pointer-events', 'none');
         }
 
+        this.updatePersonReference(group);
+
         // Transparent hit-area circle on top — intercepts ALL click/drag events
         // Must be appended last so it sits above the image in SVG paint order
         group.append('circle')
@@ -86,10 +88,8 @@ export class GenealogyRenderer extends BaseRenderer {
           .on('dblclick', (event, d) => opts.nodeDoubleClickFunction(d, ft));
       },
 
-      nodeUpdateFunction: (group, opts) => {
-        // portraits don't need class updates — nothing to do
-        // if you add selection highlighting later, update the border circle here:
-        // group.select('circle').attr('stroke', d => d.selected ? '#ff0' : '#ccc');
+      nodeUpdateFunction: (group) => {
+        this.updatePersonReference(group);
       },
       nodeClickFunction: (node, ft) => {
         log("nodeClickFunction")
@@ -107,10 +107,7 @@ export class GenealogyRenderer extends BaseRenderer {
         ft.nodeClickHandler(node);
       },
       nodeDoubleClickFunction: (node, _ft) => {
-        if (!node?.data?.id) return;
-        fromUuid(node.data.id)
-          .then(doc => { if (doc?.sheet?.render) doc.sheet.render(true); })
-          .catch(err => log("nodeDoubleClickFunction: could not open sheet", err));
+        if (!node?.isUnion) return this.openReferenceSheet(node?.data?.id);
       },
       nodeLabelFunction: (node, missingData) => {
 
@@ -175,7 +172,8 @@ export class GenealogyRenderer extends BaseRenderer {
     this._linkSourceNode = null;
     this.relation = null
     this._moveState = null;
-    document.getElementById('genealogy-orientation-btn')?.remove();
+    this._orientationButton?.remove();
+    this._orientationButton = null;
 
 
   }
@@ -323,7 +321,7 @@ export class GenealogyRenderer extends BaseRenderer {
 
 
     if (this.graph.data.start) {
-      const container = document.getElementById('FamilyChartInnerSVG');
+      const container = zoomLayer.select('#FamilyChartInnerSVG').node();
       log("container:", container);
 
       log("this.opts:", this.opts)
@@ -489,7 +487,7 @@ export class GenealogyRenderer extends BaseRenderer {
         "links": []
       }
       log("initialize familytree", this.graph.data, this._svg)
-      const container = document.getElementById('FamilyChartInnerSVG');
+      const container = this._svg.select('#FamilyChartInnerSVG').node();
       log("container:", container);
       log("this.opts:", this.opts)
       this.familytree = new FT.FamilyTree(this.graph.data, container, this.opts);
@@ -987,7 +985,7 @@ export class GenealogyRenderer extends BaseRenderer {
     this.opts.orientation = this._orientation;
 
     // Update button label
-    const btn = document.getElementById('genealogy-orientation-btn');
+    const btn = this._orientationButton;
     if (btn) btn.textContent = this._orientation === 'vertical' ? '↕ Vertical' : '↔ Horizontal';
 
     // A full render() re-creates the FamilyTree instance with the new opts
@@ -995,9 +993,9 @@ export class GenealogyRenderer extends BaseRenderer {
   }
   _injectOrientationButton() {
     // Idempotent — don't inject twice
-    if (document.getElementById('genealogy-orientation-btn')) return;
+    if (this._orientationButton?.isConnected) return;
 
-    const container = document.getElementById('d3-graph-container');
+    const container = this._svg?.node()?.closest('#d3-graph-container');
     if (!container) return;
 
     // Ensure the container is the positioning context
@@ -1029,13 +1027,32 @@ export class GenealogyRenderer extends BaseRenderer {
     });
 
     container.appendChild(btn);
+    this._orientationButton = btn;
+  }
+
+  updatePersonReference(group) {
+    const datum = group.datum();
+    if (!datum?.data?.id || datum.isUnion) return;
+    const badge = group.selectAll(".fg-person-reference-badge").data([datum]).join("g")
+      .attr("class", "fg-person-reference-badge").attr("transform", "translate(19,-19)");
+    this.drawReferenceBadge(badge, d => d.data.id);
+    group.selectAll("title.fg-reference-title").data([datum]).join("title")
+      .attr("class", "fg-reference-title")
+      .text(d => this.referenceTooltip(d.data.name, d.data.id));
+  }
+
+  refreshReferenceIndicator(uuid) {
+    const renderer = this;
+    this._svg?.selectAll("circle.node-hit-area").filter(d => !uuid || d?.data?.id === uuid)
+      .each(function () { renderer.updatePersonReference(d3.select(this.parentNode)); });
   }
 
   async syncLabels(graphData) {
+    const lookups = new Map();
     const persons = graphData?.persons ?? {};
     for (const [uuid, person] of Object.entries(persons)) {
       try {
-        const doc = await fromUuid(uuid);
+        const doc = await this.resolveReference(uuid, lookups);
         if (!doc) continue;
         if (doc.name != null) person.name = doc.name;
         if (doc.img != null) person.img = doc.img;
@@ -1057,8 +1074,14 @@ export class GenealogyRenderer extends BaseRenderer {
     return missing;
   }
 
+  canReassignEntity(graphData, match, matches) {
+    return !Object.hasOwn(graphData.persons ?? {}, match.newUuid) &&
+      matches.filter(candidate => candidate.newUuid === match.newUuid).length === 1;
+  }
+
   replaceEntities(graphData, matchList) {
-    const uuidMap = new Map(matchList.map(m => [m.oldUuid, m.newUuid]));
+    const valid = matchList.filter(match => this.canReassignEntity(graphData, match, matchList));
+    const uuidMap = new Map(valid.map(m => [m.oldUuid, m.newUuid]));
     const persons = graphData?.persons ?? {};
 
     // Re-key persons object for each matched UUID

@@ -663,16 +663,7 @@ export class ForceRenderer extends BaseRenderer {
         //this._onRightClickNode(d);
         this._onRightClickNode(event, d);
       })
-      .on("dblclick", (event, d) => {
-        ui.notifications.info(tf("Notifications.DoubleClickedNode", { label: d.label }));
-        // Example: open the actor sheet if the UUID is valid
-        if (d.uuid) {
-          fromUuid(d.uuid).then(doc => {
-            if (doc?.sheet) doc.sheet.render(true);
-            else ui.notifications.warn(t("Notifications.NoDocumentFoundForUUID"));
-          });
-        }
-      });
+      .on("dblclick", (_event, d) => this.openReferenceSheet(d.uuid));
 
     const nodeSelectionRing = zoomLayer.append("g")
       .attr("class", "node-selection-ring")
@@ -707,6 +698,15 @@ export class ForceRenderer extends BaseRenderer {
       .attr("opacity", d => (getOverlaySymbol(d) ? 1 : 0))
       .attr("pointer-events", "none")
       .text(d => getOverlaySymbol(d));
+
+    const referenceBadges = zoomLayer.append("g").attr("class", "fg-reference-badges")
+      .selectAll("g").data(renderGraph.data.nodes.filter(d => d.uuid), d => d.id).join("g");
+    const referenceTitles = node.filter(d => d.uuid).append("title");
+    this.updateReferenceBadges = () => {
+      this.drawReferenceBadge(referenceBadges, d => d.uuid);
+      referenceTitles.text(d => this.referenceTooltip(d.label, d.uuid));
+    };
+    this.updateReferenceBadges();
 
     const nodeLabels = zoomLayer.append("g")
       .attr("class", "node-labels")
@@ -938,6 +938,9 @@ export class ForceRenderer extends BaseRenderer {
       node
         .attr("x", d => d.x - getNodeSize(d) / 2)
         .attr("y", d => d.y - getNodeSize(d) / 2);
+
+      referenceBadges.attr("transform", d =>
+        `translate(${d.x + getNodeSize(d) / 2},${d.y - getNodeSize(d) / 2})`);
 
       nodeSelectionRing
         .attr("cx", d => d.x)
@@ -1829,6 +1832,10 @@ export class ForceRenderer extends BaseRenderer {
     log(this.graph);
     this.render();
 
+  }
+
+  refreshReferenceIndicator() {
+    this.updateReferenceBadges?.();
   }
 
   hasEntity(graphData, uuid) {

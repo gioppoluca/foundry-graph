@@ -516,12 +516,76 @@ export class BaseRenderer {
  * @param {Object} graphData  - Raw graph data object (will be mutated in place).
  * @returns {Promise<Object>} - The same graphData with refreshed labels/images.
  */
+  async resolveReference(uuid, lookups = new Map()) {
+    if (!uuid) return null;
+    if (!lookups.has(uuid)) {
+      this.referenceAvailability ??= new Map();
+      const availability = this.referenceAvailability;
+      const previous = availability.get(uuid) ?? {};
+      availability.set(uuid, previous);
+      const lookup = Promise.resolve().then(() => fromUuid(uuid)).catch(() => null).then(doc => {
+        // A deletion broadcast can arrive while this lookup is pending.
+        if (availability.get(uuid) === previous) availability.set(uuid, { available: Boolean(doc) });
+        return availability.get(uuid)?.available ? doc : null;
+      });
+      lookups.set(uuid, lookup);
+    }
+    return lookups.get(uuid);
+  }
+
+  isReferenceUnavailable(uuid) {
+    return this.referenceAvailability?.get(uuid)?.available === false;
+  }
+
+  markReferenceDeleted(uuid) {
+    for (const reference of this.referenceAvailability?.keys() ?? []) {
+      if (reference !== uuid && !reference.startsWith(`${uuid}.`)) continue;
+      this.referenceAvailability.set(reference, { available: false });
+      this.refreshReferenceIndicator?.(reference);
+    }
+  }
+
+  async openReferenceSheet(uuid) {
+    if (!uuid) return;
+    const wasUnavailable = this.isReferenceUnavailable(uuid);
+    const doc = await this.resolveReference(uuid);
+    if (wasUnavailable !== this.isReferenceUnavailable(uuid)) this.refreshReferenceIndicator?.(uuid);
+    try {
+      await doc?.sheet?.render(true);
+    } catch (error) {
+      log("Foundry Graph | Could not open document sheet", uuid, error);
+    }
+  }
+
+  shouldShowReferenceIndicator(uuid) {
+    return this.isReferenceUnavailable(uuid) &&
+      game.settings.get(MODULE_ID, "showUnavailableReferences") === true;
+  }
+
+  referenceTooltip(label, uuid) {
+    return this.shouldShowReferenceIndicator(uuid)
+      ? [label, t("Notifications.GraphReferenceUnavailable")].filter(Boolean).join("\n")
+      : label;
+  }
+
+  drawReferenceBadge(selection, getUuid) {
+    selection
+      .attr("visibility", d => this.shouldShowReferenceIndicator(getUuid(d)) ? "visible" : "hidden")
+      .attr("pointer-events", "none");
+    selection.selectAll("circle").data(d => [d]).join("circle")
+      .attr("r", 7).attr("fill", "#78350f").attr("stroke", "#fef3c7");
+    selection.selectAll("path").data(d => [d]).join("path")
+      .attr("d", "M0 -3v3 M0 3v0.2").attr("stroke", "#fff")
+      .attr("stroke-width", 1.7).attr("stroke-linecap", "round");
+  }
+
   async syncLabels(graphData) {
+    const lookups = new Map();
     const nodes = graphData?.nodes ?? [];
     for (const node of nodes) {
       if (!node.uuid) continue;
       try {
-        const doc = await fromUuid(node.uuid);
+        const doc = await this.resolveReference(node.uuid, lookups);
         if (!doc) continue;
         if (doc.name != null) node.label = doc.name;
         if (doc.img != null) node.img = doc.img;

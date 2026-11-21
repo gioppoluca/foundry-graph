@@ -49,6 +49,18 @@ export class GraphApi {
             });
         }
 
+        if (!game.settings.settings.has(`${MODULE_ID}.showUnavailableReferences`)) {
+            game.settings.register(MODULE_ID, "showUnavailableReferences", {
+                scope: "user",
+                config: true,
+                type: Boolean,
+                default: false,
+                name: t("Settings.ShowUnavailableReferencesName"),
+                hint: t("Settings.ShowUnavailableReferencesHint"),
+                onChange: () => Hooks.callAll(`${MODULE_ID}.referenceIndicatorsChanged`)
+            });
+        }
+
         // Avoid double registration if hot‑reloaded, but register each setting independently.
         if (!game.settings.settings.has(`${MODULE_ID}.graphs`)) {
             game.settings.register(MODULE_ID, "graphs", {
@@ -131,6 +143,7 @@ export class GraphApi {
 
 
     async openGraphById(graphId, { mode = null, force = false, onCloseCallback = null } = {}) {
+        this.refreshGraphIndex();
         const graph = await this.getGraph(graphId);
         if (!graph) {
             ui.notifications.warn(tf("Notifications.GraphNotFound", { id: graphId }));
@@ -225,6 +238,19 @@ export class GraphApi {
         this._graphMap.clear();
     }
 
+    refreshGraphIndex() {
+        const entries = game.settings.get(MODULE_ID, "graphIndex") ?? [];
+        const currentIndex = new Map(entries.map(entry => [entry.id, entry]));
+        for (const id of this._graphMap.keys()) {
+            const previous = this._indexMap.get(id);
+            const current = currentIndex.get(id);
+            if (!current || previous?.file !== current.file || previous?.revision !== current.revision) {
+                this._graphMap.delete(id);
+            }
+        }
+        this._indexMap = currentIndex;
+    }
+
     getGraphIndexEntry(id) {
         return this._indexMap.get(id) ?? null;
     }
@@ -249,7 +275,7 @@ export class GraphApi {
     async _saveIndex() {
         await game.settings.set(MODULE_ID, "graphIndex", Array.from(this._indexMap.values()));
     }
-    async upsertGraph(graph) {
+    async upsertGraph(graph, { expectedRevision } = {}) {
         // Ensure graph has data
         if (!graph.data) {
             const renderer = this.getRenderer(graph.renderer);
@@ -262,6 +288,11 @@ export class GraphApi {
         }
 
         const dir = await this._pickWritableStorageDir();
+        if (expectedRevision !== undefined) {
+            this.refreshGraphIndex();
+            const entry = this._indexMap.get(graph.id);
+            if (!entry || (entry.revision ?? null) !== expectedRevision) return null;
+        }
         const filePath = await this._writeGraphFile(dir, graph);
 
         const prev = this._indexMap.get(graph.id);
@@ -327,6 +358,11 @@ export class GraphApi {
 
     async getGraphTypeById(id) {
         return this.graphTypes[id] || null;
+    }
+
+    createRenderer(id) {
+        const renderer = this.registryRenderers.get(id);
+        return renderer ? new renderer.constructor() : undefined;
     }
 
     getRenderer(id) {

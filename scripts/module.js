@@ -197,108 +197,121 @@ Hooks.on("getSceneControlButtons", (controls) => {
     logError("Foundry Graph | getSceneControlButtons failed", error);
   }
 });
-async function performCleanup(affectedList, uuid) {
-  for (const graph of affectedList) {
-    const renderer = game.modules.get(MODULE_ID)?.api.getRenderer(graph?.renderer);
-    log(renderer);
-    log(`Foundry Graph | Cleaning up graph ${graph.name} (${graph.id})`, affectedList);
-    // 1. Delegate logic to Renderer
-    const cleanedData = renderer.removeEntity(graph, uuid);
-    log(cleanedData);
+const graphDocumentNames = ["Actor", "Item", "Scene", "JournalEntry", "JournalEntryPage"];
+let graphCleanupQueue = Promise.resolve();
 
-    // 2. Save via API
-    await game.modules.get(MODULE_ID)?.api.upsertGraph(cleanedData);
-    log(`Foundry Graph | Removed ${uuid} from ${graph.name}`);
+Hooks.once("setup", () => {
+  if (!globalThis.libWrapper) {
+    logError("Foundry Graph | libWrapper is unavailable for deleteDialog");
+    return;
   }
-  ui.notifications.info(t("Notifications.GraphCleanupDone"));
+
+  for (const name of graphDocumentNames) {
+    const prototype = CONFIG[name]?.documentClass?.prototype;
+    if (typeof prototype?.deleteDialog !== "function") continue;
+    globalThis.libWrapper.register(
+      MODULE_ID, `CONFIG.${name}.documentClass.prototype.deleteDialog`, graphDeleteDialog, "WRAPPER"
+    );
+  }
+});
+
+function findAffectedGraphs(api, entries, uuid, user) {
+  return entries.filter(graph =>
+    api.canEdit(graph, user) && api.getRenderer(graph.renderer)?.hasEntity(graph, uuid)
+  );
 }
 
-async function performAsyncCheck(document, options) {
-  if (!game.user.isGM) return true;
+function makeGraphDeleteNotice(graphs) {
+  const notice = document.createElement("section");
+  notice.className = "foundry-graph-delete-notice";
 
-  const docUuid = document.uuid;
+  const message = document.createElement("p");
+  message.textContent = t("DeletionDialog.WarningRemoveFromDiagrams");
+  notice.append(message);
 
-  // 1. GET ALL GRAPHS VIA API
-  // Ensure this returns the full object list, not just IDs
-  const allGraphs = await game.modules.get(MODULE_ID)?.api.getAllGraphs();
-  // 2. FIND AFFECTED GRAPHS
-  // Delegate detection to the specific Renderer
-  const affectedGraphs = [];
-
-  for (const graph of allGraphs) {
-    const renderer = game.modules.get(MODULE_ID)?.api.getRenderer(graph?.renderer);
-    log(renderer);
-
-    if (!renderer) {
-      log(`Foundry Graph | Unknown renderer '${graph?.renderer}' for graph ${graph.id}`);
-      continue;
-    }
-
-    // Ask the renderer logic
-    if (renderer.hasEntity(graph, docUuid)) {
-      affectedGraphs.push(graph);
-    }
+  const list = document.createElement("ul");
+  for (const graph of graphs) {
+    const item = document.createElement("li");
+    item.textContent = graph.name;
+    list.append(item);
   }
-  // Case 1: Safe to delete (No graphs affected)
-  if (affectedGraphs.length === 0) {
-    // Re-trigger the delete, but add our flag so we don't block it again
-    return document.delete({ ...options, graphModuleChecked: true });
+  notice.append(list);
+  if (graphs.some(graph => graph.renderer === "genealogy")) {
+    const descendants = document.createElement("p");
+    descendants.textContent = t("DeletionDialog.GenealogyDescendants");
+    notice.append(descendants);
+  }
+  return notice;
+}
+
+async function graphDeleteDialog(wrapped, options = {}, operation = {}) {
+  const api = game.modules.get(MODULE_ID)?.api;
+  if (!api || !game.user || !game.users.activeGM || !this.uuid) {
+    return wrapped(options, operation);
   }
 
-  // 3. PROMPT USER
-  return new Promise((resolve) => {
-    const listHtml = affectedGraphs.map(item => `<li>${item.name}</li>`).join("");
-    new Dialog({
-      title: `${t("DeletionDialog.Title")}: ${document.name}`,
-      content: `
-                <p><strong>${document.name}</strong> ${t("DeletionDialog.UsedInGraphs")}</p>
-                <ul>${listHtml}</ul>
-                <p>${t("DeletionDialog.WarningRemoveFromDiagrams")}</p>
-            `,
-      buttons: {
-        delete: {
-          icon: '<i class="fas fa-trash"></i>',
-          label: t("Buttons.DeleteClean"),
-          callback: async () => {
-            // CLEANUP
-            await performCleanup(affectedGraphs, docUuid);
-            // RE-TRIGGER DELETE
-            document.delete({ ...options, graphModuleChecked: true });
-          }
-        },
-        cancel: {
-          icon: '<i class="fas fa-times"></i>',
-          label: t("Buttons.Cancel"),
-          callback: () => {
-            // Do nothing. The original delete was already blocked (return false).
-            // The user stays on the screen.
-          }
-        }
-      },
-      default: "cancel",
-      close: () => resolve(false)
-    }).render(true);
+  let graphs;
+  try {
+    const entries = game.settings.get(MODULE_ID, "graphIndex") ?? [];
+    graphs = findAffectedGraphs(api, entries, this.uuid, game.user);
+  } catch (error) {
+    logError("Foundry Graph | Failed to check references for deleteDialog", this.uuid, error);
+    return wrapped(options, operation);
+  }
+  if (!graphs.length) return wrapped(options, operation);
+
+  const deleteOperation = { ...operation };
+  return wrapped({
+    ...options,
+    render(event, dialog) {
+      options?.render?.call(this, event, dialog);
+      const content = dialog.element.querySelector(".dialog-content") ??
+        dialog.element.querySelector("form");
+      if (!content) return;
+
+      if (!content.querySelector(".foundry-graph-delete-notice")) {
+        content.append(makeGraphDeleteNotice(graphs));
+      }
+      // Only mark the operation if this dialog actually displayed our notice.
+      deleteOperation.deleteFormGraph = true;
+      deleteOperation.deleteFormGraphIds = graphs.map(graph => graph.id);
+    }
+  }, deleteOperation);
+}
+
+async function cleanDeletedGraphDocument(uuid, userId, graphIds) {
+  const api = game.modules.get(MODULE_ID)?.api;
+  const user = game.users.get(userId);
+  if (!api || !user || game.users.activeGM?.id !== game.user?.id) return;
+
+  api.refreshGraphIndex();
+  const entries = graphIds.map(id => api.getGraphIndexEntry(id)).filter(Boolean);
+  const affectedGraphs = findAffectedGraphs(api, entries, uuid, user);
+  let cleaned = false;
+  for (const entry of affectedGraphs) {
+    try {
+      const graph = await api.getGraph(entry.id);
+      const renderer = api.getRenderer(graph?.renderer);
+      if (!graph || !api.canEdit(graph, user) || !renderer?.hasEntity(graph, uuid)) continue;
+      await api.upsertGraph(renderer.removeEntity(graph, uuid));
+      cleaned = true;
+    } catch (error) {
+      logError("Foundry Graph | Failed to remove deleted reference", uuid, entry.id, error);
+    }
+  }
+  if (cleaned) ui.notifications.info(t("Notifications.GraphCleanupDone"));
+}
+
+for (const name of graphDocumentNames) {
+  Hooks.on(`delete${name}`, (document, operation, userId) => {
+    if (operation?.deleteFormGraph !== true || !document.uuid) return;
+    if (!game.user || game.users.activeGM?.id !== game.user.id) return;
+
+    const uuid = document.uuid;
+    const graphIds = operation.deleteFormGraphIds;
+    if (!Array.isArray(graphIds) || !graphIds.length) return;
+    graphCleanupQueue = graphCleanupQueue
+      .then(() => cleanDeletedGraphDocument(uuid, userId, graphIds))
+      .catch(error => logError("Foundry Graph | Graph cleanup failed", uuid, error));
   });
 }
-/**
- * Synchronous interceptor.
- * Returns false to BLOCK the delete, then starts the async check.
- */
-function interceptDeletion(document, options, id) {
-  // 1. BYPASS: If we already checked this delete, let it pass
-  if (options.graphModuleChecked) return true;
-
-  // 2. PERMISSION: Only GM checks (or rely on API permissions)
-  if (!game.user.isGM) return true;
-  // ✅ FIX 1: Don't intercept compendium document deletions
-  if (document.uuid?.startsWith("Compendium.")) return true;
-
-  // 3. INTERCEPT: Stop the deletion immediately!
-  // We trigger the async logic separately, but we MUST return false now.
-  performAsyncCheck(document, options);
-
-  return false;
-}
-Hooks.on("preDeleteActor", (doc, options, id) => interceptDeletion(doc, options, id));
-Hooks.on("preDeleteItem", (doc, options, id) => interceptDeletion(doc, options, id));
-Hooks.on("preDeleteScene", (doc, options, id) => interceptDeletion(doc, options, id));

@@ -32,7 +32,9 @@
     },
     "Settings": {
       "DebugName": "Enable debug logs",
-      "DebugHint": "Writes verbose logs to the console for troubleshooting."
+      "DebugHint": "Writes verbose logs to the console for troubleshooting.",
+      "ShowUnavailableReferencesName": "Show unavailable document indicators",
+      "ShowUnavailableReferencesHint": "Marks unavailable document references in your graphs and their exports. Turn off for presentation or export without the indicators."
     },
     "List": {
       "SavedGraphs": "Saved Graphs",
@@ -183,6 +185,8 @@
       "ClickedNode": "Clicked node: {label}",
       "DoubleClickedNode": "Double-clicked node: {label}",
       "NoDocumentFoundForUUID": "No document found for UUID",
+      "GraphReferenceUnavailable": "Document sheet unavailable",
+      "GraphRevisionChanged": "This graph changed after it was opened. Reopen it before saving changes.",
       "CanOnlyDropEntitiesOnSlots": "You can only drop entities on slots.",
       "SlotCannotAcceptActor": "Slot \"{slot}\" cannot accept this Actor type.",
       "SlotCannotAcceptPage": "Slot \"{slot}\" cannot accept this Page type.",
@@ -241,6 +245,7 @@
       "Title": "Deletion Warning",
       "UsedInGraphs": "is used in these graphs:",
       "RangeDropHint": "Range item placed — drag the right edge to set the end date.",
+      "GenealogyDescendants": "In genealogy graphs this also removes the descendant branches.",
       "WarningRemoveFromDiagrams": "Deleting it will remove it from these diagrams. Proceed?"
     },
     "Relations": {
@@ -304,7 +309,7 @@
       "ReassignTitle": "Reassign Entities — {name}",
       "ReassignApply": "Apply {count} match{suffix}",
       "ReassignAutoMatched": "Auto-matched ({count})",
-      "ReassignNoMatchFound": "No match found ({count})",
+      "ReassignNoMatchFound": "No unique, non-conflicting match ({count})",
       "ReassignType": "Type",
       "ReassignOldName": "Old name",
       "ReassignNewEntity": "New entity",

@@ -423,37 +423,18 @@ export class ImageSlotsRenderer extends BaseRenderer {
                         }
                         this._linkSourceNode = null;
                     }
-                } else {
-                    // Normal click: open sheet
-                    ui.notifications.info(tf("Notifications.ClickedNode", { label: d.label }));
-                    if (d.uuid) {
-                        fromUuid(d.uuid).then(doc => {
-                            if (doc?.sheet) doc.sheet.render(true);
-                            else ui.notifications.warn(t("Notifications.NoDocumentFoundForUUID"));
-                        });
-                    }
+                } else if (event.detail <= 1) {
+                    await this.openReferenceSheet(d.uuid);
                 }
             })
             .on("contextmenu", (event, d) => {
                 event.preventDefault();
                 this._onRightClickNode(event, d);
-            })
-            .on("dblclick", (event, d) => {
-                event.preventDefault();
-                ui.notifications.info(tf("Notifications.DoubleClickedNode", { label: d.label }));
-                if (d.uuid) {
-                    fromUuid(d.uuid).then(doc => {
-                        if (doc?.sheet) doc.sheet.render(true);
-                        else ui.notifications.warn(t("Notifications.NoDocumentFoundForUUID"));
-                    });
-                }
             });
 
         // Tooltips: show description (or label) on hover
         this._nodeSelection.select("title").remove(); // ensure no duplicates
-        this._nodeSelection
-            .append("title")
-            .text(d => this._getNodeTooltip(d));
+        this._nodeSelection.append("title");
 
         this._nodeLabelSelection = nodeLabelLayer.selectAll("text")
             .data(nodes, d => d.id)
@@ -483,6 +464,10 @@ export class ImageSlotsRenderer extends BaseRenderer {
             .attr("opacity", d => (this._getOverlaySymbol(d) ? 1 : 0))
             .attr("pointer-events", "none")
             .text(d => this._getOverlaySymbol(d));
+
+        this._referenceBadges = zoomLayer.append("g").attr("class", "fg-reference-badges")
+            .selectAll("g").data(nodes.filter(d => d.uuid), d => d.id).join("g");
+        this.refreshReferenceIndicator();
 
         // Final position update (slots + links + labels)
         this._updateNodeAndLinkPositions();
@@ -736,6 +721,8 @@ export class ImageSlotsRenderer extends BaseRenderer {
                 .attr("x", d => d.x)
                 .attr("y", d => d.y + 40);
         }
+
+        this._referenceBadges?.attr("transform", d => `translate(${d.x + 32},${d.y - 32})`);
 
         // --- 5. Update links based on node positions ---
         const nodeMap = new Map(nodes.map(n => [n.id, n]));
@@ -1153,6 +1140,12 @@ export class ImageSlotsRenderer extends BaseRenderer {
 
 
 
+
+    refreshReferenceIndicator() {
+        if (this._referenceBadges) this.drawReferenceBadge(this._referenceBadges, d => d.uuid);
+        this._nodeSelection?.select("title").text(d =>
+            this.referenceTooltip(this._getNodeTooltip(d), d.uuid));
+    }
 
     hasEntity(graphData, uuid) {
         log("ImageSlotsRenderer.hasEntity", graphData, uuid);

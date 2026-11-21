@@ -18,6 +18,11 @@
   "conflicts": [
     
   ],
+  "relationships": {
+    "requires": [
+      { "id": "lib-wrapper", "type": "module" }
+    ]
+  },
   "esmodules": [
     "scripts/module.js"
   ],
