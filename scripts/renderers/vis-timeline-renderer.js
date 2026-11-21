@@ -1100,11 +1100,25 @@ export class VisTimelineRenderer extends BaseRenderer {
 
     async _onRightClickItem(event, item) {
         const label = item?.title || item?.uuid || item?.id || t("Force.ItemFallback");
-        const isFree = !item?.uuid;
+        const uuid = item?.uuid;
+        const isFree = !uuid;
         this._showRadialMenu({
             clientX: event.clientX,
             clientY: event.clientY,
             items: [
+                this.replacementMenuItem(uuid, async doc => {
+                    const entries = this.graph.data.items;
+                    const current = entries.find(value => value.id === item.id && value.uuid === uuid);
+                    if (!current || entries.some(value => value.uuid === doc.uuid)) return false;
+                    Object.assign(current, {
+                        uuid: doc.uuid,
+                        title: doc.name,
+                        entityType: doc.documentName,
+                        img: doc.img ?? doc.src ?? doc.background?.src ?? doc.thumb ?? null
+                    });
+                    await this.render(d3.select(this._svgEl), this.graph);
+                    return true;
+                }),
                 ...(isFree ? [{
                         id: "editTitle",
                         label: tf("Dialogs.EditTitleAction", { label }),

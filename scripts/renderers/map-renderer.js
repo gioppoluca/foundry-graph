@@ -1451,10 +1451,21 @@ export class MapRenderer extends BaseRenderer {
         const oe = ev?.originalEvent;
         const clientX = oe?.clientX ?? 0;
         const clientY = oe?.clientY ?? 0;
+        const marker = this.graph.data.markers.find(value => value.id === m.id);
+        const uuid = marker?.uuid;
         this._showRadialMenu({
           clientX,
           clientY,
           items: [
+            this.replacementMenuItem(uuid, doc => {
+              const current = this.graph.data.markers.find(value => value.id === m.id && value.uuid === uuid);
+              if (!current) return false;
+              Object.assign(current, {
+                uuid: doc.uuid, label: doc.name, type: doc.documentName, img: doc.img ?? null
+              });
+              this._syncMarkers();
+              return true;
+            }),
             {
               id: "color",
               label: t("Dialogs.ChangeColor"),

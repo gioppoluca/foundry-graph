@@ -139,6 +139,67 @@ export class BaseRenderer {
   // Radial menu helper (used by renderers on right-click).
   // Renderers call this with screen coordinates so it works regardless of zoom.
   // ========================================================================
+  replacementMenuItem(uuid, apply) {
+    if (!uuid || !this.canReplaceReferences?.()) return null;
+    return {
+      id: "replaceDocument",
+      label: t("Dialogs.ReplaceDocument"),
+      icon: "fa-solid fa-right-left",
+      onClick: async () => {
+        const graph = this.graph;
+        this._closeRadialMenu();
+        const { DialogV2 } = foundry.applications.api;
+        const replacementUuid = await DialogV2.prompt({
+          window: { title: t("Dialogs.ReplaceDocument") },
+          content: `<div class="form-group">
+            <label for="fg-replacement-uuid">${t("Dialogs.ReplacementUuid")}</label>
+            <div class="form-fields"><input id="fg-replacement-uuid" name="replacementUuid" type="text" autofocus></div>
+          </div><p class="hint">${t("Dialogs.ReplacementHint")}</p>`,
+          rejectClose: false,
+          render: (_event, dialog) => {
+            const input = dialog.element.querySelector('[name="replacementUuid"]');
+            input?.addEventListener("dragover", event => event.preventDefault());
+            input?.addEventListener("drop", event => {
+              event.preventDefault();
+              event.stopPropagation();
+              const { TextEditor } = foundry.applications.ux;
+              const data = TextEditor.getDragEventData(event);
+              if (data?.uuid) input.value = data.uuid;
+            });
+          },
+          ok: {
+            label: t("Dialogs.ReplaceDocument"),
+            callback: (_event, button) => button.form.elements.replacementUuid.value.trim()
+          }
+        });
+        if (replacementUuid == null || graph !== this.graph || !this.canReplaceReferences?.()) return;
+
+        const doc = await this.resolveReference(replacementUuid);
+        if (graph !== this.graph || !this.canReplaceReferences?.()) return;
+        if (!doc?.uuid || !doc.documentName) {
+          ui.notifications.warn(t("Notifications.ReplacementNotFound"));
+          return;
+        }
+        if (doc.uuid === uuid) return;
+        const allowed = graph.allowedEntities;
+        if ((allowed?.length && !allowed.includes(doc.documentName)) || !await apply(doc)) {
+          ui.notifications.warn(t("Notifications.ReplacementNotAllowed"));
+        }
+      }
+    };
+  }
+
+  replacementNodeFields(doc) {
+    const type = doc.documentName;
+    const img = type === "JournalEntryPage" ? doc.getFlag?.(MODULE_ID, "icon") : null;
+    return {
+      uuid: doc.uuid,
+      type,
+      label: doc.name,
+      img: img ?? doc.img ?? doc.src ?? doc.background?.src ?? doc.thumb ?? "icons/svg/book.svg"
+    };
+  }
+
   _closeRadialMenu() {
     if (this._radialMenuCleanup) {
       try { this._radialMenuCleanup(); } catch (e) { /* noop */ }

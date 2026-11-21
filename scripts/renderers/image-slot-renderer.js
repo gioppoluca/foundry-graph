@@ -883,11 +883,28 @@ export class ImageSlotsRenderer extends BaseRenderer {
             nodeData.status = nodeData.status == null ? [] : [nodeData.status];
         }
         const isHidden = nodeData.status.includes("hidden");
+        const uuid = nodeData.uuid;
 
         this._showRadialMenu({
             clientX: event.clientX,
             clientY: event.clientY,
             items: [
+                this.replacementMenuItem(uuid, doc => {
+                    const node = this.graph.data.nodes.find(n => n.id === nodeData.id && n.uuid === uuid);
+                    if (!node) return false;
+                    const fields = { ...this.replacementNodeFields(doc), subType: doc.type ?? null };
+                    const slot = this._slots.find(value => value.id === node.slotId);
+                    if (slot && !this._canDropInSlot({ ...fields, slotId: node.slotId }, slot)) return false;
+
+                    const rawDescription = doc.system?.description?.value ??
+                        doc.system?.details?.biography?.value ?? doc.text?.content ??
+                        doc.system?.text?.content ?? doc.description ?? doc.system?.description;
+                    const { TextEditor } = foundry.applications.ux;
+                    fields.description = typeof rawDescription === "string" ? TextEditor.decodeHTML(rawDescription).trim() : "";
+                    Object.assign(node, fields);
+                    this.render(this._svg, this.graph, {});
+                    return true;
+                }),
                 {
                     id: "toggleHidden",
                     label: isHidden ? tf("Dialogs.ShowToPlayers", { label }) : tf("Dialogs.HideFromPlayers", { label }),

@@ -1232,6 +1232,15 @@ export class ForceRenderer extends BaseRenderer {
       }
     ];
 
+    const uuid = nodeData.uuid;
+    items.push(this.replacementMenuItem(uuid, doc => {
+      const node = this.graph.data.nodes.find(n => n.id === nodeData.id && n.uuid === uuid);
+      if (!node) return false;
+      Object.assign(node, this.replacementNodeFields(doc));
+      this.render();
+      return true;
+    }));
+
     if (this._selectedNodeIds.size > 0) {
       items.push({
         id: "createGroup",

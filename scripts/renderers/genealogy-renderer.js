@@ -351,7 +351,33 @@ export class GenealogyRenderer extends BaseRenderer {
   }
 
   async _onNodeRightClick(nodeId, nodeData, event) {
-    log("_onNodeRightClick", nodeId, nodeData)
+    log("_onNodeRightClick", nodeId, nodeData);
+    if (!Object.hasOwn(this.graph.data.persons ?? {}, nodeId)) return;
+    const replacement = this.replacementMenuItem(nodeId, doc => {
+      const data = this.graph.data;
+      const match = { oldUuid: nodeId, newUuid: doc.uuid };
+      if (doc.documentName !== "Actor" || !Object.hasOwn(data.persons, nodeId) ||
+        !this.canReassignEntity(data, match, [match])) return false;
+      this.replaceEntities(data, [match]);
+      Object.assign(data.persons[doc.uuid], { name: doc.name, img: doc.img ?? null });
+      if (this._linkSourceNode?.data?.id === nodeId) this._linkSourceNode = null;
+      this.render();
+      return true;
+    });
+    if (!replacement) return this._deletePersonFromGraph(nodeId, nodeData);
+    this._showRadialMenu({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      items: [replacement, {
+        id: "delete",
+        label: tf("Dialogs.DeleteAction", { label: nodeData?.data?.name ?? nodeId }),
+        icon: "fa-solid fa-trash",
+        onClick: () => this._deletePersonFromGraph(nodeId, nodeData)
+      }]
+    });
+  }
+
+  async _deletePersonFromGraph(nodeId, nodeData) {
     let dialogContent = ""
     let deletingStart = false;
     let parents = []
@@ -1087,7 +1113,9 @@ export class GenealogyRenderer extends BaseRenderer {
     // Re-key persons object for each matched UUID
     for (const [oldUuid, newUuid] of uuidMap) {
       if (!Object.prototype.hasOwnProperty.call(persons, oldUuid)) continue;
-      persons[newUuid] = persons[oldUuid];
+      const person = persons[oldUuid];
+      if (person.id === oldUuid) person.id = newUuid;
+      persons[newUuid] = person;
       delete persons[oldUuid];
     }
 
