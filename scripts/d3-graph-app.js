@@ -2,6 +2,10 @@ import { log, MODULE_ID, t, tf } from './constants.js';
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
+function canExportToScene() {
+  return game.user?.role === foundry.CONST.USER_ROLES.GAMEMASTER;
+}
+
 
 export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
@@ -159,9 +163,9 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       instructions: this.renderer?.instructions || t("Notifications.NoInstructionsAvailable"),
       isLinkNodesVisible: this.renderer?.isLinkNodesVisible ?? true,
       isRelationSelectVisible: this.renderer?.isRelationSelectVisible ?? true,
-      isSaveNewSceneVisible: this.renderer?.isSaveNewSceneVisible ?? false,
-      isSaveNewSceneScaledVisible: this.renderer?.isSaveNewSceneScaledVisible ?? false,
-      isSaveNewSceneScaledEnabled: this._isSaveNewSceneScaledEnabled()
+      isSaveNewSceneVisible: canExportToScene() && (this.renderer?.isSaveNewSceneVisible ?? false),
+      isSaveNewSceneScaledVisible: canExportToScene() && (this.renderer?.isSaveNewSceneScaledVisible ?? false),
+      isSaveNewSceneScaledEnabled: canExportToScene() && this._isSaveNewSceneScaledEnabled()
     };
   }
 
@@ -269,6 +273,10 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async exportToScaledScene(event, target, application) {
     event?.preventDefault?.();
+    if (!canExportToScene()) {
+      ui.notifications.warn(t("Notifications.OnlyGMExportToScene"));
+      return;
+    }
 
     if (!this._isSaveNewSceneScaledEnabled()) {
       ui.notifications.warn(t("Notifications.ScaledSceneExportUnavailableZoom"));
@@ -322,7 +330,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         gridUnits: "ft"
       });
 
-      if (Array.isArray(wallData) && wallData.length > 0) {
+      if (scene && Array.isArray(wallData) && wallData.length > 0) {
         await scene.createEmbeddedDocuments("Wall", wallData);
       }
     } catch (err) {
@@ -334,6 +342,10 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   // Add a new export button handler in your renderer class
   static async exportToScene(event, target, application) {
     event?.preventDefault?.();
+    if (!canExportToScene()) {
+      ui.notifications.warn(t("Notifications.OnlyGMExportToScene"));
+      return;
+    }
     console.log("Export to Scene clicked", { event, target, application });
     console.log(this)
 
@@ -380,10 +392,14 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /**
    * Create a new Foundry Scene using the exported graph image
    * @param {string} imagePath - Relative path from _savePNGToDataFolder
-   * @returns {Promise<Scene>}
+   * @returns {Promise<Scene|undefined>}
    * @private
    */
   async _createSceneFromGraphImage(imagePath, options = {}) {
+    if (!canExportToScene()) {
+      ui.notifications.warn(t("Notifications.OnlyGMExportToScene"));
+      return;
+    }
     const graph = this.graph;
 
     const texture = await loadTexture(imagePath);

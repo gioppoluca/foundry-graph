@@ -149,6 +149,7 @@
       "GraphImageSaveFailed": "Failed to save graph image to world folder",
       "SceneCreated": "Scene created: {name}",
       "OnlyGMSaveWorldData": "Only GM can save data at the world-level.",
+      "OnlyGMExportToScene": "Only a Gamemaster can export a graph to a scene.",
       "CannotLinkNodeToItself": "Cannot link a node to itself.",
       "LinkAlreadyExists": "That link already exists.",
       "ValidRelationRequired": "Please select a valid relation type before creating the link.",
