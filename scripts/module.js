@@ -18,6 +18,7 @@ Hooks.once('init', async function () {
   log(api)
 
   mod.api = api;                    // <- official home
+  api.registerOwnerSaves();
   log(mod)
 
   // loadGraphs can perform GM-only migrations. game.user is not guaranteed to

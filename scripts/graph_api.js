@@ -10,11 +10,13 @@ import { TimelineRenderer } from "./renderers/timeline-renderer.js";
 import { VisTimelineRenderer } from "./renderers/vis-timeline-renderer.js";
 import { SpacekitRenderer } from "./renderers/spacekit-renderer.js";
 import { D3GraphApp } from "./d3-graph-app.js";
+import { registerGraphSaveRequests, requestGraphSave } from "./graph-save-request.js";
 
 const LEVELS = foundry.CONST.DOCUMENT_OWNERSHIP_LEVELS; // { NONE:0, LIMITED:1, OBSERVER:2, OWNER:3 }
 const LEGACY_STORAGE_ROOT = "foundry-graph"; // Old location: Data/foundry-graph/<worldId>/
 const WORLD_STORAGE_SUBFOLDER_SETTING = "worldStorageSubfolder";
 const DEFAULT_WORLD_STORAGE_SUBFOLDER = "graphs";
+const OWNER_EDIT_FIELDS = ["name", "desc", "theme", "background", "relations", "data"];
 
 
 // graph_api.js – SAFE ES2019 VERSION (no class‑fields, no private #names)
@@ -34,6 +36,8 @@ function _filePicker() {
 }
 
 export class GraphApi {
+    #writeQueue = Promise.resolve();
+
     /**
      * Ensure the world‑level setting exists. Call once early in module init.
      */
@@ -299,32 +303,74 @@ export class GraphApi {
     }
 
     async upsertGraph(graph, { expectedRevision, createOnly = false } = {}) {
+        if (!this.isGamemaster()) {
+            this.refreshGraphIndex();
+            const entry = this._indexMap.get(graph.id);
+            if (createOnly || !this.canEdit(entry)) throw new Error(t("Notifications.GraphAccessDenied"));
+            const revision = entry.revision ?? null;
+            if (expectedRevision !== undefined && expectedRevision !== revision) return null;
+
+            const changes = Object.fromEntries(OWNER_EDIT_FIELDS
+                .filter(field => Object.hasOwn(graph, field))
+                .map(field => [field, graph[field]]));
+            if (!await requestGraphSave({ id: graph.id, revision, changes })) return null;
+            return this.getGraph(graph.id);
+        }
         return this.#writeGraph(graph, { expectedRevision, createOnly });
     }
 
-    async #writeGraph(input, { expectedRevision, createOnly = false, changePermissions = false }) {
+    registerOwnerSaves() {
+        registerGraphSaveRequests(async (request, userId) => {
+            const { id, revision, changes } = request ?? {};
+            const user = game.users.get(userId);
+            if (!user || typeof id !== "string" || !changes || typeof changes !== "object" || Array.isArray(changes) ||
+                (revision !== null && !Number.isSafeInteger(revision))) return "denied";
+
+            return this.#queueWrite(async () => {
+                this.refreshGraphIndex();
+                const entry = this._indexMap.get(id);
+                if (!this.canEdit(entry, user)) return "denied";
+                if ((entry.revision ?? null) !== revision) return "conflict";
+                const saved = await this.getGraph(id);
+                if (!saved) return "conflict";
+                for (const field of OWNER_EDIT_FIELDS) {
+                    if (Object.hasOwn(changes, field)) saved[field] = changes[field];
+                }
+                const result = await this.#persistGraph(saved, {
+                    expectedRevision: revision, editorId: userId
+                });
+                return result ? "saved" : "conflict";
+            });
+        });
+    }
+
+    #queueWrite(write) {
+        const result = this.#writeQueue.then(write);
+        this.#writeQueue = result.catch(() => {});
+        return result;
+    }
+
+    #writeGraph(input, options) {
+        return this.#queueWrite(() => this.#persistGraph(input, options));
+    }
+
+    async #persistGraph(input, { expectedRevision, createOnly = false, changePermissions = false, editorId }) {
         const id = input.id;
+        const canWrite = entry => this.isGamemaster() && (editorId === undefined ||
+            this.canEdit(entry, game.users.get(editorId) ?? null));
         this.refreshGraphIndex();
         let prev = this._indexMap.get(id);
-        if (!(prev && !createOnly && !changePermissions ? this.canEdit(prev) : this.isGamemaster())) {
+        if (!canWrite(prev)) {
             throw new Error(t("Notifications.GraphAccessDenied"));
         }
 
         if ((createOnly && prev) ||
             (expectedRevision !== undefined && (!prev || (prev.revision ?? null) !== expectedRevision))) return null;
 
-        // Owners still need the Foundry permission to update the world index.
-        if (!this.isGamemaster()) {
-            const indexSetting = game.settings.storage.get("world")?.getSetting(`${MODULE_ID}.graphIndex`);
-            if (!indexSetting?.canUserModify(game.user, "update")) {
-                throw new Error(t("Notifications.GraphIndexWriteDenied"));
-            }
-        }
-
         const dir = await this._pickWritableStorageDir();
         this.refreshGraphIndex();
         const current = this._indexMap.get(id);
-        if (!(current && !createOnly && !changePermissions ? this.canEdit(current) : this.isGamemaster())) {
+        if (!canWrite(current)) {
             throw new Error(t("Notifications.GraphAccessDenied"));
         }
         if (Boolean(current) !== Boolean(prev) || current?.revision !== prev?.revision) return null;
@@ -385,13 +431,15 @@ export class GraphApi {
 
     async deleteGraph(id) {
         if (!this.isGamemaster()) throw new Error(t("Notifications.GraphAccessDenied"));
-        this.refreshGraphIndex();
-        const index = new Map(this._indexMap);
-        if (!index.delete(id)) return false;
-        await this._saveIndex(index);
-        this._indexMap = index;
-        this._graphMap.delete(id);
-        return true;
+        return this.#queueWrite(async () => {
+            this.refreshGraphIndex();
+            const index = new Map(this._indexMap);
+            if (!index.delete(id)) return false;
+            await this._saveIndex(index);
+            this._indexMap = index;
+            this._graphMap.delete(id);
+            return true;
+        });
     }
 
     getAllGraphs() {
@@ -542,7 +590,7 @@ export class GraphApi {
 
     async _readGraphFile(filePath) {
         // filePath is relative, for example: "worlds/world-id/<configured-folder>/graph-id.json".
-        const res = await fetch(filePath.startsWith("/") ? filePath : `/${filePath}`);
+        const res = await fetch(filePath.startsWith("/") ? filePath : `/${filePath}`, { cache: "no-cache" });
         if (!res.ok) throw new Error(`Failed to load graph file ${filePath}: ${res.status}`);
         return await res.json();
     }
