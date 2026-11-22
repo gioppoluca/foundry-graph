@@ -197,17 +197,6 @@ export class GraphApi {
 
 
     /**
-     * Compatibility stub retained for older macros.
-     * Use getGraph to read renderer-specific data.
-     * @param {string} graphId Saved graph ID.
-     * @returns {Array} An empty array.
-     */
-    get_graph_elements(graphId) {
-        // TODO: replicate your original mapping logic here.
-        return [];
-    }
-
-    /**
      * Check whether a user has the full Gamemaster role.
      * @param {foundry.documents.User|null} [user=game.user] User to check.
      * @returns {boolean} Whether the user has the Gamemaster role.
@@ -327,7 +316,7 @@ export class GraphApi {
      * @returns {Promise<void>} Resolves after the import or when there is no work to do.
      * @throws {Error} If a graph write or the settings update fails.
      */
-    async migrateFromLegacySettingIfNeeded() {
+    async #migrateFromLegacySettingIfNeeded() {
         if (!this.isGamemaster()) return;
         const index = await game.settings.get(MODULE_ID, "graphIndex") || [];
         if (index.length) return;
@@ -350,8 +339,8 @@ export class GraphApi {
     async loadGraphs() {
         const index = await game.settings.get(MODULE_ID, "graphIndex") || [];
         this._indexMap = new Map(index.map(e => [e.id, e]));
-        await this.migrateFromLegacySettingIfNeeded();
-        await this.migrateGraphFilesToWorldStorageFolderIfNeeded();
+        await this.#migrateFromLegacySettingIfNeeded();
+        await this.#migrateGraphFilesToWorldStorageFolderIfNeeded();
         this._graphMap.clear();
     }
 
@@ -402,15 +391,6 @@ export class GraphApi {
         graph.permissions = current.permissions ?? {};
         this._graphMap.set(id, graph);
         return foundry.utils.deepClone(graph);
-    }
-
-    /**
-     * Apply the current migration rules without writing to world storage.
-     * @param {GraphData} graphRaw Parsed graph data. Migration may modify this object in place.
-     * @returns {GraphData} The same graph object after migration.
-     */
-    migrateGraph(graphRaw) {
-        return migrateGraph(graphRaw, this.graphTypes); // the imported function
     }
 
     async _saveIndex(index = this._indexMap) {
@@ -735,7 +715,7 @@ export class GraphApi {
      * @returns {Promise<void>} Resolves after processing the affected entries.
      * @throws {Error} If the destination folder or graph index cannot be written.
      */
-    async migrateGraphFilesToWorldStorageFolderIfNeeded() {
+    async #migrateGraphFilesToWorldStorageFolderIfNeeded() {
         if (!this.isGamemaster()) return;
 
         let changed = false;

@@ -1,4 +1,5 @@
 import { GraphBuilder } from "./model/graph_builder.js";
+import { migrateGraph } from "./model/graph_migrations.js";
 import { GraphRelationsDialog } from "./graph-relations-dialog.js";
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -538,9 +539,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
 
       // Run migrations to ensure compatibility with current schema
       try {
-        const migratedGraph = api.migrateGraph
-          ? api.migrateGraph(graph)          // if you expose it on the api
-          : graph;                           // fallback: trust the file as-is
+        const migratedGraph = migrateGraph(graph, api.graphTypes);
         if (!await this._saveGraphChanges(migratedGraph, { createOnly: true })) return;
       } catch (err) {
         log("Import failed", err);
