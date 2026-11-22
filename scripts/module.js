@@ -246,7 +246,7 @@ function makeGraphDeleteNotice(graphs) {
 
 async function graphDeleteDialog(wrapped, options = {}, operation = {}) {
   const api = game.modules.get(MODULE_ID)?.api;
-  if (!api || !game.user || !game.users.activeGM || !this.uuid) {
+  if (!api || !game.user || !api.isGamemaster(game.users.activeGM) || !this.uuid) {
     return wrapped(options, operation);
   }
 
@@ -282,7 +282,7 @@ async function graphDeleteDialog(wrapped, options = {}, operation = {}) {
 async function cleanDeletedGraphDocument(uuid, userId, graphIds) {
   const api = game.modules.get(MODULE_ID)?.api;
   const user = game.users.get(userId);
-  if (!api || !user || game.users.activeGM?.id !== game.user?.id) return;
+  if (!api || !user || !api.isGamemaster() || game.users.activeGM?.id !== game.user?.id) return;
 
   api.refreshGraphIndex();
   const entries = graphIds.map(id => api.getGraphIndexEntry(id)).filter(Boolean);
@@ -293,8 +293,10 @@ async function cleanDeletedGraphDocument(uuid, userId, graphIds) {
       const graph = await api.getGraph(entry.id);
       const renderer = api.getRenderer(graph?.renderer);
       if (!graph || !api.canEdit(graph, user) || !renderer?.hasEntity(graph, uuid)) continue;
-      await api.upsertGraph(renderer.removeEntity(graph, uuid));
-      cleaned = true;
+      const saved = await api.upsertGraph(renderer.removeEntity(graph, uuid), {
+        expectedRevision: entry.revision ?? null
+      });
+      if (saved) cleaned = true;
     } catch (error) {
       logError("Foundry Graph | Failed to remove deleted reference", uuid, entry.id, error);
     }

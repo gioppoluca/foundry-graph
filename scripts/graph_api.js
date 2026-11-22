@@ -142,20 +142,19 @@ export class GraphApi {
     }
 
 
-    async openGraphById(graphId, { mode = null, force = false, onCloseCallback = null } = {}) {
-        this.refreshGraphIndex();
+    async openGraphById(graphId, { mode = null, onCloseCallback = null } = {}) {
         const graph = await this.getGraph(graphId);
-        if (!graph) {
-            ui.notifications.warn(tf("Notifications.GraphNotFound", { id: graphId }));
+        if (!graph || !this.canOpenById(graphId)) {
+            ui.notifications.warn(t("Notifications.GraphUnavailable"));
             return null;
         }
 
-        if (!force && !this.canOpen(graph)) {
-            ui.notifications.warn(tf("Notifications.GraphOpenPermissionDenied", { name: graph.name }));
+        const canEdit = this.canEditById(graphId);
+        if (mode === "edit" && !canEdit) {
+            ui.notifications.warn(t("Notifications.GraphAccessDenied"));
             return null;
         }
-
-        const finalMode = mode ?? (this.canEdit(graph) ? "edit" : "view");
+        const finalMode = mode === "view" || !canEdit ? "view" : "edit";
 
         const app = new D3GraphApp({
             graph,
@@ -177,46 +176,65 @@ export class GraphApi {
         return [];
     }
 
-    getPermission(graph, user = game.user) {
-        // Explicit setting?
-        if (graph.permissions?.[user.id] !== undefined) return graph.permissions[user.id];
-        // Fallback to default
-        return graph.permissions?.default ?? LEVELS.NONE;
+    isGamemaster(user = game.user) {
+        return user?.role === foundry.CONST.USER_ROLES.GAMEMASTER;
     }
 
-    canView(graph, user = game.user) { return this.getPermission(graph, user) >= LEVELS.LIMITED || user.isGM; }
-    canOpen(graph, user = game.user) { return this.getPermission(graph, user) >= LEVELS.OBSERVER || user.isGM; }
-    canEdit(graph, user = game.user) { return this.getPermission(graph, user) >= LEVELS.OWNER || user.isGM; }
+    getPermission(graph, user = game.user) {
+        if (!graph || !user) return LEVELS.NONE;
+        if (this.isGamemaster(user)) return LEVELS.OWNER;
+        // An explicit NONE overrides the default.
+        const level = graph.permissions?.[user.id] ?? graph.permissions?.default;
+        return Object.values(LEVELS).includes(level) ? level : LEVELS.NONE;
+    }
 
+    canView(graph, user = game.user) { return this.getPermission(graph, user) >= LEVELS.LIMITED; }
+    canOpen(graph, user = game.user) { return this.getPermission(graph, user) >= LEVELS.OBSERVER; }
+    canEdit(graph, user = game.user) { return this.getPermission(graph, user) >= LEVELS.OWNER; }
 
     canViewById(id, user = game.user) {
-        const g = this.getGraph(id);
-        return g ? this.canView(g, user) : false;
-    }
-    canOpenById(id, user = game.user) {
-        const g = this.getGraph(id);
-        return g ? this.canOpen(g, user) : false;
-    }
-    canEditById(id, user = game.user) {
-        const g = this.getGraph(id);
-        return g ? this.canEdit(g, user) : false;
+        this.refreshGraphIndex();
+        return this.canView(this._indexMap.get(id), user);
     }
 
-    getAccessibleGraphs(user = game.user) {
-        return Array.from(this._indexMap.values()).filter(g => this.canOpen(g, user));
+    canOpenById(id, user = game.user) {
+        this.refreshGraphIndex();
+        return this.canOpen(this._indexMap.get(id), user);
+    }
+
+    canEditById(id, user = game.user) {
+        this.refreshGraphIndex();
+        return this.canEdit(this._indexMap.get(id), user);
+    }
+
+    getAccessibleGraphs() {
+        return this.getAllGraphs();
     }
 
     async updateGraphPermissions(graphId, newPerms) {
-        const g = await this.getGraph(graphId);
-        log("updateGraphPermissions", graphId, newPerms, g);
-        if (!g) throw new Error(`Graph ${graphId} not found`);
+        if (!this.isGamemaster()) throw new Error(t("Notifications.GraphAccessDenied"));
+        const entry = this.getGraphIndexEntry(graphId);
+        if (!entry) return null;
 
-        g.permissions = newPerms;
-        await this.upsertGraph(g);          // reuse existing save method
-        return g;
+        const permissions = this.#validatePermissions(newPerms);
+        const graph = await this.getGraph(graphId);
+        if (!graph) return null;
+        return this.#writeGraph({ ...graph, permissions }, {
+            expectedRevision: entry.revision ?? null, changePermissions: true
+        });
+    }
+
+    #validatePermissions(permissions) {
+        const levels = Object.values(LEVELS);
+        if (!permissions || typeof permissions !== "object" || Array.isArray(permissions) ||
+            Object.values(permissions).some(level => !levels.includes(level))) {
+            throw new Error(t("Notifications.GraphPermissionsInvalid"));
+        }
+        return foundry.utils.deepClone(permissions);
     }
 
     async migrateFromLegacySettingIfNeeded() {
+        if (!this.isGamemaster()) return;
         const index = await game.settings.get(MODULE_ID, "graphIndex") || [];
         if (index.length) return;
 
@@ -252,30 +270,71 @@ export class GraphApi {
     }
 
     getGraphIndexEntry(id) {
-        return this._indexMap.get(id) ?? null;
+        this.refreshGraphIndex();
+        const entry = this._indexMap.get(id);
+        return this.canOpen(entry) ? foundry.utils.deepClone(entry) : null;
     }
 
     async getGraph(id) {
-        // cached?
-        if (this._graphMap.has(id)) return this._graphMap.get(id);
-
         const entry = this.getGraphIndexEntry(id);
         if (!entry) return null;
+        if (this._graphMap.has(id)) return foundry.utils.deepClone(this._graphMap.get(id));
 
         const graphRaw = await this._readGraphFile(entry.file);
+        const current = this.getGraphIndexEntry(id);
+        if (!current) return null;
+        if (current.revision !== entry.revision || current.file !== entry.file) return this.getGraph(id);
         const graph = migrateGraph(graphRaw, this.graphTypes);
+        graph.permissions = current.permissions ?? {};
         this._graphMap.set(id, graph);
-        return graph;
+        return foundry.utils.deepClone(graph);
     }
 
     migrateGraph(graphRaw) {
         return migrateGraph(graphRaw, this.graphTypes); // the imported function
     }
 
-    async _saveIndex() {
-        await game.settings.set(MODULE_ID, "graphIndex", Array.from(this._indexMap.values()));
+    async _saveIndex(index = this._indexMap) {
+        await game.settings.set(MODULE_ID, "graphIndex", Array.from(index.values()));
     }
-    async upsertGraph(graph, { expectedRevision } = {}) {
+
+    async upsertGraph(graph, { expectedRevision, createOnly = false } = {}) {
+        return this.#writeGraph(graph, { expectedRevision, createOnly });
+    }
+
+    async #writeGraph(input, { expectedRevision, createOnly = false, changePermissions = false }) {
+        const id = input.id;
+        this.refreshGraphIndex();
+        let prev = this._indexMap.get(id);
+        if (!(prev && !createOnly && !changePermissions ? this.canEdit(prev) : this.isGamemaster())) {
+            throw new Error(t("Notifications.GraphAccessDenied"));
+        }
+
+        if ((createOnly && prev) ||
+            (expectedRevision !== undefined && (!prev || (prev.revision ?? null) !== expectedRevision))) return null;
+
+        // Owners still need the Foundry permission to update the world index.
+        if (!this.isGamemaster()) {
+            const indexSetting = game.settings.storage.get("world")?.getSetting(`${MODULE_ID}.graphIndex`);
+            if (!indexSetting?.canUserModify(game.user, "update")) {
+                throw new Error(t("Notifications.GraphIndexWriteDenied"));
+            }
+        }
+
+        const dir = await this._pickWritableStorageDir();
+        this.refreshGraphIndex();
+        const current = this._indexMap.get(id);
+        if (!(current && !createOnly && !changePermissions ? this.canEdit(current) : this.isGamemaster())) {
+            throw new Error(t("Notifications.GraphAccessDenied"));
+        }
+        if (Boolean(current) !== Boolean(prev) || current?.revision !== prev?.revision) return null;
+        prev = current;
+
+        const graph = foundry.utils.deepClone(input);
+        graph.permissions = changePermissions || !prev
+            ? this.#validatePermissions(graph.permissions ?? {})
+            : foundry.utils.deepClone(prev.permissions ?? {});
+
         // Ensure graph has data
         if (!graph.data) {
             const renderer = this.getRenderer(graph.renderer);
@@ -287,15 +346,8 @@ export class GraphApi {
             graph.allowedEntities = this.graphTypes?.[graph.graphType]?.allowedEntities || [];
         }
 
-        const dir = await this._pickWritableStorageDir();
-        if (expectedRevision !== undefined) {
-            this.refreshGraphIndex();
-            const entry = this._indexMap.get(graph.id);
-            if (!entry || (entry.revision ?? null) !== expectedRevision) return null;
-        }
         const filePath = await this._writeGraphFile(dir, graph);
 
-        const prev = this._indexMap.get(graph.id);
         const createdAt = prev?.createdAt ?? _nowISO();
         const updatedAt = _nowISO();
         const revision = (prev?.revision ?? 0) + 1;
@@ -323,30 +375,36 @@ export class GraphApi {
             revision: revision
         };
 
-        //        this._indexMap.set(graph.id, graph);
-        //        this._graphMap.set(graph.id, entry);
-        this._indexMap.set(graph.id, entry);
+        const index = new Map(this._indexMap);
+        index.set(graph.id, entry);
+        await this._saveIndex(index);
+        this._indexMap = index;
         this._graphMap.set(graph.id, graph);
-
-        await this._saveIndex();
-        return graph;
+        return foundry.utils.deepClone(graph);
     }
-    async deleteGraph(id) {
-        this._graphMap.delete(id);
-        this._indexMap.delete(id);
-        await this._saveIndex();
 
-        // NOTE: file remains on disk; Foundry does not provide a supported file delete API. :contentReference[oaicite:7]{index=7}
+    async deleteGraph(id) {
+        if (!this.isGamemaster()) throw new Error(t("Notifications.GraphAccessDenied"));
+        this.refreshGraphIndex();
+        const index = new Map(this._indexMap);
+        if (!index.delete(id)) return false;
+        await this._saveIndex(index);
+        this._indexMap = index;
+        this._graphMap.delete(id);
+        return true;
     }
 
     getAllGraphs() {
-        return Array.from(this._indexMap.values());
+        this.refreshGraphIndex();
+        const entries = Array.from(this._indexMap.values()).filter(entry => this.canOpen(entry));
+        return foundry.utils.deepClone(entries);
     }
 
     async getAllGraphsFull() {
         const out = [];
-        for (const entry of this._indexMap.values()) {
-            out.push(await this.getGraph(entry.id));
+        for (const entry of this.getAllGraphs()) {
+            const graph = await this.getGraph(entry.id);
+            if (graph) out.push(graph);
         }
         return out.filter(Boolean);
     }
@@ -443,7 +501,7 @@ export class GraphApi {
     }
 
     async migrateGraphFilesToWorldStorageFolderIfNeeded() {
-        if (!game.user.isGM) return;
+        if (!this.isGamemaster()) return;
 
         let changed = false;
         await this._ensureDir("data", this.storageDirWorld);
@@ -477,10 +535,9 @@ export class GraphApi {
         const blob = new Blob([json], { type: "application/json" });
         const file = new File([blob], this._graphFileName(graph.id), { type: "application/json" });
 
-        await _filePicker().upload("data", dir, file, {}, { notify: false });
-
-        // Return a usable path for fetch/links.
-        return this._graphFilePath(dir, graph.id);
+        const result = await _filePicker().upload("data", dir, file, {}, { notify: false });
+        if (!result?.path) throw new Error(t("Notifications.GraphWriteFailed"));
+        return result.path;
     }
 
     async _readGraphFile(filePath) {

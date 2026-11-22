@@ -1,6 +1,7 @@
 {{!-- Individual Tab Template --}}
 <section class="tab creationGraph {{tab.cssClass}}" data-tab="creationGraph" data-group="primary">
   {{!-- Tab content here --}}
+  {{#if canUseGraphForm}}
   <div class="creationGraph-details">
     <!-- form fields, etc. -->
     <div class="form-fields">
@@ -71,6 +72,7 @@
         <i class="fa-solid fa-ban"></i> {{ localize "foundry-graph.Buttons.Cancel" }}
       </button>
     </div>
+    {{#if is_gm}}
     {{!-- Import section --}}
     <div class="flexrow"
       style="margin-top: 0.75rem; border-top: 1px solid var(--color-border-dark, #aaa); padding-top: 0.75rem;">
@@ -80,5 +82,7 @@
       {{!-- Hidden file input, triggered programmatically --}}
       <input type="file" id="import-graph-file" accept=".json" style="display:none;" />
     </div>
+    {{/if}}
   </div>
+  {{/if}}
 </section>

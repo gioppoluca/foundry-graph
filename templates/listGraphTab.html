@@ -24,19 +24,25 @@
           <td style="color: {{ this.color }}">{{this.name}}</td>
           <td>{{this.desc}}</td>
           <td class="flexrow">
+            {{#if this.canEdit}}
             <button type="button" class="icon fa-solid fa-pencil" data-tooltip="foundry-graph.tooltip.edit"
               data-action="graphEdit" data-id="{{this.id}}"></button>
+            {{/if}}
             <button type="button" class="icon fa-light fa-hexagon-nodes-bolt"
               data-tooltip="foundry-graph.tooltip.openGraph" data-action="onOpenGraph" data-id="{{this.id}}"></button>
+            {{#if ../is_gm}}
             <button type="button" class="icon fa-solid fa-trash" data-tooltip="foundry-graph.tooltip.delete"
               data-action="graphDelete" data-id="{{this.id}}"></button>
+            <button type="button" class="icon fa-solid fa-user-lock" data-tooltip="foundry-graph.tooltip.permissions"
+              data-action="graphPerms" data-id="{{this.id}}"></button>
+            {{/if}}
+            {{#if this.canEdit}}
             <button type="button" class="icon fa-solid fa-tags" data-tooltip="foundry-graph.tooltip.manageRelations"
               data-action="graphRelations" data-id="{{this.id}}" {{#unless this.editRelationsEnabled}}disabled
               data-tooltip="foundry-graph.tooltip.manageRelationsDisabled" {{/unless}}></button>
-            <button type="button" class="icon fa-solid fa-user-lock" data-tooltip="foundry-graph.tooltip.permissions"
-              data-action="graphPerms" data-id="{{this.id}}"></button>
             <button type="button" class="icon fa-solid fa-link-slash" data-tooltip="foundry-graph.tooltip.reassignEntities"
               data-action="graphReassign" data-id="{{this.id}}"></button>
+            {{/if}}
           </td>
         </tr>
         {{/each}}

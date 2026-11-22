@@ -903,8 +903,8 @@ export class VisTimelineRenderer extends BaseRenderer {
             // Changes are committed via the `itemMove` / `itemMoving` events below.
             editable: {
                 add: false,  // we use DnD from the Foundry sidebar instead
-                updateTime: true,
-                updateGroup: true,
+                updateTime: this.canReplaceReferences?.() !== false,
+                updateGroup: this.canReplaceReferences?.() !== false,
                 remove: false,  // we use the radial menu delete action
                 overrideItems: false,
             },
@@ -1062,6 +1062,7 @@ export class VisTimelineRenderer extends BaseRenderer {
      * We convert back to seconds and update graph.data.
      */
     async _onVisItemMove(visItem, callback) {
+        if (this.canReplaceReferences?.() === false) { callback(null); return; }
         const stored = this.graph.data.items.find(i => i.id === visItem.id);
         if (!stored) { callback(null); return; }  // reject unknown item
 
@@ -1245,6 +1246,7 @@ export class VisTimelineRenderer extends BaseRenderer {
      * @param {object} item  – timeline item from graph.data.items
      */
     async _convertFreeEventToJournal(item) {
+        if (this.canReplaceReferences?.() === false) return;
         const journalName = this.graph.name || t("Timeline.Timeline");
         const laneName = this._resolveLaneName(item.group);
         const pageTitle = item.title;
@@ -1261,7 +1263,7 @@ export class VisTimelineRenderer extends BaseRenderer {
                         ${t("Dialogs.ConvertJournalNote")}
                       </p>`,
         });
-        if (!confirmed) return;
+        if (!confirmed || this.canReplaceReferences?.() === false) return;
 
         // ── 1. Find or create the journal entry ───────────────────────────────
         let journal = game.journal.find(j => j.name === journalName);
@@ -1368,6 +1370,7 @@ export class VisTimelineRenderer extends BaseRenderer {
 
         const data = TextEditor.getDragEventData(event);
         log("VisTimelineRenderer._onDrop", data);
+        if (this.canReplaceReferences?.() === false) return;
 
         // Check entity type is allowed
         const allowed = this.graph?.allowedEntities;
@@ -1409,6 +1412,7 @@ export class VisTimelineRenderer extends BaseRenderer {
             ? dropTimeSec + VisTimelineRenderer.DEFAULT_RANGE_SEC
             : null;
 
+        if (this.canReplaceReferences?.() === false) return;
         // Persist start (and end for ranges) to document flags
         try {
             await doc.setFlag(MODULE_ID, "start-date", dropTimeSec);

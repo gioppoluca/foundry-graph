@@ -128,6 +128,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     const graphTypeMap = new Map((this._graphTypes ?? []).map(t => [t.id, t]));
     const graphsWithMeta = graphs.map(g => ({
       ...g,
+      canEdit: this.api.canEdit(g),
       typeIcon: graphTypeMap.get(g.graphType)?.icon ?? "modules/foundry-graph/img/icons/icon-generic.webp",
       typeName: graphTypeMap.get(g.graphType)?.name ?? g.graphType,
       editRelationsEnabled: graphTypeMap.get(g.graphType)?.editRelationsEnabled ?? true,
@@ -136,7 +137,10 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     return {
       title: this.title,
       version: this.api.version,
-      is_gm: game.user.isGM,
+      is_gm: this.api.isGamemaster(),
+      canUseGraphForm: this.editingGraph
+        ? this.api.canEditById(this.editingGraph.id)
+        : this.api.isGamemaster(),
       graphTypes: this._graphTypes,
       tabs: this._prepareTabs("primary"),
       tab: this.activeTab,
@@ -179,6 +183,10 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   }
 
   static async onCreateGraph(event, target) {
+    const editing = this.editingGraph;
+    if (!(editing ? this.api.canEditById(editing.id) : this.api.isGamemaster())) {
+      return ui.notifications.warn(t("Notifications.GraphAccessDenied"));
+    }
     const type = this.element.querySelector("#graph-type-select").value?.trim();
     const metadata = this._graphTypes?.find(g => g.id === type);
     log(metadata)
@@ -215,10 +223,10 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
 
     let graphToSave;
 
-    if (this.editingGraph) {
+    if (editing) {
       // --- EDIT MODE: preserve all existing graph data (nodes, links, etc.)
       // Only overwrite the metadata fields that the form controls.
-      graphToSave = foundry.utils.deepClone(this.editingGraph);
+      graphToSave = foundry.utils.deepClone(editing);
       graphToSave.name = name;
       graphToSave.desc = desc;
       graphToSave.theme = selectedThemeId;
@@ -247,7 +255,10 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     }
 
     // Save the graph
-    await this.api.upsertGraph(graphToSave);
+    const options = editing
+      ? { expectedRevision: this.editingRevision }
+      : { createOnly: true };
+    if (!await this._saveGraphChanges(graphToSave, options)) return;
     ui.notifications.info(this.editingGraph ? tf("Notifications.GraphUpdated", { name }) : tf("Notifications.GraphCreated", { name }));
     // Refresh the dashboard / list view
     this.editingGraph = null;
@@ -255,10 +266,25 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     this.render(true);
   }
 
+  async _saveGraphChanges(graph, options) {
+    try {
+      const saved = await this.api.upsertGraph(graph, options);
+      if (!saved) ui.notifications.warn(t("Notifications.GraphRevisionChanged"));
+      return saved;
+    } catch (error) {
+      ui.notifications.error(error.message);
+      return null;
+    }
+  }
+
   static async graphEdit(event, target) {
-    log("graphEdit", event, target)
-    const graph = await this.api.getGraph(event.target.dataset.id);
+    const graphId = event.target.dataset.id;
+    if (!this.api.canEditById(graphId)) return ui.notifications.warn(t("Notifications.GraphAccessDenied"));
+    const revision = this.api.getGraphIndexEntry(graphId)?.revision ?? null;
+    const graph = await this.api.getGraph(graphId);
+    if (!graph) return ui.notifications.warn(t("Notifications.GraphUnavailable"));
     this.editingGraph = graph;
+    this.editingRevision = revision;
     this.changeTab("creationGraph", "primary");
     this.render(true);
   }
@@ -278,16 +304,22 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   static async graphDelete(event, target) {
     log(event)
     log(event.target.dataset.id)
-    await this.api.deleteGraph(event.target.dataset.id);
-    ui.notifications.info(tf("Notifications.GraphDeleted", { id: event.target.dataset.id }));
+    const graphId = event.target.dataset.id;
+    try {
+      if (!await this.api.deleteGraph(graphId)) return ui.notifications.warn(t("Notifications.GraphUnavailable"));
+    } catch (error) {
+      return ui.notifications.error(error.message);
+    }
+    ui.notifications.info(tf("Notifications.GraphDeleted", { id: graphId }));
     this.render(true);
   }
 
   static async graphPerms(event, target) {
-    log(event)
+    if (!this.api.isGamemaster()) return ui.notifications.warn(t("Notifications.GraphAccessDenied"));
     const graphId = event.target.dataset.id;
     if (!graphId) return ui.notifications.warn(t("Errors.NoGraphSelectedForExport"));
     const g = await this.api.getGraph(graphId);
+    if (!g) return ui.notifications.warn(t("Notifications.GraphUnavailable"));
     new GraphPermissionsDialog({ graphId: graphId, gName: g.name, permissions: g.permissions }).render(true);
   }
 
@@ -306,8 +338,10 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   static async onGraphRelations(event, target) {
     log("onGraphRelations", event, target);
     const graphId = event.target.dataset.id;
+    if (!this.api.canEditById(graphId)) return ui.notifications.warn(t("Notifications.GraphAccessDenied"));
+    const revision = this.api.getGraphIndexEntry(graphId)?.revision ?? null;
     const graph = await this.api.getGraph(graphId);
-    if (!graph) return ui.notifications.warn(t("Notifications.GraphNotFound"));
+    if (!graph) return ui.notifications.warn(t("Notifications.GraphUnavailable"));
 
     // Define the callback function to run when the dialog saves
     const onSaveCallback = async (newRelations) => {
@@ -331,9 +365,9 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
         graph.relations = newRelations;
       }
 
-      await this.api.upsertGraph(graph);
-      //this.render(true); // Refresh the dashboard
+      if (!await this._saveGraphChanges(graph, { expectedRevision: revision })) return false;
       ui.notifications.info(tf("Relations.Updated", { name: graph.name }));
+      return true;
     };
 
     // Create and render the dialog
@@ -348,6 +382,8 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
 
   updateButtonState() {
     log("updateButtonState")
+    const button = this.element.querySelector("#create-graph-btn");
+    if (!button) return;
     const name = this.element.querySelector("#graph-name").value?.trim();
     const id = this.element.querySelector("#graph-id").value?.trim();
     const type = this.element.querySelector("#graph-type-select").value?.trim();
@@ -357,7 +393,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     log(type)
     const allFilled = name && id && type;
     log(this.element.querySelector("#create-graph-btn"))
-    this.element.querySelector("#create-graph-btn").disabled = !allFilled;
+    button.disabled = !allFilled;
   }
 
   /** Added to auto-fill form on graph type selection */
@@ -460,6 +496,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   }
 
   static async onImportGraph(event, target) {
+    if (!this.api.isGamemaster()) return ui.notifications.warn(t("Notifications.GraphAccessDenied"));
     // Trigger the hidden file picker
     const fileInput = this.element.querySelector("#import-graph-file");
     if (!fileInput) return;
@@ -504,7 +541,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
         const migratedGraph = api.migrateGraph
           ? api.migrateGraph(graph)          // if you expose it on the api
           : graph;                           // fallback: trust the file as-is
-        await api.upsertGraph(migratedGraph);
+        if (!await this._saveGraphChanges(migratedGraph, { createOnly: true })) return;
       } catch (err) {
         log("Import failed", err);
         return ui.notifications.error(t("Errors.ImportSaveFailed"));
@@ -617,10 +654,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
     if (!confirmed || matched.length === 0) return;
 
     const updated = renderer.replaceEntities(graphData, matched);
-    if (!await api.upsertGraph({ ...graph, data: updated }, { expectedRevision: revision })) {
-      ui.notifications.warn(t("Notifications.GraphRevisionChanged"));
-      return;
-    }
+    if (!await this._saveGraphChanges({ ...graph, data: updated }, { expectedRevision: revision })) return;
     const word = matched.length > 1 ? t("Notifications.EntityPlural") : t("Notifications.EntitySingular");
     ui.notifications.info(tf("Notifications.ReassignedEntities", { count: matched.length, word, name: graph.name }));
   }
@@ -656,7 +690,7 @@ export default class GraphDashboardV2 extends HandlebarsApplicationMixin(Applica
   _onRender() {
     const graphName = this.element.querySelector('#graph-name')
     log(graphName)
-    graphName.addEventListener("change", (e) => {
+    graphName?.addEventListener("change", (e) => {
       e.preventDefault();
       e.stopImmediatePropagation();
       log("event change del nome")

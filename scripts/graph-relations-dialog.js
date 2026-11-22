@@ -133,7 +133,7 @@ export class GraphRelationsDialog extends HandlebarsApplicationMixin(Application
 
         // Call the async onSave callback provided by the dashboard
         if (this.onSave) {
-            await this.onSave(newRelations);
+            if (await this.onSave(newRelations) === false) return;
         }
         this.close();
     }

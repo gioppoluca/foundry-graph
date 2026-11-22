@@ -72,7 +72,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this._graphId = options.graph.id || "test";
     this._mode = options.mode || "new";
     if (this.renderer) {
-      this.renderer.canReplaceReferences = () => this._mode !== "view" && this.api.canEdit(this.graph);
+      this.renderer.canReplaceReferences = () => this._mode === "edit" && this.api.canEditById(this.graph.id);
     }
     this.onCloseCallback = options.onCloseCallback;
     //    this._rendererHandlersRegistered = false;
@@ -151,7 +151,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       this._svgHeight = this.graph.height;
 
     }
-    const isEdit = this._mode === "edit" || this._mode === "new";
+    const isEdit = this._mode === "edit" && this.api.canEditById(this.graph.id);
     const symbols = Array.isArray(this.graph?.symbols) ? this.graph.symbols : [];
 
     return {
@@ -161,8 +161,8 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       hasSymbolPalette: isEdit && symbols.length > 0,
       isEdit,
       instructions: this.renderer?.instructions || t("Notifications.NoInstructionsAvailable"),
-      isLinkNodesVisible: this.renderer?.isLinkNodesVisible ?? true,
-      isRelationSelectVisible: this.renderer?.isRelationSelectVisible ?? true,
+      isLinkNodesVisible: isEdit && (this.renderer?.isLinkNodesVisible ?? true),
+      isRelationSelectVisible: isEdit && (this.renderer?.isRelationSelectVisible ?? true),
       isSaveNewSceneVisible: canExportToScene() && (this.renderer?.isSaveNewSceneVisible ?? false),
       isSaveNewSceneScaledVisible: canExportToScene() && (this.renderer?.isSaveNewSceneScaledVisible ?? false),
       isSaveNewSceneScaledEnabled: canExportToScene() && this._isSaveNewSceneScaledEnabled()
@@ -170,6 +170,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static toggleLinkingMode(e) {
+    if (!this.renderer.canReplaceReferences()) return;
     this._linkingMode = !this._linkingMode;
     this._linkSourceNode = null;
     e.target.classList.toggle("active", this._linkingMode);
@@ -193,16 +194,21 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static async _saveGraph() {
-    const api = game.modules.get("foundry-graph").api;
+    const api = this.api;
+    if (this._mode !== "edit" || !api.canEditById(this.graph.id)) {
+      return ui.notifications.warn(t("Notifications.GraphAccessDenied"));
+    }
 
     let data = this.renderer.getGraphData()
     log("D3GraphApp._saveGraph", data)
     // Refresh labels/images from live Foundry documents before persisting
     data = await this.renderer.syncLabels(data);
-    this.graph.data = data;
-    if (!await api.upsertGraph(this.graph, { expectedRevision: this.graphRevision })) {
-      ui.notifications.warn(t("Notifications.GraphRevisionChanged"));
-      return;
+    try {
+      if (!await api.upsertGraph({ ...this.graph, data }, { expectedRevision: this.graphRevision })) {
+        return ui.notifications.warn(t("Notifications.GraphRevisionChanged"));
+      }
+    } catch (error) {
+      return ui.notifications.error(error.message);
     }
     ui.notifications.info(t("Notifications.GraphSaved"));
     log(this)
@@ -266,6 +272,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
  */
   static async exportDownload(event, target, application) {
     event?.preventDefault?.();
+    if (!this.api.canOpenById(this.graph.id)) return ui.notifications.warn(t("Notifications.GraphUnavailable"));
     console.log("Export Download clicked", { event, target, application });
     console.log(this)
     await this.svgToCanvas({ scale: 3, destination: "download" });

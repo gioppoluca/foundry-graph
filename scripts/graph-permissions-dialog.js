@@ -48,7 +48,8 @@ export class GraphPermissionsDialog extends HandlebarsApplicationMixin(Applicati
       users: users.map(u => ({
         id: u.id,
         name: u.name,
-        level: this.permissions[u.id] ?? 0  // 0 = NONE
+        level: this.permissions[u.id],
+        inherits: this.permissions[u.id] === undefined
       })),
       defaultLevel: this.permissions.default ?? 0,
       LEVELS: LEVELS                // expose mapping for template
@@ -67,8 +68,7 @@ export class GraphPermissionsDialog extends HandlebarsApplicationMixin(Applicati
 
     const perms = {};                                           // collect result
     selects.forEach(sel => {
-      const level = Number(sel.value);
-      if (level > 0) perms[sel.dataset.userid] = level;         // skip NONE
+      if (sel.value !== "") perms[sel.dataset.userid] = Number(sel.value);
     });
 
     // default selector
@@ -77,7 +77,13 @@ export class GraphPermissionsDialog extends HandlebarsApplicationMixin(Applicati
 
     // Hand off to API
     const api = game.modules.get("foundry-graph").api;
-    await api.updateGraphPermissions(this.graphId, perms);
+    try {
+      if (!await api.updateGraphPermissions(this.graphId, perms)) {
+        return ui.notifications.warn(t("Notifications.GraphRevisionChanged"));
+      }
+    } catch (error) {
+      return ui.notifications.error(error.message);
+    }
 
     ui.notifications.info(t("Permissions.Updated"));
     this.close();

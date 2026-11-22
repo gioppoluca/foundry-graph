@@ -12,6 +12,7 @@
         <td>{{this.name}}</td>
         <td>
           <select class="user-perm" data-userid="{{this.id}}">
+            <option value="" {{#if this.inherits}}selected{{/if}}>{{localize "foundry-graph.Labels.InheritGraphPermission"}}</option>
             {{#each ../LEVELS}}
             <option value="{{this}}" {{#if (eq ../this.level this)}}selected{{/if}}>
               {{@key}} ({{this}})
