@@ -297,9 +297,45 @@ export class BaseRenderer {
   }
 
 
+  async exportPlayerNodesToPNG(options) {
+    const graph = foundry.utils.deepClone(this.graph);
+    graph.data = foundry.utils.deepClone(this.getGraphData());
+    const hasStatus = (node, status) => (Array.isArray(node.status) ? node.status : [node.status]).includes(status);
+    graph.data.nodes = graph.data.nodes.filter(node => !hasStatus(node, "invisible"));
+    const nodes = new Map(graph.data.nodes.map(node => [node.id, node]));
+    for (const node of nodes.values()) {
+      if (!hasStatus(node, "hidden")) continue;
+      node.label = "?";
+      node.img = null;
+      node.uuid = null;
+    }
+    const endpoint = value => value?.id ?? value;
+    graph.data.links = graph.data.links.filter(link => nodes.has(endpoint(link.source)) && nodes.has(endpoint(link.target)));
+    for (const link of graph.data.links) {
+      if (hasStatus(nodes.get(endpoint(link.source)), "hidden")) link.sourceLabel = "";
+      if (hasStatus(nodes.get(endpoint(link.target)), "hidden")) link.targetLabel = "";
+    }
+
+    const renderer = new this.constructor();
+    renderer._showRelationLegend = this._showRelationLegend;
+    const host = document.createElement("div");
+    host.style.cssText = "position:fixed;left:-100000px;top:0;pointer-events:none";
+    host.style.width = `${graph.width || 800}px`;
+    host.style.height = `${graph.height || 600}px`;
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    host.append(svg);
+    document.body.append(host);
+    try {
+      await renderer.render(d3.select(svg), graph, { snapshot: true });
+      return await renderer.svgToCanvas(options);
+    } finally {
+      renderer.teardown();
+      host.remove();
+    }
+  }
+
   async svgToCanvas({ scale = 3, destination = "download" } = {}) {
-    // 1) Grab the SVG element
-    const svgElement = document.querySelector("#d3-graph");
+    const svgElement = this._svg?.node?.() ?? document.querySelector("#d3-graph");
     if (!svgElement) {
       log("SVG element not found");
       return;
@@ -493,6 +529,7 @@ export class BaseRenderer {
 
       // ====== PHASE 7: RASTERIZE (now delegated) ======
       const pngBlob = await this._rasterizeSVGToBlob(svgStr, exportW, exportH, scale);
+      if (destination === "blob") return pngBlob;
 
       console.log("destination:", destination);
       // ====== PHASE 8: ROUTE TO DESTINATION ======

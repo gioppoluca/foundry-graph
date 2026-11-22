@@ -45,6 +45,7 @@
     },
     "Buttons": {
       "ExportSvg": "Export Graph",
+      "ShowGraphToPlayers": "Show to Players",
       "ExportScene": "Export to Scene",
       "ExportScaledScene": "Export to Scene (scaled)",
       "LinkNodes": "Link Nodes",
@@ -121,6 +122,10 @@
       "GraphDescription": "Description of the graph."
     },
     "Notifications": {
+      "NoConnectedPlayers": "There are no connected players.",
+      "NoGraphShareRecipients": "Select at least one connected player to share the graph.",
+      "GraphShareFailed": "The graph image could not be shared.",
+      "GraphShared": "Graph image sent to {count} players.",
       "LinkingOn": "Linking mode ON",
       "LinkingOff": "Linking mode OFF",
       "ExportPrepare": "Preparing high-resolution export… this may take a few seconds for large graphs.",
@@ -280,6 +285,8 @@
       "Updated": "Graph permissions updated"
     },
     "Dialogs": {
+      "GraphSharePreview": "Preview the image for players",
+      "GraphShareRecipients": "Connected players",
       "CreateSceneTitle": "Create Scene from Graph?",
       "CreateSceneContent": "<p>Graph image saved to <code>{filePath}</code>.</p><p>Create a new scene using this image as background?</p>",
       "Confirm": "Confirm",
@@ -341,6 +348,8 @@
       "ConvertJournalNote": "The journal entry and category will be created if they do not exist yet."
     },
     "Map": {
+      "HideObjectFromPlayers": "Make invisible to players",
+      "ShowObjectToPlayers": "Show to players",
       "Instructions": "Drop Actors/Scenes/Items/Journal pages on the map to create markers. Drag markers to reposition. Right-click a marker to radial menu.",
       "Street": "Street",
       "Satellite": "Satellite",

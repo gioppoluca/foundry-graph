@@ -206,9 +206,7 @@ export class ImageSlotsRenderer extends BaseRenderer {
 
             this._currentTransform = d3.zoomIdentity;
 
-            let el = document.querySelector("#d3-graph") || this._svg.node();
-            this._detachDropHandlers(el);
-            this._attachDropHandlers(el);
+            if (!ctx?.snapshot) this._attachDropHandlers(this._svg.node());
         } else {
             // Re-render: clear contents but keep zoom
             this._zoomLayer.selectAll("*").remove();
@@ -1214,7 +1212,8 @@ export class ImageSlotsRenderer extends BaseRenderer {
         return graphData;
     }
 
-    async exportToPNG({ scale = 3, destination = "download" } = {}) {
+    async exportToPNG({ scale = 3, destination = "download", forPlayers = false } = {}) {
+        if (forPlayers) return this.exportPlayerNodesToPNG({ scale, destination });
         return await this.svgToCanvas({ scale, destination });
     }
 

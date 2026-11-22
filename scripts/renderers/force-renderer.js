@@ -243,9 +243,7 @@ export class ForceRenderer extends BaseRenderer {
       this._currentTransform = d3.zoomIdentity;
 
       // 5. Attach drop handlers (only needs to be done once)
-      let el = document.querySelector("#d3-graph") || this._svg.node();
-      this._detachDropHandlers(el);
-      this._attachDropHandlers(el);
+      if (!ctx?.snapshot) this._attachDropHandlers(this._svg.node());
     } else {
       // SUBSEQUENT RENDERS: Just clear the layer's contents
       log("ForceRenderer: Re-render, clearing zoom layer contents.");
@@ -1007,8 +1005,9 @@ export class ForceRenderer extends BaseRenderer {
         simulation.stop(); // 🔴 stop simulation once nodes settle
       });
 
-    simulation.alpha(0.2).restart();
     this._simulation = simulation;
+    if (ctx?.snapshot) ticked();
+    else simulation.alpha(0.2).restart();
 
     log("started simulation")
     function ticked() {
@@ -2017,7 +2016,8 @@ export class ForceRenderer extends BaseRenderer {
     return graphData;
   }
 
-  async exportToPNG({ scale = 3, destination = "download" } = {}) {
+  async exportToPNG({ scale = 3, destination = "download", forPlayers = false } = {}) {
+    if (forPlayers) return this.exportPlayerNodesToPNG({ scale, destination });
     return await this.svgToCanvas({ scale, destination });
   }
 

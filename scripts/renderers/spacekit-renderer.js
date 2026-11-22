@@ -224,6 +224,7 @@ export class SpacekitRenderer extends BaseRenderer {
     const rawName = this.graph?.name || "spacekit-graph";
     const safeName = String(rawName).trim().replace(/[^\w.-]+/g, "_");
 
+    if (destination === "blob") return blob;
     if (destination === "data-folder") {
       return this.savePNGToDataFolder(blob, safeName, { overwrite: true });
     }

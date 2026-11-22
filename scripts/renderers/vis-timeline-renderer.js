@@ -1728,6 +1728,12 @@ export class VisTimelineRenderer extends BaseRenderer {
             }
             await Promise.all(imagePromises);
 
+            if (destination === "blob") {
+                return await new Promise((resolve, reject) => canvas.toBlob(
+                    blob => blob ? resolve(blob) : reject(new Error("Canvas toBlob failed")), "image/png"
+                ));
+            }
+
             // ── 9. Download ───────────────────────────────────────────────────
             const safeName = String(this.graph?.name ?? "timeline")
                 .trim().replace(/[^\w.-]+/g, "_");

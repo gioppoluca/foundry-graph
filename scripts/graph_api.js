@@ -4,7 +4,7 @@ import { ForceRenderer, preserveForceVisibility } from "./renderers/force-render
 //import { TreeRenderer } from "./renderers/tree-renderer.js";
 import { GenealogyRenderer } from "./renderers/genealogy-renderer.js";
 import { ImageSlotsRenderer } from "./renderers/image-slot-renderer.js";
-import { MapRenderer } from "./renderers/map-renderer.js";
+import { MapRenderer, preserveMapVisibility } from "./renderers/map-renderer.js";
 import { migrateGraph } from "./model/graph_migrations.js";
 import { TimelineRenderer } from "./renderers/timeline-renderer.js";
 import { VisTimelineRenderer } from "./renderers/vis-timeline-renderer.js";
@@ -333,10 +333,11 @@ export class GraphApi {
                 if ((entry.revision ?? null) !== revision) return "conflict";
                 const saved = await this.getGraph(id);
                 if (!saved) return "conflict";
-                if ((saved.renderer ?? saved.graphType) === ForceRenderer.ID && Object.hasOwn(changes, "data")) {
-                    const data = preserveForceVisibility(saved.data, changes.data);
-                    if (!data) return "denied";
-                    changes.data = data;
+                if (Object.hasOwn(changes, "data")) {
+                    const renderer = saved.renderer ?? saved.graphType;
+                    if (renderer === ForceRenderer.ID) changes.data = preserveForceVisibility(saved.data, changes.data);
+                    else if (renderer === MapRenderer.ID) changes.data = preserveMapVisibility(saved.data, changes.data);
+                    if ((renderer === ForceRenderer.ID || renderer === MapRenderer.ID) && !changes.data) return "denied";
                 }
                 for (const field of OWNER_EDIT_FIELDS) {
                     if (Object.hasOwn(changes, field)) saved[field] = changes[field];

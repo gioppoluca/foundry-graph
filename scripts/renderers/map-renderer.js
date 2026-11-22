@@ -8,6 +8,46 @@ import { BaseRenderer } from "./base-renderer.js";
 import { log, safeUUID, t, tf } from "../constants.js";
 import { createMapOperator } from "./map-operators/map-operator-registry.js";
 
+const INVISIBLE_ICON = '<circle r="9" fill="#222"/><path d="M-6 0Q0 -7 6 0Q0 7 -6 0ZM-6 -6L6 6" fill="none" stroke="#fff" stroke-width="1.3"/>';
+
+function isGamemaster() {
+  return game.user?.role === foundry.CONST.USER_ROLES.GAMEMASTER;
+}
+
+function isInvisibleFeature(feature) {
+  return feature?.properties?.__fgInvisible === true;
+}
+
+export function preserveMapVisibility(current, update) {
+  if (!update || typeof update !== "object" || Array.isArray(update)) return null;
+  const data = { ...update };
+  if (Object.hasOwn(update, "markers")) {
+    if (!Array.isArray(update.markers)) return null;
+    const invisible = (current?.markers ?? []).filter(marker => marker?.invisible === true);
+    const ids = new Set(invisible.map(marker => marker.id));
+    data.markers = update.markers.filter(marker => marker && !ids.has(marker.id)).map(marker => {
+      const { invisible: _invisible, ...visible } = marker;
+      return visible;
+    }).concat(invisible);
+  } else if (current?.markers) {
+    data.markers = current.markers;
+  }
+
+  if (Object.hasOwn(update, "geoman")) {
+    if (update.geoman?.type !== "FeatureCollection" || !Array.isArray(update.geoman.features)) return null;
+    const invisible = (current?.geoman?.features ?? []).filter(isInvisibleFeature);
+    const ids = new Set(invisible.map(feature => feature.id).filter(id => id != null));
+    const visible = update.geoman.features.filter(feature => feature && !ids.has(feature.id)).map(feature => {
+      const { __fgInvisible: _invisible, ...properties } = feature.properties ?? {};
+      return { ...feature, properties };
+    });
+    data.geoman = { ...update.geoman, features: [...visible, ...invisible] };
+  } else if (current?.geoman) {
+    data.geoman = current.geoman;
+  }
+  return data;
+}
+
 const MAP_BASE_LAYERS = {
   street: {
     id: "street",
@@ -57,6 +97,7 @@ export class MapRenderer extends BaseRenderer {
     this._mapOperator = null;
     this._leafletMarkers = new Map(); // markerId -> Leaflet marker
     this._geomanLayer = null;
+    this._geomanBadgeLayer = null;
     // Label scaling config
     // At/above ref zoom, labels are readable but capped to avoid covering details.
     // Below hide zoom, labels disappear to avoid clutter when zoomed out.
@@ -405,6 +446,7 @@ export class MapRenderer extends BaseRenderer {
     this._baseLayerControl = null;
     this._activeBaseLayerData = null;
     this._geomanLayer = null;
+    this._geomanBadgeLayer = null;
     this._leafletMarkers.clear();
 
     // Reset Geoman lifecycle flags so a new/opened graph can reload its layers
@@ -654,8 +696,9 @@ export class MapRenderer extends BaseRenderer {
     }
 
 
-    // Sync markers
+    // Sync markers and the GM's visibility indicators.
     this._syncMarkers();
+    this._refreshGeomanVisibilityBadges();
 
     // Ensure persisted Geoman data is always in sync (FeatureCollection)
     try {
@@ -837,30 +880,51 @@ export class MapRenderer extends BaseRenderer {
     if (!tt) return;
 
     try {
-      let latlng = null;
-
-      // Marker-like layers
-      if (typeof layer.getLatLng === "function") {
-        latlng = layer.getLatLng();
-      }
-      // Vector layers (polygon/polyline/rectangle) usually have bounds
-      else if (typeof layer.getBounds === "function") {
-        const b = layer.getBounds();
-        if (b && typeof b.getCenter === "function") latlng = b.getCenter();
-      }
-      // Some shapes expose getCenter (e.g., circles in some Leaflet versions)
-      else if (typeof layer.getCenter === "function") {
-        latlng = layer.getCenter();
-      }
-
-      if (latlng) {
-        tt.setLatLng(latlng);
-      }
+      const latlng = this._getGeomanAnchor(layer);
+      if (latlng) tt.setLatLng(latlng);
     } catch (e) {
       log("MapRenderer: failed to refresh geoman label position", e);
     }
   }
 
+  _getGeomanAnchor(layer) {
+    return layer.getLatLng?.() ?? layer.getBounds?.()?.getCenter?.() ?? layer.getCenter?.();
+  }
+
+  _visibilityMenuItem(invisible, toggle) {
+    if (!isGamemaster() || !this.canReplaceReferences?.()) return [];
+    return [{
+      id: "toggleVisibility",
+      label: t(invisible ? "Map.ShowObjectToPlayers" : "Map.HideObjectFromPlayers"),
+      icon: invisible ? "fa-solid fa-eye" : "fa-solid fa-eye-slash",
+      onClick: () => {
+        if (isGamemaster() && this.canReplaceReferences?.()) toggle();
+      }
+    }];
+  }
+
+  _refreshGeomanVisibilityBadges() {
+    this._geomanBadgeLayer?.clearLayers();
+    if (!isGamemaster() || !this._map || !this._geomanLayer) return;
+    const layers = this._geomanLayer.getLayers().filter(layer => isInvisibleFeature(layer.feature));
+    if (!layers.length) return;
+
+    const L = globalThis.L;
+    this._geomanBadgeLayer ??= L.layerGroup().addTo(this._map);
+    const icon = L.divIcon({
+      className: "fg-map-visibility-badge",
+      html: `<svg width="18" height="18" viewBox="-9 -9 18 18" aria-hidden="true">${INVISIBLE_ICON}</svg>`,
+      iconSize: [18, 18],
+      iconAnchor: [-3, 18]
+    });
+    for (const layer of layers) {
+      const latlng = this._getGeomanAnchor(layer);
+      if (latlng) {
+        L.marker(latlng, { icon, interactive: false, keyboard: false, pmIgnore: true })
+          .addTo(this._geomanBadgeLayer);
+      }
+    }
+  }
 
   /**
    * Prompt user for a label.
@@ -1034,6 +1098,14 @@ export class MapRenderer extends BaseRenderer {
         clientX: ev.originalEvent?.clientX ?? 0,
         clientY: ev.originalEvent?.clientY ?? 0,
         items: [
+          ...this._visibilityMenuItem(isInvisibleFeature(layer.feature), () => {
+            const feature = layer.feature ??= { type: "Feature", properties: {} };
+            feature.id ??= safeUUID();
+            feature.properties ??= {};
+            if (isInvisibleFeature(feature)) delete feature.properties.__fgInvisible;
+            else feature.properties.__fgInvisible = true;
+            this._updateGeomanDataFromLayers();
+          }),
           {
             id: "color",
             label: t("Dialogs.ChangeColor"),
@@ -1145,6 +1217,7 @@ export class MapRenderer extends BaseRenderer {
 
   _updateGeomanDataFromLayers() {
     if (!this.graph?.data) return;
+    this._refreshGeomanVisibilityBadges();
     const fc = this._serializeGeoman();
     if (fc) {
       this.graph.data.geoman = fc;
@@ -1172,7 +1245,9 @@ export class MapRenderer extends BaseRenderer {
 
       // Normalize to a single Feature
       const feature = gj.type === "Feature" ? gj : { type: "Feature", geometry: gj, properties: {} };
-      feature.properties = feature.properties ?? {};
+      feature.properties = { ...feature.properties };
+      if (layer.feature?.id != null) feature.id = layer.feature.id;
+      if (isInvisibleFeature(layer.feature)) feature.properties.__fgInvisible = true;
 
       // Persist label (Leaflet tooltip content)
       // - on freshly drawn layers we store it on layer.__fgLabel
@@ -1202,10 +1277,16 @@ export class MapRenderer extends BaseRenderer {
 
       // Preserve Geoman shape name when available (helps future migrations)
       if (layer.__fgPmShape) feature.properties.__fgPmShape = layer.__fgPmShape;
+      const radius = layer.getRadius?.();
+      if (Number.isFinite(radius)) feature.properties.__fgRadius = radius;
 
       features.push(feature);
     }
 
+    // The player's Leaflet group contains only visible layers.
+    if (!isGamemaster()) {
+      features.push(...(this.graph?.data?.geoman?.features ?? []).filter(isInvisibleFeature));
+    }
     return { type: "FeatureCollection", features };
   }
 
@@ -1229,7 +1310,10 @@ export class MapRenderer extends BaseRenderer {
       return (s && typeof s === "object") ? s : undefined;
     };
 
-    const pointToLayer = (_feature, latlng) => {
+    const pointToLayer = (feature, latlng) => {
+      const { __fgPmShape: shape, __fgRadius: radius, __fgStyle: style } = feature.properties ?? {};
+      if (Number.isFinite(radius) && shape === "Circle") return L.circle(latlng, { ...style, radius });
+      if (Number.isFinite(radius) && shape === "CircleMarker") return L.circleMarker(latlng, { ...style, radius });
       // Default marker for geoman point features.
       // (If later you enable drawMarker in Geoman controls, this will persist those too.)
       return L.marker(latlng, { draggable: true });
@@ -1237,7 +1321,8 @@ export class MapRenderer extends BaseRenderer {
 
     const layer = L.geoJSON(fc, {
       style: styleFn,
-      pointToLayer
+      pointToLayer,
+      filter: feature => isGamemaster() || !isInvisibleFeature(feature)
     });
 
     // Add each child to the geoman group and bind listeners so later edits persist.
@@ -1272,7 +1357,7 @@ export class MapRenderer extends BaseRenderer {
   // SVG Marker icons (inline SVG -> Leaflet divIcon)
   // ---------------------------------------------------------------------------
 
-  _makeSvgDivIcon(markerType, color, unavailable) {
+  _makeSvgDivIcon(markerType, color, unavailable, invisible) {
     const safeType = markerType || "generic";
     const safeColor = color || "#64748b";
     const symbol = this._svgSymbolPath(safeType);
@@ -1285,6 +1370,7 @@ export class MapRenderer extends BaseRenderer {
           <circle cx="16" cy="13" r="8" fill="rgba(255,255,255,0.18)" />
           <path d="${symbol}" fill="#ffffff" transform="translate(0 0)" />
           ${unavailable ? '<g transform="translate(25 9)"><circle r="6" fill="#78350f" stroke="#fef3c7"/><path d="M0 -3v3 M0 3v0.2" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></g>' : ""}
+          ${invisible ? `<g transform="translate(7 8) scale(0.75)">${INVISIBLE_ICON}</g>` : ""}
         </svg>
       </div>
     `;
@@ -1369,7 +1455,7 @@ export class MapRenderer extends BaseRenderer {
       // Use window.L directly to avoid null property errors
       // Reuse the existing SVG divIcon factory used by _syncMarkers()
       const markerType = markerData.markerType ?? this._defaultMarkerTypeForEntity(markerData.type);
-      leafletMarker.setIcon(this._makeSvgDivIcon(markerType, newColor, this.shouldShowReferenceIndicator(markerData.uuid)));
+      leafletMarker.setIcon(this._makeSvgDivIcon(markerType, newColor, this.shouldShowReferenceIndicator(markerData.uuid), markerData.invisible));
     }
 
     // 4. Persist changes
@@ -1396,7 +1482,8 @@ export class MapRenderer extends BaseRenderer {
     const L = globalThis.L;
 
     const markers = Array.isArray(this.graph?.data?.markers) ? this.graph.data.markers : [];
-    const byId = new Map(markers.map(m => [m.id, m]));
+    const visibleMarkers = markers.filter(marker => marker && (isGamemaster() || marker.invisible !== true));
+    const byId = new Map(visibleMarkers.map(m => [m.id, m]));
 
     // Remove markers not present anymore
     for (const [id, lm] of this._leafletMarkers.entries()) {
@@ -1407,7 +1494,7 @@ export class MapRenderer extends BaseRenderer {
     }
 
     // Add/update markers
-    for (const m of markers) {
+    for (const m of visibleMarkers) {
       if (!m || !m.id) continue;
       // ensure required fields
       m.markerType ??= this._defaultMarkerTypeForEntity(m.type);
@@ -1417,7 +1504,7 @@ export class MapRenderer extends BaseRenderer {
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
 
       const existing = this._leafletMarkers.get(m.id);
-      const icon = this._makeSvgDivIcon(m.markerType, m.color, this.shouldShowReferenceIndicator(m.uuid));
+      const icon = this._makeSvgDivIcon(m.markerType, m.color, this.shouldShowReferenceIndicator(m.uuid), m.invisible);
       const tooltip = document.createElement("span");
       tooltip.textContent = this.referenceTooltip(m.label, m.uuid);
       tooltip.style.whiteSpace = "pre-line";
@@ -1452,11 +1539,18 @@ export class MapRenderer extends BaseRenderer {
         const clientX = oe?.clientX ?? 0;
         const clientY = oe?.clientY ?? 0;
         const marker = this.graph.data.markers.find(value => value.id === m.id);
-        const uuid = marker?.uuid;
+        if (!marker) return;
+        const uuid = marker.uuid;
         this._showRadialMenu({
           clientX,
           clientY,
           items: [
+            ...this._visibilityMenuItem(marker.invisible, () => {
+              if (marker.invisible) delete marker.invisible;
+              else marker.invisible = true;
+              this._syncMarkers();
+              this._requestSave();
+            }),
             this.replacementMenuItem(uuid, doc => {
               const current = this.graph.data.markers.find(value => value.id === m.id && value.uuid === uuid);
               if (!current) return false;
@@ -1539,7 +1633,7 @@ export class MapRenderer extends BaseRenderer {
   }
 
 
-  async exportToPNG({ scale = 3, destination = "download" } = {}) {
+  async exportToPNG({ scale = 3, destination = "download", forPlayers = false } = {}) {
     if (!this._map || !this._mapDiv) {
       ui?.notifications?.warn?.("Map is not ready for export yet");
       return;
@@ -1573,13 +1667,15 @@ export class MapRenderer extends BaseRenderer {
       const containerRect = container.getBoundingClientRect();
 
       // 1) Tiles
-      await this._drawTilesToCanvas(ctx, container, containerRect);
+      await this._drawTilesToCanvas(ctx, container, containerRect, forPlayers);
 
       // 2) Vector overlays (Leaflet SVG pane)
-      await this._drawSvgOverlayToCanvas(ctx, container, containerRect);
+      const excluded = forPlayers ? this._getPlayerExportExclusions() : null;
+      await this._drawSvgOverlayToCanvas(ctx, container, containerRect, excluded);
 
       // 3) Markers (our SVG divIcons)
-      await this._drawMarkerSvgsToCanvas(ctx, container, containerRect);
+      await this._drawMarkerSvgsToCanvas(ctx, container, containerRect, excluded);
+      if (forPlayers) this._drawGeomanAnnotationsToCanvas(ctx, container, containerRect, excluded);
 
       const safeName = String(this.graph?.name ?? "map").replace(/[^a-z0-9_-]+/gi, "_");
       const pngBlob = await new Promise((resolve, reject) => {
@@ -1589,6 +1685,7 @@ export class MapRenderer extends BaseRenderer {
         );
       });
 
+      if (destination === "blob") return pngBlob;
       if (destination === "data-folder") {
         const path = await this.savePNGToDataFolder(pngBlob, safeName, {
           overwrite: true
@@ -1638,18 +1735,16 @@ export class MapRenderer extends BaseRenderer {
     });
   }
 
-  async _drawTilesToCanvas(ctx, container, containerRect) {
-    //    const tileImages = Array.from(container.querySelectorAll(".leaflet-tile-pane img.leaflet-tile"));
+  async _drawTilesToCanvas(ctx, container, containerRect, forPlayers = false) {
     // Include both OSM tiles and image overlays (raster background mode)
-    const tileImages = Array.from(
-      container.querySelectorAll(
-        ".leaflet-tile-pane img.leaflet-tile, .leaflet-overlay-pane img.leaflet-image-layer"
-      )
-    );
+    const imagePane = forPlayers ? ".leaflet-pane" : ".leaflet-overlay-pane";
+    const tileImages = [...container.querySelectorAll(
+      `.leaflet-tile-pane img.leaflet-tile, ${imagePane} img.leaflet-image-layer`
+    )];
     // Ensure any pending tiles finish loading
     await Promise.all(
       tileImages.map((img) => {
-        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+        if (img.complete) return Promise.resolve();
         return new Promise((resolve) => {
           const cleanup = () => {
             img.removeEventListener("load", cleanup);
@@ -1673,13 +1768,39 @@ export class MapRenderer extends BaseRenderer {
     }
   }
 
-  async _drawSvgOverlayToCanvas(ctx, container, containerRect) {
-    // 1. Identify the hierarchy. Leaflet spreads transforms across these layers.
+  _getPlayerExportExclusions() {
+    const excluded = new Set();
+    const excludeLayer = layer => {
+      const element = layer?.getElement?.();
+      const label = layer?.getTooltip?.()?.getElement?.();
+      if (element) excluded.add(element);
+      if (label) excluded.add(label);
+      layer?.eachLayer?.(excludeLayer);
+    };
+    for (const marker of this.graph?.data?.markers ?? []) {
+      if (marker.invisible === true) excludeLayer(this._leafletMarkers.get(marker.id));
+    }
+    for (const layer of this._geomanLayer?.getLayers() ?? []) {
+      if (isInvisibleFeature(layer.feature)) excludeLayer(layer);
+    }
+    this._geomanBadgeLayer?.eachLayer(excludeLayer);
+    return excluded;
+  }
+
+  async _drawSvgOverlayToCanvas(ctx, container, containerRect, excluded = null) {
     const mapPane = container.querySelector(".leaflet-map-pane");
     const overlayPane = container.querySelector(".leaflet-overlay-pane");
-    const svg = overlayPane?.querySelector("svg");
+    if (excluded) {
+      const overlays = [...container.querySelectorAll(".leaflet-pane > svg")];
+      overlays.sort((a, b) => Number(getComputedStyle(a.parentElement).zIndex) - Number(getComputedStyle(b.parentElement).zIndex));
+      for (const svg of overlays) await this._drawLeafletSvg(ctx, svg, mapPane, excluded);
+    } else {
+      const svg = overlayPane?.querySelector("svg");
+      if (svg) await this._drawLeafletSvg(ctx, svg, mapPane, null);
+    }
+  }
 
-    if (!svg) return;
+  async _drawLeafletSvg(ctx, svg, mapPane, excluded) {
 
     const readMatrix = (el) => {
       try {
@@ -1695,11 +1816,17 @@ export class MapRenderer extends BaseRenderer {
     // mapPane usually holds the 'Pan' translation.
     // overlayPane and svg may hold additional offsets or zoom scaling.
     const m1 = readMatrix(mapPane);
-    const m2 = readMatrix(overlayPane);
+    const m2 = readMatrix(svg.parentElement);
     const m3 = readMatrix(svg);
     const combined = m1.multiply(m2).multiply(m3);
 
     const clone = svg.cloneNode(true);
+    if (excluded?.size) {
+      const descendants = [...clone.querySelectorAll("path")];
+      svg.querySelectorAll("path").forEach((path, index) => {
+        if (excluded.has(path)) descendants[index].remove();
+      });
+    }
     clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
 
     // 3. Inline the combined transform so the serialized SVG knows where to position paths
@@ -1733,11 +1860,14 @@ export class MapRenderer extends BaseRenderer {
     }
   }
 
-  async _drawMarkerSvgsToCanvas(ctx, container, containerRect) {
-    const markerSvgs = Array.from(container.querySelectorAll(".leaflet-marker-pane .fg-map-marker svg"));
+  async _drawMarkerSvgsToCanvas(ctx, container, containerRect, excluded = null) {
+    const markerSvgs = Array.from(container.querySelectorAll(
+      ".leaflet-marker-pane .fg-map-marker svg, .leaflet-marker-pane .fg-map-visibility-badge svg"
+    ));
     if (markerSvgs.length === 0) return;
 
     for (const svg of markerSvgs) {
+      if (excluded?.has(svg.closest(".leaflet-marker-icon"))) continue;
       const r = svg.getBoundingClientRect();
       const x = r.left - containerRect.left;
       const y = r.top - containerRect.top;
@@ -1761,6 +1891,33 @@ export class MapRenderer extends BaseRenderer {
     }
   }
 
+  _drawGeomanAnnotationsToCanvas(ctx, container, containerRect, excluded) {
+    for (const layer of this._geomanLayer?.getLayers() ?? []) {
+      const marker = layer.getElement?.();
+      if (marker?.tagName === "IMG" && marker.complete && marker.naturalWidth && !excluded.has(marker)) {
+        const rect = marker.getBoundingClientRect();
+        ctx.drawImage(marker, rect.left - containerRect.left, rect.top - containerRect.top, rect.width, rect.height);
+      }
+    }
+    for (const label of container.querySelectorAll(".fg-geoman-label")) {
+      if (excluded.has(label) || !label.textContent.trim()) continue;
+      const rect = label.getBoundingClientRect();
+      if (!rect.width || !rect.height) continue;
+      const style = getComputedStyle(label);
+      const x = rect.left - containerRect.left;
+      const y = rect.top - containerRect.top;
+      ctx.save();
+      ctx.fillStyle = style.backgroundColor;
+      ctx.fillRect(x, y, rect.width, rect.height);
+      ctx.fillStyle = style.color;
+      ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label.textContent, x + rect.width / 2, y + rect.height / 2, rect.width);
+      ctx.restore();
+    }
+  }
+
   refreshReferenceIndicator(uuid) {
     if (!uuid || this.graph?.data?.markers?.some(marker => marker.uuid === uuid)) this._syncMarkers();
   }
@@ -1769,7 +1926,7 @@ export class MapRenderer extends BaseRenderer {
     const lookups = new Map();
     const markers = graphData?.markers ?? [];
     for (const marker of markers) {
-      if (!marker.uuid) continue;
+      if (!marker.uuid || (!isGamemaster() && marker.invisible)) continue;
       try {
         const doc = await this.resolveReference(marker.uuid, lookups);
         if (!doc) continue;
@@ -1783,7 +1940,7 @@ export class MapRenderer extends BaseRenderer {
   async getNonExistentEntities(graphData) {
     const missing = [];
     for (const marker of graphData?.markers ?? []) {
-      if (!marker.uuid) continue;
+      if (!marker.uuid || (!isGamemaster() && marker.invisible)) continue;
       try {
         const doc = await fromUuid(marker.uuid);
         if (!doc) missing.push({ uuid: marker.uuid, label: marker.label, entityType: marker.type });
@@ -1797,7 +1954,9 @@ export class MapRenderer extends BaseRenderer {
   replaceEntities(graphData, matchList) {
     const uuidMap = new Map(matchList.map(m => [m.oldUuid, m.newUuid]));
     for (const marker of graphData?.markers ?? []) {
-      if (marker.uuid && uuidMap.has(marker.uuid)) marker.uuid = uuidMap.get(marker.uuid);
+      if ((isGamemaster() || !marker.invisible) && marker.uuid && uuidMap.has(marker.uuid)) {
+        marker.uuid = uuidMap.get(marker.uuid);
+      }
     }
     return graphData;
   }

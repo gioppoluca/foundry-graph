@@ -1,4 +1,5 @@
 import { log, MODULE_ID, t, tf } from './constants.js';
+import { canShareGraph, shareGraphImage } from "./graph-share.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -36,6 +37,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     actions: {
       saveAction: D3GraphApp._saveGraph,
       exportAction: D3GraphApp.exportDownload,
+      shareGraphAction: D3GraphApp.shareGraph,
       exportSceneAction: D3GraphApp.exportToScene,
       exportScaledSceneAction: D3GraphApp.exportToScaledScene,
       linkNodes: D3GraphApp.toggleLinkingMode
@@ -163,6 +165,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       instructions: this.renderer?.instructions || t("Notifications.NoInstructionsAvailable"),
       isLinkNodesVisible: isEdit && (this.renderer?.isLinkNodesVisible ?? true),
       isRelationSelectVisible: isEdit && (this.renderer?.isRelationSelectVisible ?? true),
+      canShareGraph: canShareGraph(this),
       isSaveNewSceneVisible: canExportToScene() && (this.renderer?.isSaveNewSceneVisible ?? false),
       isSaveNewSceneScaledVisible: canExportToScene() && (this.renderer?.isSaveNewSceneScaledVisible ?? false),
       isSaveNewSceneScaledEnabled: canExportToScene() && this._isSaveNewSceneScaledEnabled()
@@ -276,6 +279,20 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
     console.log("Export Download clicked", { event, target, application });
     console.log(this)
     await this.svgToCanvas({ scale: 3, destination: "download" });
+  }
+
+  static async shareGraph(event, target) {
+    event?.preventDefault?.();
+    if (target?.disabled) return;
+    if (target) target.disabled = true;
+    try {
+      await shareGraphImage(this);
+    } catch (error) {
+      log("Graph image sharing failed", error);
+      ui.notifications.error(t("Notifications.GraphShareFailed"));
+    } finally {
+      if (target) target.disabled = false;
+    }
   }
 
   static async exportToScaledScene(event, target, application) {
