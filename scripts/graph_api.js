@@ -1,6 +1,6 @@
 import GraphDashboardV2 from "./graph_dashboard_v2.js"
 import { log, MODULE_ID, JSON_graph_types, t, tf } from './constants.js';
-import { ForceRenderer } from "./renderers/force-renderer.js";
+import { ForceRenderer, preserveForceVisibility } from "./renderers/force-renderer.js";
 //import { TreeRenderer } from "./renderers/tree-renderer.js";
 import { GenealogyRenderer } from "./renderers/genealogy-renderer.js";
 import { ImageSlotsRenderer } from "./renderers/image-slot-renderer.js";
@@ -333,6 +333,11 @@ export class GraphApi {
                 if ((entry.revision ?? null) !== revision) return "conflict";
                 const saved = await this.getGraph(id);
                 if (!saved) return "conflict";
+                if ((saved.renderer ?? saved.graphType) === ForceRenderer.ID && Object.hasOwn(changes, "data")) {
+                    const data = preserveForceVisibility(saved.data, changes.data);
+                    if (!data) return "denied";
+                    changes.data = data;
+                }
                 for (const field of OWNER_EDIT_FIELDS) {
                     if (Object.hasOwn(changes, field)) saved[field] = changes[field];
                 }

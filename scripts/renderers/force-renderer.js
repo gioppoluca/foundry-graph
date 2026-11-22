@@ -1,6 +1,73 @@
 import { log, safeUUID, MODULE_ID, t, tf } from "../constants.js";
 import { BaseRenderer } from "./base-renderer.js";
 const DialogV2 = foundry?.applications?.api?.DialogV2;
+const VISIBILITY_STATES = ["hidden", "invisible"];
+
+function getNodeStatuses(node) {
+  return Array.isArray(node?.status) ? node.status : node?.status == null ? [] : [node.status];
+}
+
+function getEndpointId(endpoint) {
+  return typeof endpoint === "object" ? endpoint?.id : endpoint;
+}
+
+function isInvisible(node) {
+  return getNodeStatuses(node).includes("invisible");
+}
+
+function isGamemaster() {
+  return game.user?.role === foundry.CONST.USER_ROLES.GAMEMASTER;
+}
+
+function canSeeNode(node) {
+  return isGamemaster() || !isInvisible(node);
+}
+
+export function preserveForceVisibility(current, update) {
+  if (!Array.isArray(update?.nodes) || !Array.isArray(update.links)) return null;
+
+  const originalNodes = new Map((current?.nodes ?? []).map(node => [node.id, node]));
+  const invisibleIds = new Set([...originalNodes.values()].filter(isInvisible).map(node => node.id));
+  const nodes = new Map();
+  for (const node of update.nodes) {
+    if (typeof node?.id !== "string" || nodes.has(node.id)) return null;
+    const original = originalNodes.get(node.id);
+    const status = getNodeStatuses(node).filter(value => !VISIBILITY_STATES.includes(value));
+    status.push(...getNodeStatuses(original).filter(value => VISIBILITY_STATES.includes(value)));
+    nodes.set(node.id, invisibleIds.has(node.id) ? original : { ...node, status });
+  }
+  for (const id of invisibleIds) nodes.set(id, originalNodes.get(id));
+  // Existing nodes retain their ordering even if a protected node was omitted in the request.
+  const nodeIds = new Set([...originalNodes.keys(), ...nodes.keys()]);
+
+  const touchesInvisible = link => invisibleIds.has(getEndpointId(link.source)) ||
+    invisibleIds.has(getEndpointId(link.target));
+  const hasEndpoints = link => nodes.has(getEndpointId(link.source)) && nodes.has(getEndpointId(link.target));
+  const protectedLinks = (current?.links ?? []).filter(touchesInvisible);
+  const protectedLinkIds = new Set(protectedLinks.map(link => link.id));
+  const links = update.links.filter(link => link && !protectedLinkIds.has(link.id) &&
+    !touchesInvisible(link) && hasEndpoints(link));
+  links.push(...protectedLinks.filter(hasEndpoints));
+
+  const originalGroups = new Map((current?.groups ?? []).map(group => [group.id, group]));
+  const updatedGroups = new Map((Array.isArray(update.groups) ? update.groups : [...originalGroups.values()])
+    .filter(group => group && Array.isArray(group.nodeIds)).map(group => [group.id, group]));
+  const groups = [];
+  for (const id of new Set([...originalGroups.keys(), ...updatedGroups.keys()])) {
+    const original = originalGroups.get(id);
+    const updateGroup = updatedGroups.get(id);
+    const invisibleMembers = (original?.nodeIds ?? []).filter(nodeId => invisibleIds.has(nodeId));
+    const visibleMembers = (updateGroup?.nodeIds ?? []).filter(nodeId => nodes.has(nodeId) && !invisibleIds.has(nodeId));
+    const hasVisibleMembers = original?.nodeIds?.some(nodeId => !invisibleIds.has(nodeId));
+    if (invisibleMembers.length && !hasVisibleMembers) {
+      groups.push(original);
+    } else if (invisibleMembers.length || visibleMembers.length) {
+      groups.push({ ...(updateGroup ?? original), nodeIds: [...new Set([...visibleMembers, ...invisibleMembers])] });
+    }
+  }
+
+  return { ...update, nodes: [...nodeIds].filter(id => nodes.has(id)).map(id => nodes.get(id)), links, groups };
+}
 
 export class ForceRenderer extends BaseRenderer {
   static ID = "force";
@@ -222,7 +289,7 @@ export class ForceRenderer extends BaseRenderer {
 
     const getOverlaySymbol = (node) => {
       const st = Array.isArray(node?.status) ? node.status : [];
-      if (st.includes("hidden")) return "?";
+      if (st.includes("hidden") && !isInvisible(node)) return "?";
       if (st.includes("locked")) return "🔒";
       if (st.includes("warning")) return "!";
       return "";
@@ -230,15 +297,30 @@ export class ForceRenderer extends BaseRenderer {
 
     const isHidden = (node) => {
       const st = Array.isArray(node?.status) ? node.status : (node?.status == null ? [] : [node.status]);
-      return st.includes("hidden");
+      return st.includes("hidden") && !isInvisible(node);
     };
 
     const isSymbolNode = (node) => node?.type === "Symbol";
     const getNodeSize = (node) => Number(node?.size) || 64;
 
-    // Utility: links may contain endpoints as node objects (after d3.forceLink)
-    // or as raw node ids (persisted format). Always normalize when comparing.
-    const getEndpointId = (endpoint) => (typeof endpoint === "object" ? endpoint?.id : endpoint);
+    const visibleNodes = renderGraph.data.nodes.filter(canSeeNode);
+    const visibleNodeIds = new Set(visibleNodes.map(node => node.id));
+    const visibleLinks = renderGraph.data.links.filter(link =>
+      visibleNodeIds.has(getEndpointId(link.source)) && visibleNodeIds.has(getEndpointId(link.target)));
+    const visibleGroups = renderGraph.data.groups.filter(group =>
+      group.nodeIds.some(id => visibleNodeIds.has(id)));
+    const findVisibleNode = (x, y) => {
+      let closest;
+      let distance = 30 ** 2;
+      for (const node of visibleNodes) {
+        const candidate = (node.x - x) ** 2 + (node.y - y) ** 2;
+        if (candidate < distance) {
+          distance = candidate;
+          closest = node;
+        }
+      }
+      return closest;
+    };
 
     // --- START: Background Image Update ---
     const bgWidth = renderGraph.background.width || renderGraph.width;
@@ -259,7 +341,7 @@ export class ForceRenderer extends BaseRenderer {
 
     const groupPolygons = groupLayer
       .selectAll("path")
-      .data(renderGraph.data.groups, d => d.id)
+      .data(visibleGroups, d => d.id)
       .join("path")
       .attr("class", "fg-group-polygon")
       .attr("fill", d => d.color || "#00eaff")
@@ -275,7 +357,7 @@ export class ForceRenderer extends BaseRenderer {
 
     const groupLabels = groupLayer
       .selectAll("text")
-      .data(renderGraph.data.groups, d => d.id)
+      .data(visibleGroups, d => d.id)
       .join("text")
       .attr("class", "fg-group-label")
       .attr("font-size", 13)
@@ -363,7 +445,7 @@ export class ForceRenderer extends BaseRenderer {
     const linkGlow = zoomLayer.append("g")
       .attr("class", "links-glow")
       .selectAll("line")
-      .data(renderGraph.data.links, d => d.id)
+      .data(visibleLinks, d => d.id)
       .join("line")
       .attr("stroke", d => d.color || "#000")
       .style("stroke-dasharray", linkStrokeDash)
@@ -375,7 +457,7 @@ export class ForceRenderer extends BaseRenderer {
     const link = zoomLayer.append("g")
       .attr("stroke-opacity", 0.8)
       .selectAll("line")
-      .data(renderGraph.data.links, d => d.id)
+      .data(visibleLinks, d => d.id)
       .join("line")
       .attr("stroke", d => d.color || "#000")  // fallback if color is missing
       .style("stroke-dasharray", linkStrokeDash)
@@ -455,7 +537,7 @@ export class ForceRenderer extends BaseRenderer {
     const linkLabels = zoomLayer.append("g")
       .attr("class", "link-labels")
       .selectAll("text")
-      .data(renderGraph.data.links, d => d.id)
+      .data(visibleLinks, d => d.id)
       .join("text")
       .attr("font-size", 12)
       .attr("fill", d => d.color || "#000")
@@ -471,7 +553,7 @@ export class ForceRenderer extends BaseRenderer {
         const linkLabels = zoomLayer.append("g")
           .attr("class", "link-labels")
           .selectAll("text")
-          .data(renderGraph.data.links, d => d.id)
+          .data(visibleLinks, d => d.id)
           .join("text")
           .attr("font-size", 12)
           .attr("fill", d => d.color || "#000")
@@ -483,7 +565,7 @@ export class ForceRenderer extends BaseRenderer {
     const linkSourceLabels = zoomLayer.append("g")
       .attr("class", "link-source-labels")
       .selectAll("text")
-      .data(renderGraph.data.links, d => d.id)
+      .data(visibleLinks, d => d.id)
       .join("text")
       .attr("font-size", 11)
       .attr("fill", d => d.color || "#000")
@@ -494,7 +576,7 @@ export class ForceRenderer extends BaseRenderer {
     const linkTargetLabels = zoomLayer.append("g")
       .attr("class", "link-target-labels")
       .selectAll("text")
-      .data(renderGraph.data.links, d => d.id)
+      .data(visibleLinks, d => d.id)
       .join("text")
       .attr("font-size", 11)
       .attr("fill", d => d.color || "#000")
@@ -510,7 +592,7 @@ export class ForceRenderer extends BaseRenderer {
     if (this._showRelationLegend && uiLayer) {
       // build unique used relations
       const entriesMap = new Map();
-      for (const l of (renderGraph?.data?.links ?? [])) {
+      for (const l of visibleLinks) {
         const label = l.label || l.type || "";
         if (!label) continue;
         const key = String(l.relationId ?? `${label}|${l.color}|${l.style}|${l.strokeWidth}|${l.noArrow}`);
@@ -524,9 +606,6 @@ export class ForceRenderer extends BaseRenderer {
         });
       }
       const entries = Array.from(entriesMap.values());
-      if (!entries.length) return;
-
-
       if (entries.length > 0) {
         const LEG_PAD = 10;
         const ROW_H = 18;
@@ -593,7 +672,7 @@ export class ForceRenderer extends BaseRenderer {
 
     const node = zoomLayer.append("g")
       .selectAll("image")
-      .data(renderGraph.data.nodes, d => d.id)
+      .data(visibleNodes, d => d.id)
       .join("image")
       .attr("xlink:href", d => d.img)
       .attr("filter", d => isHidden(d) ? "url(#fg-blur)" : null)
@@ -613,6 +692,10 @@ export class ForceRenderer extends BaseRenderer {
             ui.notifications.info(tf("Notifications.SelectedSourceNode", { label: d.label }));
           } else {
             const source = this._linkSourceNode;
+            if (!visibleNodeIds.has(source.id)) {
+              this._linkSourceNode = null;
+              return;
+            }
             const target = d;
 
             // Prevent self-links or duplicate links
@@ -668,7 +751,7 @@ export class ForceRenderer extends BaseRenderer {
     const nodeSelectionRing = zoomLayer.append("g")
       .attr("class", "node-selection-ring")
       .selectAll("circle")
-      .data(renderGraph.data.nodes, d => d.id)
+      .data(visibleNodes, d => d.id)
       .join("circle")
       .attr("fill", "none")
       .attr("stroke", "#00eaff")
@@ -679,7 +762,7 @@ export class ForceRenderer extends BaseRenderer {
     const nodeOverlayCircle = zoomLayer.append("g")
       .attr("class", "node-status-overlay")
       .selectAll("circle")
-      .data(renderGraph.data.nodes, d => d.id)
+      .data(visibleNodes, d => d.id)
       .join("circle")
       .attr("r", d => getNodeSize(d) / 2)
       .attr("fill", "#808080")
@@ -689,7 +772,7 @@ export class ForceRenderer extends BaseRenderer {
     const nodeOverlayText = zoomLayer.append("g")
       .attr("class", "node-status-overlay-text")
       .selectAll("text")
-      .data(renderGraph.data.nodes, d => d.id)
+      .data(visibleNodes, d => d.id)
       .join("text")
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "middle")
@@ -699,8 +782,21 @@ export class ForceRenderer extends BaseRenderer {
       .attr("pointer-events", "none")
       .text(d => getOverlaySymbol(d));
 
+    const invisibleBadges = zoomLayer.append("g")
+      .attr("class", "fg-invisible-badges")
+      .attr("pointer-events", "none")
+      .selectAll("g")
+      .data(visibleNodes.filter(isInvisible), d => d.id)
+      .join("g");
+    invisibleBadges.append("circle").attr("r", 9).attr("fill", "#222");
+    invisibleBadges.append("path")
+      .attr("d", "M-6 0Q0 -7 6 0Q0 7 -6 0ZM-6 -6L6 6")
+      .attr("fill", "none")
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 1.3);
+
     const referenceBadges = zoomLayer.append("g").attr("class", "fg-reference-badges")
-      .selectAll("g").data(renderGraph.data.nodes.filter(d => d.uuid), d => d.id).join("g");
+      .selectAll("g").data(visibleNodes.filter(d => d.uuid), d => d.id).join("g");
     const referenceTitles = node.filter(d => d.uuid).append("title");
     this.updateReferenceBadges = () => {
       this.drawReferenceBadge(referenceBadges, d => d.uuid);
@@ -711,7 +807,7 @@ export class ForceRenderer extends BaseRenderer {
     const nodeLabels = zoomLayer.append("g")
       .attr("class", "node-labels")
       .selectAll("text")
-      .data(renderGraph.data.nodes)
+      .data(visibleNodes)
       .join("text")
       .attr("font-size", 12)
       .attr("fill", renderGraph?.nodeLabelColor || "#000")
@@ -735,7 +831,7 @@ export class ForceRenderer extends BaseRenderer {
           simulation.alphaTarget(0.2).restart();
         })
         .on("drag", (event, group) => {
-          const groupNodes = this._getGroupNodes(group, renderGraph.data.nodes);
+          const groupNodes = this._getGroupNodes(group, visibleNodes);
           for (const n of groupNodes) {
             n.x += event.dx;
             n.y += event.dy;
@@ -775,7 +871,7 @@ export class ForceRenderer extends BaseRenderer {
       return { x: s.x + ux * END_OFFSET, y: s.y + uy * END_OFFSET };
     };
 
-    const handleData = renderGraph.data.links.flatMap(l => ([
+    const handleData = visibleLinks.flatMap(l => ([
       { link: l, end: "source", _hid: `${l.id}:source` },
       { link: l, end: "target", _hid: `${l.id}:target` },
     ]));
@@ -835,7 +931,7 @@ export class ForceRenderer extends BaseRenderer {
         const otherNode = resolveEndpointNode(otherEndpoint);
         if (!otherNode) { hideHandles(); return; }
 
-        const droppedOn = simulation.find(event.x, event.y, 30);
+        const droppedOn = findVisibleNode(event.x, event.y);
         if (!droppedOn) { hideHandles(); return; }
 
         if (droppedOn.id === otherNode.id) {
@@ -916,12 +1012,16 @@ export class ForceRenderer extends BaseRenderer {
 
     log("started simulation")
     function ticked() {
+      invisibleBadges.attr("transform", d => {
+        const offset = getNodeSize(d) / 3;
+        return `translate(${d.x + offset},${d.y - offset})`;
+      });
       groupPolygons
-        .attr("d", g => self._getGroupHullPath(g, renderGraph.data.nodes));
+        .attr("d", g => self._getGroupHullPath(g, visibleNodes));
 
       groupLabels
-        .attr("x", g => self._getGroupLabelPoint(g, renderGraph.data.nodes).x)
-        .attr("y", g => self._getGroupLabelPoint(g, renderGraph.data.nodes).y);
+        .attr("x", g => self._getGroupLabelPoint(g, visibleNodes).x)
+        .attr("y", g => self._getGroupLabelPoint(g, visibleNodes).y);
 
       link
         .attr("x1", d => d.source.x)
@@ -1081,8 +1181,7 @@ export class ForceRenderer extends BaseRenderer {
         self._isDraggingLink = false;
 
         // Find the node under the mouse cursor
-        // simulation.find uses the same coordinate system as nodes
-        const target = simulation.find(event.x, event.y, 30); // 30px hit radius
+        const target = findVisibleNode(event.x, event.y); // 30px hit radius
 
         if (target && target !== d) {
           const source = d;
@@ -1210,27 +1309,35 @@ export class ForceRenderer extends BaseRenderer {
   }
   */
   async _onRightClickNode(event, nodeData) {
+    if (!canSeeNode(nodeData)) return;
     log("_onRightClickNode", nodeData);
     const label = nodeData.label || nodeData.id;
     if (!Array.isArray(nodeData.status)) {
       nodeData.status = nodeData.status == null ? [] : [nodeData.status];
     }
-    const isHidden = nodeData.status.includes("hidden");
-
-    const items = [
-      {
-        id: "toggleHidden",
-        label: isHidden ? tf("Dialogs.ShowToPlayers", { label }) : tf("Dialogs.HideFromPlayers", { label }),
-        icon: isHidden ? "fa-solid fa-eye" : "fa-solid fa-eye-slash",
-        onClick: async () => {
-          const st = Array.isArray(nodeData.status) ? [...nodeData.status] : [];
-          const idx = st.indexOf("hidden");
-          if (idx >= 0) st.splice(idx, 1); else st.push("hidden");
-          nodeData.status = st;
-          this.render();
-        }
+    const visibility = isInvisible(nodeData) ? "invisible" : nodeData.status.includes("hidden") ? "hidden" : "visible";
+    const items = [];
+    if (isGamemaster()) {
+      const options = [
+        { id: "visible", label: "Dialogs.NodeVisibleToPlayers", icon: "fa-solid fa-eye" },
+        { id: "hidden", label: "Dialogs.NodeHiddenToPlayers", icon: "fa-solid fa-question" },
+        { id: "invisible", label: "Dialogs.NodeInvisibleToPlayers", icon: "fa-solid fa-eye-slash" }
+      ];
+      for (const option of options) {
+        if (option.id === visibility) continue;
+        items.push({
+          id: option.id,
+          label: tf(option.label, { label }),
+          icon: option.icon,
+          onClick: () => {
+            if (!isGamemaster()) return;
+            nodeData.status = getNodeStatuses(nodeData).filter(value => !VISIBILITY_STATES.includes(value));
+            if (option.id !== "visible") nodeData.status.push(option.id);
+            this.render();
+          }
+        });
       }
-    ];
+    }
 
     const uuid = nodeData.uuid;
     items.push(this.replacementMenuItem(uuid, doc => {
@@ -1487,7 +1594,7 @@ export class ForceRenderer extends BaseRenderer {
 
   async _createGroupFromSelected() {
     const nodeIds = Array.from(this._selectedNodeIds)
-      .filter(id => (this.graph?.data?.nodes ?? []).some(n => n.id === id));
+      .filter(id => (this.graph?.data?.nodes ?? []).some(n => n.id === id && canSeeNode(n)));
 
     if (!nodeIds.length) {
       ui.notifications.warn(t("Notifications.SelectNodeBeforeGroup"));
@@ -1691,7 +1798,7 @@ export class ForceRenderer extends BaseRenderer {
   _getNextSymbolName(symbol) {
     const base = String(symbol?.defaultName || symbol?.label || symbol?.id || t("Force.Symbol")).trim();
     const symbolId = symbol?.id;
-    const count = (this.graph?.data?.nodes ?? []).filter(n => n.type === "Symbol" && n.symbolId === symbolId).length + 1;
+    const count = (this.graph?.data?.nodes ?? []).filter(n => canSeeNode(n) && n.type === "Symbol" && n.symbolId === symbolId).length + 1;
     return `${base} ${String(count).padStart(2, "0")}`;
   }
 
@@ -1891,7 +1998,7 @@ export class ForceRenderer extends BaseRenderer {
   async getNonExistentEntities(graphData) {
     const missing = [];
     for (const node of graphData?.nodes ?? []) {
-      if (!node.uuid) continue;
+      if (!node.uuid || !canSeeNode(node)) continue;
       try {
         const doc = await fromUuid(node.uuid);
         if (!doc) missing.push({ uuid: node.uuid, label: node.label, entityType: node.type });
@@ -1905,7 +2012,7 @@ export class ForceRenderer extends BaseRenderer {
   replaceEntities(graphData, matchList) {
     const uuidMap = new Map(matchList.map(m => [m.oldUuid, m.newUuid]));
     for (const node of graphData?.nodes ?? []) {
-      if (node.uuid && uuidMap.has(node.uuid)) node.uuid = uuidMap.get(node.uuid);
+      if (canSeeNode(node) && node.uuid && uuidMap.has(node.uuid)) node.uuid = uuidMap.get(node.uuid);
     }
     return graphData;
   }
