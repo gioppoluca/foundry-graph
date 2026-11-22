@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.5] - 2026-11-22
+### :sparkles: New Features
+- [`56ba4e4`](https://github.com/gioppoluca/foundry-graph/commit/56ba4e4a5d27f3f6e5c9d1b9ba1f5a6c45eff2fb) - replace node *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`4d33c9c`](https://github.com/gioppoluca/foundry-graph/commit/4d33c9cdda11c4bb55177d06963f09761ae51ef3) - better permissions *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`2bb39f6`](https://github.com/gioppoluca/foundry-graph/commit/2bb39f6bfb5b166d0a61900cf23b848e713398b2) - force graph invisible nodes *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`588e129`](https://github.com/gioppoluca/foundry-graph/commit/588e1293a541d96c5461fafe18b2018c8153ea25) - show players *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+### :bug: Bug Fixes
+- [`d28c2a2`](https://github.com/gioppoluca/foundry-graph/commit/d28c2a229f40e3f6526999fd9ebb534e0f73f2e7) - closes [#19](https://github.com/gioppoluca/foundry-graph/pull/19) *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+  - :arrow_lower_right: *fixes issue [#19](https://github.com/gioppoluca/foundry-graph/issues/19) opened by [@mistersilver-uk](https://github.com/mistersilver-uk)*
+- [`9edc9c0`](https://github.com/gioppoluca/foundry-graph/commit/9edc9c09169b5ef16fdf1c6a161d6a4b99842044) - only GM can export to scene *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`21c54da`](https://github.com/gioppoluca/foundry-graph/commit/21c54da1e8d9625aac7f7778b3154cfe7262d8ae) - owner can save if gm present *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`a7620c0`](https://github.com/gioppoluca/foundry-graph/commit/a7620c0b5cc8fbae2fec96443c618a20f34d9de2) - better doc and remove console logs *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+- [`4f7506f`](https://github.com/gioppoluca/foundry-graph/commit/4f7506f99f0fc45dab90f46f9ec172ba07a5fff7) - privare methods for api *(commit by [@gioppoluca](https://github.com/gioppoluca))*
+
+
 ## [0.14.4] - 2026-09-01
 ### :bug: Bug Fixes
 - [`aaa58a3`](https://github.com/gioppoluca/foundry-graph/commit/aaa58a3bd3617f607be0e05f7734f625721abfae) - error in init *(commit by [@gioppoluca](https://github.com/gioppoluca))*
@@ -319,3 +335,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.14.2]: https://github.com/gioppoluca/foundry-graph/compare/0.14.1...0.14.2
 [0.14.3]: https://github.com/gioppoluca/foundry-graph/compare/0.14.2...0.14.3
 [0.14.4]: https://github.com/gioppoluca/foundry-graph/compare/0.14.3...0.14.4
+[0.14.5]: https://github.com/gioppoluca/foundry-graph/compare/0.14.4...0.14.5
