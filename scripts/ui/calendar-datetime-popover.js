@@ -1,7 +1,6 @@
 export class FGCalendarDateTimePopover {
     static enhance(root) {
         const nodes = root.querySelectorAll("[data-fg-dtp]");
-        console.log("Enhancing FGCalendarDateTimePopover on", nodes.length, nodes);
         for (const el of nodes) this.#wireOne(el);
     }
 
@@ -35,7 +34,6 @@ export class FGCalendarDateTimePopover {
 
         // Populate months
         monthEl.innerHTML = months.map((m, idx) => {
-            console.log("month", m, idx);
             const value = (idx);
             const raw = (m.name ?? m.abbreviation ?? game.i18n.format("foundry-graph.Calendar.MonthFallback", { number: idx + 1 }));
             // Calendar month names may be localization keys (e.g. "TIME.Months.January")
@@ -76,9 +74,7 @@ export class FGCalendarDateTimePopover {
 
         const readFromHidden = () => {
             // We store seconds (recommended). If empty and required: default to now.
-            console.log("FGCalendarDateTimePopover reading from hidden", hidden.value);
             let seconds = Number(hidden.value);
-            console.log("FGCalendarDateTimePopover parsed seconds", seconds);
             if (!Number.isFinite(seconds)) {
                 if (required) seconds = game.time.worldTime;
                 else {
@@ -90,7 +86,6 @@ export class FGCalendarDateTimePopover {
             }
 
             const comps = calendar.timeToComponents(seconds);
-            console.log("FGCalendarDateTimePopover computed components", comps);
 
             yearEl.value = String(comps.year ?? 0);
             monthEl.value = String(comps.month ?? 0);
@@ -114,10 +109,8 @@ export class FGCalendarDateTimePopover {
                 second: 0,
             };
 
-            console.log("FGCalendarDateTimePopover writing components", comps);
 
             const seconds = calendar.componentsToTime(comps);
-            console.log("FGCalendarDateTimePopover computed seconds", seconds);
             hidden.value = String(seconds);
             display.value = FGCalendarDateTimePopover.#formatDisplay(calendar, seconds);
         };
@@ -188,12 +181,9 @@ export class FGCalendarDateTimePopover {
 
     static #formatDisplay(calendar, seconds) {
         // Keep formatting isolated so you can replace later with a “fantasy” formatter or localization
-        console.log("FGCalendarDateTimePopover formatDisplay seconds", seconds);
         const comps = calendar.timeToComponents(seconds);
-        console.log("FGCalendarDateTimePopover formatDisplay components", comps);
         // If calendar.format supports a "timestamp" style, use it. Otherwise fallback.
         try {
-            console.log("FGCalendarDateTimePopover formatDisplay trying timestamp", calendar.format(comps, "timestamp"));
             return calendar.format(comps, "timestamp");
         } catch (e) {
             // fallback: show components
@@ -236,9 +226,6 @@ export class FGCalendarDateTimePopover {
         if (top + pr.height > window.innerHeight - pad) {
             top = Math.round(r.top - pr.height - 4);
         }
-        console.log("popel", popEl)
-        console.log("wrapper", wrapperEl)
-        console.log(left, top, pr, window.innerWidth, window.innerHeight, pad, r);
         // Clamp to viewport so it never ends up off-screen
         //        left = Math.min(Math.max(left, pad), Math.max(pad, window.innerWidth - pr.width - pad));
         //        top = Math.min(Math.max(top, pad), Math.max(pad, window.innerHeight - pr.height - pad));

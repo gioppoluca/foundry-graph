@@ -1415,7 +1415,6 @@ export class ForceRenderer extends BaseRenderer {
   async _openEditLinkLabelsDialog(linkData) {
     const DialogV2 = foundry?.applications?.api?.DialogV2;
     const { StringField } = foundry.data.fields;
-    console.log("linkData in edit dialog:", linkData);
     // Build 2 form groups using Foundry fields (stable + consistent with DialogV2)
     const sourceGroup = new StringField({
       label: tf("Labels.SourceLabel", { label: linkData?.source?.label }) + ": ",
@@ -1497,7 +1496,6 @@ export class ForceRenderer extends BaseRenderer {
             // Close the radial menu so it doesn't remain above the dialog
             this._closeRadialMenu?.();
             await this._openEditLinkLabelsDialog(linkData);
-            console.log("Returned from edit labels dialog", linkData, this.graph.data);
 
           }
         },

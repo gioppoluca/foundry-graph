@@ -34,7 +34,6 @@ export class GenealogyRenderer extends BaseRenderer {
         }
 
         const img = node.data.img;
-        console.log("Rendering node:", node.data.name, "with img:", img, node);
         const id = node.data.id;
         const clipId = `clip-portrait-${id.replace(/[^a-zA-Z0-9]/g, '_')}`;
 

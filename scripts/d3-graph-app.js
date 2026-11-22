@@ -1,4 +1,4 @@
-import { log, MODULE_ID, t, tf } from './constants.js';
+import { err as logError, log, MODULE_ID, t, tf } from './constants.js';
 import { canShareGraph, shareGraphImage } from "./graph-share.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
@@ -276,8 +276,6 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static async exportDownload(event, target, application) {
     event?.preventDefault?.();
     if (!this.api.canOpenById(this.graph.id)) return ui.notifications.warn(t("Notifications.GraphUnavailable"));
-    console.log("Export Download clicked", { event, target, application });
-    console.log(this)
     await this.svgToCanvas({ scale: 3, destination: "download" });
   }
 
@@ -313,7 +311,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       return;
     }
 
-    console.log("[foundry-graph] Scaled scene scale info", scaleInfo);
+    log("Scaled scene export settings", scaleInfo);
 
     if (!scaleInfo.ok) {
       const scaleText = Number.isFinite(scaleInfo.scale) ? tf("Notifications.ScaledSceneScaleText", { scale: scaleInfo.scale.toFixed(2) }) : "";
@@ -358,7 +356,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         await scene.createEmbeddedDocuments("Wall", wallData);
       }
     } catch (err) {
-      console.error("Scaled scene export failed:", err);
+      logError("Scaled scene export failed:", err);
       ui.notifications.error(t("Notifications.ScaledSceneCreateFailed"));
     }
   }
@@ -370,8 +368,6 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
       ui.notifications.warn(t("Notifications.OnlyGMExportToScene"));
       return;
     }
-    console.log("Export to Scene clicked", { event, target, application });
-    console.log(this)
 
     try {
       ui.notifications.info(t("Notifications.SavingGraphToWorldFolder"));
@@ -408,7 +404,7 @@ export class D3GraphApp extends HandlebarsApplicationMixin(ApplicationV2) {
         }
       }
     } catch (err) {
-      console.error("Export to folder failed:", err);
+      logError("Export to folder failed:", err);
       ui.notifications.error(t("Notifications.GraphImageSaveFailed"));
     }
   }

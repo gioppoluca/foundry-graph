@@ -19,12 +19,6 @@ const DEFAULT_WORLD_STORAGE_SUBFOLDER = "graphs";
 const OWNER_EDIT_FIELDS = ["name", "desc", "theme", "background", "relations", "data"];
 
 
-// graph_api.js – SAFE ES2019 VERSION (no class‑fields, no private #names)
-// -----------------------------------------------------------------------------
-//  • All consumers obtain the singleton via `game.modules.get("foundry-graph").api`
-//  • This class handles JSON default loading, graph‑type registration, and
-//    world‑persistent storage (setting "foundry-graph.graphs").
-//  • No window globals and only ES features that Foundry v12 (Chromium 100+) supports.
 function _nowISO() { return new Date().toISOString(); }
 
 function _filePicker() {
@@ -35,11 +29,33 @@ function _filePicker() {
     return picker;
 }
 
+/**
+ * @typedef {object} GraphData
+ * @property {string} id Unique graph ID within the world.
+ * @property {string} name Display name.
+ * @property {string} graphType ID of the graph type definition.
+ * @property {string} renderer ID of the renderer that owns data.
+ * @property {string} [desc] Graph description.
+ * @property {string|null} [theme] Theme ID from the graph type.
+ * @property {object} [background] Renderer-specific background configuration.
+ * @property {object[]} [relations] Relationship styles available in the editor.
+ * @property {object} [data] Renderer-specific graph content.
+ * @property {Object<string, number>} [permissions] Ownership levels by user ID, with an optional default.
+ * @property {number} [schemaVersion] Version of the saved graph format.
+ * @property {number} [graphTypeVersion] Version of the graph type definition.
+ */
+
+/**
+ * @typedef {GraphData & {file: string, revision?: number, createdAt?: string, updatedAt?: string}} GraphIndexEntry
+ */
+
+/** World-scoped API available at game.modules.get("foundry-graph").api. */
 export class GraphApi {
     #writeQueue = Promise.resolve();
 
     /**
-     * Ensure the world‑level setting exists. Call once early in module init.
+     * Register the module settings during Foundry initialization.
+     * @returns {Promise<void>} Resolves after the settings are registered.
      */
     static async registerSettings() {
         if (!game.settings.settings.has(`${MODULE_ID}.debug`)) {
@@ -98,8 +114,7 @@ export class GraphApi {
     // ---------------------------------------------------------------------------
     // Construction
     // ---------------------------------------------------------------------------
-    /**
-     */
+    /** Create the API for the world and system currently open in Foundry. */
     constructor() {
         this.moduleId = MODULE_ID;
         this._graphMap = new Map();
@@ -134,8 +149,9 @@ export class GraphApi {
     // ---------------------------------------------------------------------------
 
     /**
-     * Return the singleton GraphDashboardV2, creating it if needed.
-     * @param {boolean} [show] – if true, call render(true) after creating.
+     * Get the dashboard for the current world.
+     * @param {boolean} [show=false] Render the dashboard before returning it.
+     * @returns {Promise<GraphDashboardV2>} The shared dashboard instance.
      */
     async openDashboard(show = false) {
         log("GraphApi.openDashboard", show);
@@ -146,6 +162,15 @@ export class GraphApi {
     }
 
 
+    /**
+     * Open a saved graph in its renderer.
+     * @param {string} graphId ID from the graph list.
+     * @param {object} [options={}] Window options.
+     * @param {"view"|"edit"|null} [options.mode=null] Use view mode, require edit access, or select the mode from the caller's permissions.
+     * @param {Function|null} [options.onCloseCallback=null] Callback invoked when the window closes.
+     * @returns {Promise<D3GraphApp|null>} The opened window, or null if the graph is missing or the requested access is denied.
+     * @throws {Error} If the graph file cannot be read or the renderer fails.
+     */
     async openGraphById(graphId, { mode = null, onCloseCallback = null } = {}) {
         const graph = await this.getGraph(graphId);
         if (!graph || !this.canOpenById(graphId)) {
@@ -172,18 +197,31 @@ export class GraphApi {
 
 
     /**
-     * Placeholder – adapt to your original structure.
-     * @param {string} graphId
+     * Compatibility stub retained for older macros.
+     * Use getGraph to read renderer-specific data.
+     * @param {string} graphId Saved graph ID.
+     * @returns {Array} An empty array.
      */
     get_graph_elements(graphId) {
         // TODO: replicate your original mapping logic here.
         return [];
     }
 
+    /**
+     * Check whether a user has the full Gamemaster role.
+     * @param {foundry.documents.User|null} [user=game.user] User to check.
+     * @returns {boolean} Whether the user has the Gamemaster role.
+     */
     isGamemaster(user = game.user) {
         return user?.role === foundry.CONST.USER_ROLES.GAMEMASTER;
     }
 
+    /**
+     * Resolve the effective ownership level from a graph or its index entry.
+     * @param {GraphData|GraphIndexEntry|null} graph Graph whose ownership to check.
+     * @param {foundry.documents.User|null} [user=game.user] User to check.
+     * @returns {number} A value from Foundry's document ownership levels.
+     */
     getPermission(graph, user = game.user) {
         if (!graph || !user) return LEVELS.NONE;
         if (this.isGamemaster(user)) return LEVELS.OWNER;
@@ -192,29 +230,76 @@ export class GraphApi {
         return Object.values(LEVELS).includes(level) ? level : LEVELS.NONE;
     }
 
+    /**
+     * Check whether a user has at least Limited access.
+     * @param {GraphData|GraphIndexEntry|null} graph Graph whose ownership to check.
+     * @param {foundry.documents.User|null} [user=game.user] User to check.
+     * @returns {boolean} Whether the graph's access level is at least Limited.
+     */
     canView(graph, user = game.user) { return this.getPermission(graph, user) >= LEVELS.LIMITED; }
+    /**
+     * Check whether a user can open a graph for reading.
+     * @param {GraphData|GraphIndexEntry|null} graph Graph whose ownership to check.
+     * @param {foundry.documents.User|null} [user=game.user] User to check.
+     * @returns {boolean} Whether the graph's access level is at least Observer.
+     */
     canOpen(graph, user = game.user) { return this.getPermission(graph, user) >= LEVELS.OBSERVER; }
+    /**
+     * Check whether a user can edit a graph.
+     * @param {GraphData|GraphIndexEntry|null} graph Graph whose ownership to check.
+     * @param {foundry.documents.User|null} [user=game.user] User to check.
+     * @returns {boolean} Whether the graph's access level is Owner.
+     */
     canEdit(graph, user = game.user) { return this.getPermission(graph, user) >= LEVELS.OWNER; }
 
+    /**
+     * Check Limited access against the current index.
+     * @param {string} id Saved graph ID.
+     * @param {foundry.documents.User|null} [user=game.user] User to check.
+     * @returns {boolean} Whether the graph exists and the user has at least Limited access.
+     */
     canViewById(id, user = game.user) {
         this.refreshGraphIndex();
         return this.canView(this._indexMap.get(id), user);
     }
 
+    /**
+     * Check read access against the current index.
+     * @param {string} id Saved graph ID.
+     * @param {foundry.documents.User|null} [user=game.user] User to check.
+     * @returns {boolean} Whether the graph exists and the user can open it.
+     */
     canOpenById(id, user = game.user) {
         this.refreshGraphIndex();
         return this.canOpen(this._indexMap.get(id), user);
     }
 
+    /**
+     * Check edit access against the current index.
+     * @param {string} id Saved graph ID.
+     * @param {foundry.documents.User|null} [user=game.user] User to check.
+     * @returns {boolean} Whether the graph exists and the user can edit it.
+     */
     canEditById(id, user = game.user) {
         this.refreshGraphIndex();
         return this.canEdit(this._indexMap.get(id), user);
     }
 
+    /**
+     * List the index entries the current user can open.
+     * @returns {GraphIndexEntry[]} Copies of the accessible entries.
+     */
     getAccessibleGraphs() {
         return this.getAllGraphs();
     }
 
+    /**
+     * Replace a graph's ownership settings as a Gamemaster.
+     * @param {string} graphId Saved graph ID.
+     * @param {Object<string, number>} newPerms Ownership levels keyed by Foundry user ID or `default`.
+     * @returns {Promise<GraphData|null>} The saved graph, or null if it was missing or changed while saving.
+     * @throws {Error} If access is denied, a level is invalid, or the write fails.
+     */
     async updateGraphPermissions(graphId, newPerms) {
         if (!this.isGamemaster()) throw new Error(t("Notifications.GraphAccessDenied"));
         const entry = this.getGraphIndexEntry(graphId);
@@ -237,6 +322,11 @@ export class GraphApi {
         return foundry.utils.deepClone(permissions);
     }
 
+    /**
+     * Import graphs from the old world setting when the graph index is empty. Requires a GM.
+     * @returns {Promise<void>} Resolves after the import or when there is no work to do.
+     * @throws {Error} If a graph write or the settings update fails.
+     */
     async migrateFromLegacySettingIfNeeded() {
         if (!this.isGamemaster()) return;
         const index = await game.settings.get(MODULE_ID, "graphIndex") || [];
@@ -252,6 +342,11 @@ export class GraphApi {
     // ---------------------------------------------------------------------------
     // Persistence helpers
     // ---------------------------------------------------------------------------
+    /**
+     * Load the world graph index, run the applicable startup migrations and clear the graph cache.
+     * @returns {Promise<void>} Resolves after startup loading completes.
+     * @throws {Error} If a startup storage or settings operation fails.
+     */
     async loadGraphs() {
         const index = await game.settings.get(MODULE_ID, "graphIndex") || [];
         this._indexMap = new Map(index.map(e => [e.id, e]));
@@ -260,6 +355,10 @@ export class GraphApi {
         this._graphMap.clear();
     }
 
+    /**
+     * Reload the graph index from world settings and evict cached graphs whose file or revision changed.
+     * @returns {void}
+     */
     refreshGraphIndex() {
         const entries = game.settings.get(MODULE_ID, "graphIndex") ?? [];
         const currentIndex = new Map(entries.map(entry => [entry.id, entry]));
@@ -273,12 +372,23 @@ export class GraphApi {
         this._indexMap = currentIndex;
     }
 
+    /**
+     * Read a graph index entry if the current user can open it.
+     * @param {string} id Saved graph ID.
+     * @returns {GraphIndexEntry|null} A copy of the index entry, or null when inaccessible or missing.
+     */
     getGraphIndexEntry(id) {
         this.refreshGraphIndex();
         const entry = this._indexMap.get(id);
         return this.canOpen(entry) ? foundry.utils.deepClone(entry) : null;
     }
 
+    /**
+     * Load a graph the current user can open. Older files are migrated in memory.
+     * @param {string} id Saved graph ID.
+     * @returns {Promise<GraphData|null>} A copy of the graph, or null when inaccessible or missing.
+     * @throws {Error} If the file cannot be read or migration fails.
+     */
     async getGraph(id) {
         const entry = this.getGraphIndexEntry(id);
         if (!entry) return null;
@@ -294,6 +404,11 @@ export class GraphApi {
         return foundry.utils.deepClone(graph);
     }
 
+    /**
+     * Apply the current migration rules without writing to world storage.
+     * @param {GraphData} graphRaw Parsed graph data. Migration may modify this object in place.
+     * @returns {GraphData} The same graph object after migration.
+     */
     migrateGraph(graphRaw) {
         return migrateGraph(graphRaw, this.graphTypes); // the imported function
     }
@@ -302,6 +417,16 @@ export class GraphApi {
         await game.settings.set(MODULE_ID, "graphIndex", Array.from(index.values()));
     }
 
+    /**
+     * Create a graph as GM, or save changes to an existing graph as GM or Owner.
+     * An Owner's write is delegated to an active GM and is limited to editable graph fields.
+     * @param {GraphData} graph Graph to save.
+     * @param {object} [options={}] Write prerequisites.
+     * @param {number|null} [options.expectedRevision] Revision from the graph index. Use null for an entry without a revision.
+     * @param {boolean} [options.createOnly=false] Refuse to overwrite an existing graph with this ID.
+     * @returns {Promise<GraphData|null>} The saved graph, or null when a prerequisite fails.
+     * @throws {Error} If access is denied, the delegated save fails, or Foundry rejects the write.
+     */
     async upsertGraph(graph, { expectedRevision, createOnly = false } = {}) {
         if (!this.isGamemaster()) {
             this.refreshGraphIndex();
@@ -319,6 +444,10 @@ export class GraphApi {
         return this.#writeGraph(graph, { expectedRevision, createOnly });
     }
 
+    /**
+     * Install the handler for save requests delegated to the active GM. Called once during initialization.
+     * @returns {void}
+     */
     registerOwnerSaves() {
         registerGraphSaveRequests(async (request, userId) => {
             const { id, revision, changes } = request ?? {};
@@ -435,6 +564,12 @@ export class GraphApi {
         return foundry.utils.deepClone(graph);
     }
 
+    /**
+     * Remove a graph from the world index as a Gamemaster. Its JSON is kept on disk.
+     * @param {string} id Saved graph ID.
+     * @returns {Promise<boolean>} Whether an index entry was removed.
+     * @throws {Error} If access is denied or the index cannot be written.
+     */
     async deleteGraph(id) {
         if (!this.isGamemaster()) throw new Error(t("Notifications.GraphAccessDenied"));
         return this.#queueWrite(async () => {
@@ -448,12 +583,21 @@ export class GraphApi {
         });
     }
 
+    /**
+     * List graph index entries the current user can open.
+     * @returns {GraphIndexEntry[]} Copies of the accessible entries.
+     */
     getAllGraphs() {
         this.refreshGraphIndex();
         const entries = Array.from(this._indexMap.values()).filter(entry => this.canOpen(entry));
         return foundry.utils.deepClone(entries);
     }
 
+    /**
+     * Load the full graphs the current user can open in index order.
+     * @returns {Promise<GraphData[]>} Copies of the accessible graphs.
+     * @throws {Error} If an accessible graph file cannot be read or migrated.
+     */
     async getAllGraphsFull() {
         const out = [];
         for (const entry of this.getAllGraphs()) {
@@ -463,34 +607,57 @@ export class GraphApi {
         return out.filter(Boolean);
     }
 
+    /**
+     * List the released graph types available for the current game system.
+     * @returns {object[]} The registered graph type definitions. Treat them as read-only.
+     */
     getGraphTypesArray() {
         log("GraphApi.getGraphTypesArray", this.graphTypes)
         return Object.values(this.graphTypes);
     }
 
+    /**
+     * Find a graph type available to the current game system.
+     * @param {string} id Graph type ID.
+     * @returns {Promise<object|null>} Its definition, or null if it is unavailable. Treat the definition as read-only.
+     */
     async getGraphTypeById(id) {
         return this.graphTypes[id] || null;
     }
 
+    /**
+     * Create a renderer for a graph window.
+     * @param {string} id Renderer ID, usually the graph's `renderer` field.
+     * @returns {import("./renderers/base-renderer.js").BaseRenderer|undefined} A fresh instance, or undefined for an unknown renderer.
+     */
     createRenderer(id) {
         const renderer = this.registryRenderers.get(id);
         return renderer ? new renderer.constructor() : undefined;
     }
 
+    /**
+     * Get the shared renderer used for operations on graph data.
+     * @param {string} id Renderer ID, usually the graph's `renderer` field.
+     * @returns {import("./renderers/base-renderer.js").BaseRenderer|undefined} The shared instance, or undefined for an unknown renderer. Use createRenderer for a window.
+     */
     getRenderer(id) {
-        log("getRenderer", id, this.registryRenderers)
-        log("getRenderer", this.registryRenderers.get(id))
-        log("getRenderer", this.registryRenderers[id])
         return this.registryRenderers.get(id);
     }
     // ---------------------------------------------------------------------------
     // Miscellaneous
     // ---------------------------------------------------------------------------
-    /** Convenience pass‑through for module version */
+    /**
+     * Installed module version from the manifest.
+     * @type {string}
+     */
     get version() {
         return game.modules.get(this.moduleId)?.version ?? "0.0.0";
     }
 
+    /**
+     * Folder relative to the world directory, as configured in the module settings.
+     * @type {string}
+     */
     get worldStorageSubfolder() {
         let value = DEFAULT_WORLD_STORAGE_SUBFOLDER;
         try {
@@ -503,10 +670,18 @@ export class GraphApi {
         return value || DEFAULT_WORLD_STORAGE_SUBFOLDER;
     }
 
+    /**
+     * World-relative data path used for current graph files, with no leading slash.
+     * @type {string}
+     */
     get storageDirWorld() {
         return `worlds/${game.world.id}/${this.worldStorageSubfolder}`;
     }
 
+    /**
+     * Legacy data path checked when relocating older graph files.
+     * @type {string}
+     */
     get storageDirLegacy() {
         return `${LEGACY_STORAGE_ROOT}/${game.world.id}`;
     }
@@ -554,6 +729,12 @@ export class GraphApi {
         return normalized.startsWith(`${this.storageDirLegacy}/`);
     }
 
+    /**
+     * Copy indexed files from the legacy location to this world’s storage folder. Requires a GM.
+     * A failed copy leaves its index entry pointing to the original file.
+     * @returns {Promise<void>} Resolves after processing the affected entries.
+     * @throws {Error} If the destination folder or graph index cannot be written.
+     */
     async migrateGraphFilesToWorldStorageFolderIfNeeded() {
         if (!this.isGamemaster()) return;
 

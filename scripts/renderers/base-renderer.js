@@ -531,7 +531,6 @@ export class BaseRenderer {
       const pngBlob = await this._rasterizeSVGToBlob(svgStr, exportW, exportH, scale);
       if (destination === "blob") return pngBlob;
 
-      console.log("destination:", destination);
       // ====== PHASE 8: ROUTE TO DESTINATION ======
       if (destination === "download") {
         // Keep existing download behavior EXACTLY as-is

@@ -89,7 +89,6 @@ export class GraphPageApplication extends HandlebarsApplicationMixin(Application
 
     async _onRender(context, options) {
         await super._onRender(context, options);
-        console.log("GraphPageApplication rendered", this);
         FGCalendarDateTimePopover.enhance(this.element);
     }
 
@@ -98,12 +97,9 @@ export class GraphPageApplication extends HandlebarsApplicationMixin(Application
         event?.preventDefault?.();
         const app = this;
         const form = target?.form ?? app.element?.querySelector("form") ?? app.element;
-        console.log("GraphPageApplication _onSave", form);
         const data = new FormDataExtended(form).object;
-console.log("GraphPageApplication _onSave data", data);
         const icon = (data.icon ?? "").trim();
         const startTs = data.startdate;
-        console.log("GraphPageApplication _onSave startTs", startTs);
         const endTs = _fromDatetimeLocalValue(data.enddate);
         const color = (data.colorevent ?? "").trim();
 

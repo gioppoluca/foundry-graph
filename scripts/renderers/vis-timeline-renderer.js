@@ -99,7 +99,6 @@ const msToSec = (ms) => (ms != null && Number.isFinite(Number(ms))) ? Number(ms)
  * @param {"minor"|"major"}  role
  */
 function fgFormatForScale(seconds, scale, role) {
-    console.log(seconds, scale, role)
     try {
         const parts = getCalendarDateParts(seconds);
         if (!parts) return String(seconds);
@@ -1442,7 +1441,6 @@ export class VisTimelineRenderer extends BaseRenderer {
             color: colorOverride,
             img,                          // portrait/icon for tooltip
         };
-        console.log("Constructed timeline item from drop:", item, img);
         // Upsert: re-dropping the same document updates position and lane
         const existing = this.graph.data.items.find(i => i.uuid === item.uuid);
         if (existing) {
